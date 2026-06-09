@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card } from '@/components/ui/Primitives';
-import { invoiceSchema, InvoiceFormValues, INVOICE_STATUSES, MEMBERSHIP_PLANS } from '@/types';
+import { invoiceSchema, InvoiceFormValues, InvoiceFormInput, INVOICE_STATUSES, MEMBERSHIP_PLANS } from '@/types';
 import { createInvoice } from '@/lib/actions/invoices';
 import { getMembers } from '@/lib/actions/members';
 import { getSettings } from '@/lib/actions/settings';
@@ -23,7 +23,7 @@ function NewInvoiceForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<InvoiceFormValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<InvoiceFormInput, any, InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       member_id: preselectedMember ?? '',

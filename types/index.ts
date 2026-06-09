@@ -113,6 +113,7 @@ export const healthSchema = z.object({
 });
 
 export type HealthFormValues = z.infer<typeof healthSchema>;
+export type HealthFormInput = z.input<typeof healthSchema>;
 
 // ── Invoice ─────────────────────────────────────────────────
 export interface Invoice {
@@ -137,6 +138,7 @@ export const invoiceSchema = z.object({
 });
 
 export type InvoiceFormValues = z.infer<typeof invoiceSchema>;
+export type InvoiceFormInput = z.input<typeof invoiceSchema>;
 
 // ── Settings ────────────────────────────────────────────────
 export interface GymSettings {

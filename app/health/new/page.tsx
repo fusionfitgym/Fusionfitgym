@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card } from '@/components/ui/Primitives';
-import { healthSchema, HealthFormValues } from '@/types';
+import { healthSchema, HealthFormValues, HealthFormInput } from '@/types';
 import { createHealthAssessment } from '@/lib/actions/health';
 import { getMembers } from '@/lib/actions/members';
 import { Member } from '@/types';
@@ -41,7 +41,7 @@ function NewHealthForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<HealthFormValues>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<HealthFormInput, any, HealthFormValues>({
     resolver: zodResolver(healthSchema),
     defaultValues: { member_id: preselectedMember ?? '' },
   });

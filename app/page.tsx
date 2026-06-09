@@ -134,7 +134,10 @@ export default function DashboardPage() {
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <Tooltip
-                formatter={(v: number) => [formatCurrency(v), 'Revenue']}
+                formatter={(value) => {
+                  const numVal = typeof value === 'number' ? value : Number(value || 0);
+                  return [formatCurrency(numVal), 'Revenue'];
+                }}
                 contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
               />
               <Bar dataKey="revenue" fill="#FFD700" radius={[6, 6, 0, 0]} maxBarSize={40} />
