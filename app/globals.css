@@ -1,26 +1,125 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --gym-yellow: #FFD700;
+  --gym-yellow-light: #FFF3AA;
+  --gym-yellow-dark: #E6C200;
+  --gym-black: #0A0A0A;
+  --gym-black-2: #111111;
+  --gym-black-3: #1A1A1A;
+  --gym-gray: #2A2A2A;
+  --gym-gray-2: #3A3A3A;
+  --gym-white: #FFFFFF;
+  --gym-white-soft: #F8F8F8;
+  --sidebar-width: 260px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--gym-yellow);
+  --color-background: var(--gym-white);
+  --color-foreground: var(--gym-black);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Bebas Neue', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--gym-white);
+  color: var(--gym-black);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: var(--gym-yellow); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gym-yellow-dark); }
+
+/* Smooth page transitions */
+.page-enter { animation: fadeSlideIn 0.3s ease forwards; }
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card premium glow */
+.card-glow:hover {
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.3), 0 8px 32px rgba(255, 215, 0, 0.12);
+}
+
+/* Yellow button */
+.btn-yellow {
+  background: var(--gym-yellow);
+  color: var(--gym-black);
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-yellow:hover {
+  background: var(--gym-yellow-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 215, 0, 0.4);
+}
+.btn-yellow:active { transform: translateY(0); }
+
+/* Stat card pulse animation */
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 215, 0, 0); }
+}
+.pulse-yellow { animation: pulse-yellow 2s infinite; }
+
+/* Badge variants */
+.badge-active   { background: #d1fae5; color: #065f46; }
+.badge-inactive { background: #fee2e2; color: #991b1b; }
+.badge-expired  { background: #fef3c7; color: #92400e; }
+.badge-frozen   { background: #dbeafe; color: #1e40af; }
+.badge-paid     { background: #d1fae5; color: #065f46; }
+.badge-pending  { background: #fef3c7; color: #92400e; }
+.badge-overdue  { background: #fee2e2; color: #991b1b; }
+
+/* Table row hover */
+.table-row-hover:hover { background: rgba(255, 215, 0, 0.04); }
+
+/* Input focus yellow */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--gym-yellow) !important;
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.15);
+}
+
+/* No-data state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: #6b7280;
+  gap: 0.75rem;
+}
+
+/* Spinning loader */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }

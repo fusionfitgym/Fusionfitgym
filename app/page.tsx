@@ -1,65 +1,178 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Users, UserCheck, AlertTriangle, TrendingUp, Dumbbell, UserPlus, FileText, ClipboardList } from 'lucide-react';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { RecentMembers } from '@/components/dashboard/RecentMembers';
+import { LoadingSpinner } from '@/components/ui/Primitives';
+import { getMembers } from '@/lib/actions/members';
+import { getInvoices } from '@/lib/actions/invoices';
+import { Member, Invoice } from '@/types';
+import { formatCurrency, isExpiringSoon } from '@/lib/utils';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
+
+const PLAN_COLORS: Record<string, string> = {
+  Monthly:   '#FFD700',
+  Quarterly: '#FFA500',
+  Biannual:  '#FF8C00',
+  Annual:    '#E6C200',
+};
+
+export default function DashboardPage() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getMembers(), getInvoices()])
+      .then(([m, i]) => { setMembers(m); setInvoices(i); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <LoadingSpinner size={40} />;
+
+  const total = members.length;
+  const active = members.filter(m => m.status === 'Active').length;
+  const expiringSoon = members.filter(m => m.status === 'Active' && isExpiringSoon(m.join_date, m.membership_plan)).length;
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthlyRevenue = invoices
+    .filter(i => i.status === 'Paid' && new Date(i.created_at) >= monthStart)
+    .reduce((sum, i) => sum + Number(i.amount), 0);
+
+  // Plan distribution
+  const planCounts: Record<string, number> = {};
+  members.forEach(m => { planCounts[m.membership_plan] = (planCounts[m.membership_plan] ?? 0) + 1; });
+  const pieData = Object.entries(planCounts).map(([name, value]) => ({ name, value }));
+
+  // Monthly revenue bar chart (last 6 months)
+  const barData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    const label = d.toLocaleString('en-IN', { month: 'short' });
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const rev = invoices
+      .filter(inv => inv.status === 'Paid' && new Date(inv.created_at) >= start && new Date(inv.created_at) <= end)
+      .reduce((sum, inv) => sum + Number(inv.amount), 0);
+    return { month: label, revenue: rev };
+  });
+
+  const quickActions = [
+    { href: '/members/add',  label: 'Add Member',         icon: UserPlus,     bg: 'bg-yellow-50',  iconColor: 'text-[#FFD700]' },
+    { href: '/invoices/new', label: 'Create Invoice',     icon: FileText,     bg: 'bg-green-50',   iconColor: 'text-green-500' },
+    { href: '/health/new',   label: 'Health Assessment',  icon: Dumbbell,     bg: 'bg-blue-50',    iconColor: 'text-blue-500'  },
+    { href: '/parq/new',     label: 'New PAR-Q Form',     icon: ClipboardList,bg: 'bg-purple-50',  iconColor: 'text-purple-500'},
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="page-enter">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-500 mt-1 text-sm">Welcome back — here&apos;s what&apos;s happening at FusionFit Gym.</p>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard
+          title="Total Members"
+          value={total}
+          icon={<Users className="w-6 h-6" />}
+          subtitle="All registered"
+          accent
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <StatCard
+          title="Active Members"
+          value={active}
+          icon={<UserCheck className="w-6 h-6" />}
+          subtitle={`${total > 0 ? Math.round((active / total) * 100) : 0}% of total`}
+        />
+        <StatCard
+          title="Expiring Soon"
+          value={expiringSoon}
+          icon={<AlertTriangle className="w-6 h-6" />}
+          subtitle="Within 7 days"
+        />
+        <StatCard
+          title="Monthly Revenue"
+          value={formatCurrency(monthlyRevenue)}
+          icon={<TrendingUp className="w-6 h-6" />}
+          subtitle="Paid invoices"
+        />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        {quickActions.map(({ href, label, icon: Icon, bg, iconColor }) => (
+          <Link
+            key={href}
+            href={href}
+            className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 bg-white hover:shadow-md transition-all duration-200 card-glow`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
+              <Icon className={`w-5 h-5 ${iconColor}`} />
+            </div>
+            <span className="text-xs font-semibold text-gray-700 text-center">{label}</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Charts + Recent Members */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Revenue Chart */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="font-bold text-gray-900 text-base mb-4">Revenue (Last 6 Months)</h2>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
+              <Tooltip
+                formatter={(v: number) => [formatCurrency(v), 'Revenue']}
+                contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+              />
+              <Bar dataKey="revenue" fill="#FFD700" radius={[6, 6, 0, 0]} maxBarSize={40} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </main>
+
+        {/* Plan Distribution */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="font-bold text-gray-900 text-base mb-4">Membership Plans</h2>
+          {pieData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  dataKey="value"
+                  paddingAngle={3}
+                >
+                  {pieData.map((entry) => (
+                    <Cell key={entry.name} fill={PLAN_COLORS[entry.name] ?? '#FFD700'} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }} />
+                <Legend iconSize={10} wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-48 text-gray-400 text-sm">No data yet</div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Members */}
+      <RecentMembers members={members} />
     </div>
   );
 }
