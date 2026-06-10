@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search, UserPlus, Trash2, Eye, Edit } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { PageHeader, Card, LoadingSpinner, EmptyState } from '@/components/ui/Primitives';
+import { Edit, Eye, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Avatar } from '@/components/ui/Avatar';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { getMembers, deleteMember } from '@/lib/actions/members';
-import { Member, MEMBER_STATUSES, MEMBERSHIP_PLANS } from '@/types';
+import { deleteMember, getMembers } from '@/lib/actions/members';
+import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
 import { formatDate } from '@/lib/utils';
 
 export default function MembersPage() {
@@ -19,157 +20,150 @@ export default function MembersPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
-    getMembers().then(data => { setMembers(data); }).finally(() => setLoading(false));
+    getMembers()
+      .then(setMembers)
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = members.filter(m => {
-    if (search) {
-      const q = search.toLowerCase();
-      if (!m.full_name.toLowerCase().includes(q) && !m.phone.includes(q) && !(m.email ?? '').toLowerCase().includes(q)) return false;
-    }
-    if (statusFilter !== 'All' && m.status !== statusFilter) return false;
-    if (planFilter !== 'All' && m.membership_plan !== planFilter) return false;
-    return true;
+  const filtered = members.filter((member) => {
+    const query = search.trim().toLowerCase();
+    const matchesSearch =
+      !query ||
+      member.full_name.toLowerCase().includes(query) ||
+      member.phone.toLowerCase().includes(query) ||
+      (member.email ?? '').toLowerCase().includes(query);
+    const matchesStatus = statusFilter === 'All' || member.status === statusFilter;
+    const matchesPlan = planFilter === 'All' || member.membership_plan === planFilter;
+    return matchesSearch && matchesStatus && matchesPlan;
   });
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete member "${name}"? This cannot be undone.`)) return;
+  async function handleDelete(id: string) {
     setDeleting(id);
     try {
       await deleteMember(id);
-      setMembers(prev => prev.filter(m => m.id !== id));
+      setMembers((current) => current.filter((member) => member.id !== id));
     } catch {
-      alert('Failed to delete member.');
+      window.alert('Failed to delete member.');
     } finally {
       setDeleting(null);
     }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div className="page page-enter">
       <PageHeader
         title="Members"
-        subtitle={`${members.length} total members registered`}
+        subtitle={`${members.length} registered member${members.length === 1 ? '' : 's'} across all plans.`}
         action={
-          <Link href="/members/add" className="btn-yellow text-sm">
-            <UserPlus className="w-4 h-4" /> Add Member
+          <Link href="/members/add" className="btn btn-primary">
+            <UserPlus className="h-4 w-4" /> Add member
           </Link>
         }
       />
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400" />
+      <section className="card mb-6 overflow-hidden">
+        <div className="filter-bar">
+          <div className="input-with-icon">
+            <Search aria-hidden="true" />
             <input
-              type="text"
-              placeholder="Search by name, phone, or email..."
+              type="search"
+              placeholder="Search name, phone, or email"
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="input-field pl-11"
+              onChange={(event) => setSearch(event.target.value)}
+              className="input-field"
+              aria-label="Search members"
             />
           </div>
           <select
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="select-field sm:w-44"
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="select-field md:w-44"
+            aria-label="Filter by status"
           >
-            <option value="All">All Status</option>
-            {MEMBER_STATUSES.map(s => <option key={s}>{s}</option>)}
+            <option value="All">All statuses</option>
+            {MEMBER_STATUSES.map((status) => <option key={status}>{status}</option>)}
           </select>
           <select
             value={planFilter}
-            onChange={e => setPlanFilter(e.target.value)}
-            className="select-field sm:w-44"
+            onChange={(event) => setPlanFilter(event.target.value)}
+            className="select-field md:w-44"
+            aria-label="Filter by membership plan"
           >
-            <option value="All">All Plans</option>
-            {MEMBERSHIP_PLANS.map(p => <option key={p}>{p}</option>)}
+            <option value="All">All plans</option>
+            {MEMBERSHIP_PLANS.map((plan) => <option key={plan}>{plan}</option>)}
           </select>
         </div>
-      </Card>
+      </section>
 
       {loading ? (
-        <LoadingSpinner size={36} />
+        <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon="👥"
+          icon={<Users className="h-5 w-5" />}
           title="No members found"
-          description="Try adjusting your search or add a new member."
+          description={members.length === 0 ? 'Add the first member to start building your workspace.' : 'Try a different search or filter combination.'}
           action={
-            <Link href="/members/add" className="btn-yellow text-sm">
-              <UserPlus className="w-4 h-4" /> Add First Member
-            </Link>
+            members.length === 0 ? (
+              <Link href="/members/add" className="btn btn-primary">
+                <UserPlus className="h-4 w-4" /> Add first member
+              </Link>
+            ) : undefined
           }
         />
       ) : (
-        <Card padding={false}>
-          <div className="data-table overflow-x-auto">
-            <table className="w-full text-sm">
+        <section className="card overflow-hidden">
+          <div className="data-table">
+            <table>
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Member</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Phone</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">Plan</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden lg:table-cell">Join Date</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+                <tr>
+                  <th>Member</th>
+                  <th className="hidden md:table-cell">Phone</th>
+                  <th className="hidden lg:table-cell">Plan</th>
+                  <th className="hidden lg:table-cell">Join date</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filtered.map(member => (
-                  <tr key={member.id} className="table-row-hover transition-colors duration-100">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {member.profile_photo ? (
-                          <img src={member.profile_photo} alt={member.full_name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0 text-xs font-bold text-amber-600">
-                            {member.full_name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-slate-900">{member.full_name}</p>
-                          <p className="text-xs text-slate-400 md:hidden">{member.phone}</p>
+              <tbody>
+                {filtered.map((member) => (
+                  <tr key={member.id}>
+                    <td>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar src={member.profile_photo} name={member.full_name} size="sm" />
+                        <div className="min-w-0">
+                          <p className="table-primary truncate">{member.full_name}</p>
+                          <p className="table-secondary truncate md:hidden">{member.phone}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-slate-600 hidden md:table-cell">{member.phone}</td>
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      <span className="px-2.5 py-1 bg-slate-50 rounded-lg text-xs font-medium text-slate-600">
-                        {member.membership_plan}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-slate-500 hidden lg:table-cell">{formatDate(member.join_date)}</td>
-                    <td className="px-4 py-4"><StatusBadge variant={member.status} /></td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/members/${member.id}`}
-                          className="p-2 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-                          title="View"
-                        >
-                          <Eye className="w-4 h-4" />
+                    <td className="hidden md:table-cell">{member.phone}</td>
+                    <td className="hidden lg:table-cell">{member.membership_plan}</td>
+                    <td className="hidden lg:table-cell">{formatDate(member.join_date)}</td>
+                    <td><StatusBadge variant={member.status} /></td>
+                    <td>
+                      <div className="table-actions">
+                        <Link href={`/members/${member.id}`} className="table-action" title="View member" aria-label={`View ${member.full_name}`}>
+                          <Eye className="h-4 w-4" />
                         </Link>
-                        <Link
-                          href={`/members/${member.id}/edit`}
-                          className="p-2 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-colors"
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
+                        <Link href={`/members/${member.id}/edit`} className="table-action" title="Edit member" aria-label={`Edit ${member.full_name}`}>
+                          <Edit className="h-4 w-4" />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(member.id, member.full_name)}
-                          disabled={deleting === member.id}
-                          className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <ConfirmDialog
+                          title="Delete member?"
+                          description={`This will permanently delete ${member.full_name} and cannot be undone.`}
+                          onConfirm={() => void handleDelete(member.id)}
+                          trigger={
+                            <button
+                              type="button"
+                              className="table-action table-action-danger"
+                              disabled={deleting === member.id}
+                              title="Delete member"
+                              aria-label={`Delete ${member.full_name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          }
+                        />
                       </div>
                     </td>
                   </tr>
@@ -178,66 +172,52 @@ export default function MembersPage() {
             </table>
           </div>
 
-          <div className="data-cards flex-col divide-y divide-slate-100 hidden">
-            {filtered.map(member => (
-              <div key={member.id} className="p-4 flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {member.profile_photo ? (
-                      <img src={member.profile_photo} alt={member.full_name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center flex-shrink-0 text-sm font-bold text-amber-600">
-                        {member.full_name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-semibold text-slate-900">{member.full_name}</p>
-                      <p className="text-xs text-slate-500">{member.phone}</p>
+          <div className="data-cards">
+            {filtered.map((member) => (
+              <article key={member.id} className="mobile-record">
+                <div className="mobile-record-header">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar src={member.profile_photo} name={member.full_name} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-950">{member.full_name}</p>
+                      <p className="truncate text-xs text-slate-500">{member.phone}</p>
                     </div>
                   </div>
                   <StatusBadge variant={member.status} />
                 </div>
-                
-                <div className="flex items-center justify-between mt-1 text-sm">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-slate-500 text-xs">Plan</span>
-                    <span className="font-medium text-slate-900">{member.membership_plan}</span>
+                <div className="mobile-record-meta">
+                  <div>
+                    <p className="metric-label">Plan</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{member.membership_plan}</p>
                   </div>
-                  <div className="flex flex-col gap-1 items-end">
-                    <span className="text-slate-500 text-xs">Join Date</span>
-                    <span className="font-medium text-slate-900">{formatDate(member.join_date)}</span>
+                  <div className="text-right">
+                    <p className="metric-label">Join date</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(member.join_date)}</p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 mt-2 pt-3 border-t border-slate-50">
-                  <Link
-                    href={`/members/${member.id}`}
-                    className="flex-1 py-2 text-center rounded-lg bg-slate-50 text-slate-600 text-sm font-medium hover:bg-slate-100"
-                  >
-                    View
-                  </Link>
-                  <Link
-                    href={`/members/${member.id}/edit`}
-                    className="flex-1 py-2 text-center rounded-lg bg-emerald-50 text-emerald-600 text-sm font-medium hover:bg-emerald-100"
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(member.id, member.full_name)}
-                    disabled={deleting === member.id}
-                    className="flex-1 py-2 text-center rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
+                <div className="mobile-record-actions">
+                  <Link href={`/members/${member.id}`} className="btn btn-secondary btn-sm">View</Link>
+                  <Link href={`/members/${member.id}/edit`} className="btn btn-secondary btn-sm">Edit</Link>
+                  <ConfirmDialog
+                    title="Delete member?"
+                    description={`This will permanently delete ${member.full_name} and cannot be undone.`}
+                    onConfirm={() => void handleDelete(member.id)}
+                    trigger={
+                      <button type="button" className="btn btn-danger btn-sm" disabled={deleting === member.id}>
+                        Delete
+                      </button>
+                    }
+                  />
                 </div>
-              </div>
+              </article>
             ))}
           </div>
-          <div className="px-6 py-3 border-t border-slate-100 text-xs text-slate-400 font-medium">
+
+          <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500 sm:px-6">
             Showing {filtered.length} of {members.length} members
           </div>
-        </Card>
+        </section>
       )}
-    </motion.div>
+    </div>
   );
 }

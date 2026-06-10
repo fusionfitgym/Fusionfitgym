@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { PageHeader, Card, LoadingSpinner, EmptyState } from '@/components/ui/Primitives';
+import { ArrowRight, HeartPulse, Plus } from 'lucide-react';
+import { EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
 import { getHealthAssessments } from '@/lib/actions/health';
 import { HealthAssessment } from '@/types';
 import { formatDate, getBMICategory } from '@/lib/utils';
@@ -14,72 +13,74 @@ export default function HealthPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getHealthAssessments().then(setAssessments).finally(() => setLoading(false));
+    getHealthAssessments()
+      .then(setAssessments)
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div className="page page-enter">
       <PageHeader
-        title="Health Assessments"
-        subtitle="Track member fitness and health metrics"
+        title="Health assessments"
+        subtitle="Track body measurements, BMI, medical history, and fitness progress."
         action={
-          <Link href="/health/new" className="btn-yellow text-sm">
-            <Plus className="w-4 h-4" /> New Assessment
+          <Link href="/health/new" className="btn btn-primary">
+            <Plus className="h-4 w-4" /> New assessment
           </Link>
         }
       />
 
       {loading ? (
-        <LoadingSpinner size={36} />
+        <LoadingSpinner />
       ) : assessments.length === 0 ? (
         <EmptyState
-          icon="💪"
+          icon={<HeartPulse className="h-5 w-5" />}
           title="No assessments yet"
-          description="Start tracking member health metrics."
-          action={<Link href="/health/new" className="btn-yellow text-sm"><Plus className="w-4 h-4" /> New Assessment</Link>}
+          description="Record the first health assessment to begin tracking member metrics."
+          action={
+            <Link href="/health/new" className="btn btn-primary">
+              <Plus className="h-4 w-4" /> New assessment
+            </Link>
+          }
         />
       ) : (
-        <Card padding={false}>
-          <div className="data-table overflow-x-auto">
-            <table className="w-full text-sm">
+        <section className="card overflow-hidden">
+          <div className="data-table">
+            <table>
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Member</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Height</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Weight</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">BMI</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Date</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Action</th>
+                <tr>
+                  <th>Member</th>
+                  <th className="hidden sm:table-cell">Height</th>
+                  <th className="hidden sm:table-cell">Weight</th>
+                  <th>BMI</th>
+                  <th className="hidden md:table-cell">Date</th>
+                  <th className="text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {assessments.map(a => {
-                  const bmiInfo = a.bmi ? getBMICategory(a.bmi) : null;
-                  const member = a.member as { full_name: string } | undefined;
+              <tbody>
+                {assessments.map((assessment) => {
+                  const bmiInfo = assessment.bmi ? getBMICategory(assessment.bmi) : null;
+                  const member = assessment.member as { full_name: string } | undefined;
                   return (
-                    <tr key={a.id} className="table-row-hover">
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-slate-900">{member?.full_name ?? 'Unknown'}</p>
-                      </td>
-                      <td className="px-4 py-4 text-slate-600 hidden sm:table-cell">{a.height ? `${a.height} cm` : '—'}</td>
-                      <td className="px-4 py-4 text-slate-600 hidden sm:table-cell">{a.weight ? `${a.weight} kg` : '—'}</td>
-                      <td className="px-4 py-4">
-                        {a.bmi && bmiInfo ? (
+                    <tr key={assessment.id}>
+                      <td><p className="table-primary">{member?.full_name ?? 'Unknown member'}</p></td>
+                      <td className="hidden sm:table-cell">{assessment.height ? `${assessment.height} cm` : '-'}</td>
+                      <td className="hidden sm:table-cell">{assessment.weight ? `${assessment.weight} kg` : '-'}</td>
+                      <td>
+                        {assessment.bmi && bmiInfo ? (
                           <span
-                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold"
-                            style={{ background: bmiInfo.color + '18', color: bmiInfo.color }}
+                            className="badge"
+                            style={{ background: `${bmiInfo.color}18`, color: bmiInfo.color }}
                           >
-                            {a.bmi} — {bmiInfo.label}
+                            {assessment.bmi} {bmiInfo.label}
                           </span>
-                        ) : '—'}
+                        ) : '-'}
                       </td>
-                      <td className="px-4 py-4 text-slate-500 hidden md:table-cell">{formatDate(a.created_at)}</td>
-                      <td className="px-6 py-4 text-right">
-                        <Link href={`/health/${a.id}`} className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline transition-colors">View →</Link>
+                      <td className="hidden md:table-cell">{formatDate(assessment.created_at)}</td>
+                      <td className="text-right">
+                        <Link href={`/health/${assessment.id}`} className="btn btn-ghost btn-sm">
+                          View <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
                       </td>
                     </tr>
                   );
@@ -88,52 +89,44 @@ export default function HealthPage() {
             </table>
           </div>
 
-          <div className="data-cards flex-col divide-y divide-slate-100 hidden">
-            {assessments.map(a => {
-              const bmiInfo = a.bmi ? getBMICategory(a.bmi) : null;
-              const member = a.member as { full_name: string } | undefined;
+          <div className="data-cards">
+            {assessments.map((assessment) => {
+              const bmiInfo = assessment.bmi ? getBMICategory(assessment.bmi) : null;
+              const member = assessment.member as { full_name: string } | undefined;
               return (
-                <div key={a.id} className="p-4 flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
+                <article key={assessment.id} className="mobile-record">
+                  <div className="mobile-record-header">
                     <div>
-                      <p className="font-semibold text-slate-900">{member?.full_name ?? 'Unknown'}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{formatDate(a.created_at)}</p>
+                      <p className="text-sm font-semibold text-slate-950">{member?.full_name ?? 'Unknown member'}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDate(assessment.created_at)}</p>
                     </div>
-                    {a.bmi && bmiInfo && (
-                      <span
-                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold"
-                        style={{ background: bmiInfo.color + '18', color: bmiInfo.color }}
-                      >
-                        BMI: {a.bmi}
+                    {assessment.bmi && bmiInfo && (
+                      <span className="badge" style={{ background: `${bmiInfo.color}18`, color: bmiInfo.color }}>
+                        BMI {assessment.bmi}
                       </span>
                     )}
                   </div>
-                  
-                  <div className="flex items-center gap-6 mt-1 text-sm">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-xs">Height</span>
-                      <span className="font-medium text-slate-900">{a.height ? `${a.height} cm` : '—'}</span>
+                  <div className="mobile-record-meta">
+                    <div>
+                      <p className="metric-label">Height</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{assessment.height ? `${assessment.height} cm` : '-'}</p>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-xs">Weight</span>
-                      <span className="font-medium text-slate-900">{a.weight ? `${a.weight} kg` : '—'}</span>
+                    <div className="text-right">
+                      <p className="metric-label">Weight</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{assessment.weight ? `${assessment.weight} kg` : '-'}</p>
                     </div>
                   </div>
-
-                  <div className="mt-2 pt-3 border-t border-slate-50">
-                    <Link
-                      href={`/health/${a.id}`}
-                      className="block w-full py-2 text-center rounded-lg bg-amber-50 text-amber-600 text-sm font-medium hover:bg-amber-100 transition-colors"
-                    >
-                      View Details
+                  <div className="mobile-record-actions">
+                    <Link href={`/health/${assessment.id}`} className="btn btn-secondary btn-sm">
+                      View details
                     </Link>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
-        </Card>
+        </section>
       )}
-    </motion.div>
+    </div>
   );
 }

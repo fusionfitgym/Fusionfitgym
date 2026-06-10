@@ -1,19 +1,37 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Save, Loader2, ChevronRight } from 'lucide-react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { PageHeader } from '@/components/ui/Primitives';
-import { invoiceSchema, InvoiceFormValues, InvoiceFormInput, INVOICE_STATUSES, MEMBERSHIP_PLANS } from '@/types';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { FileText, Loader2, ReceiptText, Save, UserRound } from 'lucide-react';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Breadcrumb,
+  FormActions,
+  FormError,
+  FormField,
+  LoadingSpinner,
+  PageHeader,
+  SectionCard,
+} from '@/components/ui/Primitives';
 import { createInvoice } from '@/lib/actions/invoices';
 import { getMembers } from '@/lib/actions/members';
 import { getSettings } from '@/lib/actions/settings';
-import { Member, GymSettings } from '@/types';
+import {
+  GymSettings,
+  INVOICE_STATUSES,
+  InvoiceFormInput,
+  InvoiceFormValues,
+  invoiceSchema,
+  Member,
+  MEMBERSHIP_PLANS,
+} from '@/types';
 import { formatCurrency } from '@/lib/utils';
+
+const defaultDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .split('T')[0];
 
 function NewInvoiceForm() {
   const router = useRouter();
@@ -24,30 +42,36 @@ function NewInvoiceForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<InvoiceFormInput, any, InvoiceFormValues>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    control,
+    formState: { errors },
+  } = useForm<InvoiceFormInput, unknown, InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       member_id: preselectedMember ?? '',
       status: 'Pending',
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      due_date: defaultDueDate,
+      notes: '',
     },
   });
 
   useEffect(() => {
-    Promise.all([getMembers(), getSettings()]).then(([m, s]) => {
-      setMembers(m);
-      setSettings(s);
+    Promise.all([getMembers(), getSettings()]).then(([memberData, settingsData]) => {
+      setMembers(memberData);
+      setSettings(settingsData);
     });
   }, []);
 
-  const selectedMemberId = watch('member_id');
-  const selectedMember = members.find(m => m.id === selectedMemberId);
+  const selectedMemberId = useWatch({ control, name: 'member_id' });
+  const selectedMember = members.find((member) => member.id === selectedMemberId);
 
   function applyPlanPrice(plan: string) {
     if (!settings) return;
     const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
-    const price = settings[key];
-    if (price) setValue('amount', Number(price));
+    setValue('amount', Number(settings[key]), { shouldDirty: true, shouldValidate: true });
   }
 
   async function onSubmit(data: InvoiceFormValues) {
@@ -56,122 +80,151 @@ function NewInvoiceForm() {
     try {
       const invoice = await createInvoice(data);
       router.push(`/invoices/${invoice.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create invoice');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to create invoice.');
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-3xl mx-auto"
-    >
-      {/* Breadcrumb */}
-      <div className="mb-6 flex items-center text-sm text-slate-400 gap-1.5 font-medium">
-        <Link href="/invoices" className="hover:text-slate-600 transition-colors">Invoices</Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-slate-900">Create Invoice</span>
-      </div>
-
+    <div className="page-narrow page-enter">
+      <Breadcrumb
+        items={[
+          { label: 'Invoices', href: '/invoices' },
+          { label: 'Create invoice' },
+        ]}
+      />
       <PageHeader
-        title="Create Invoice"
-        subtitle="Generate a new membership invoice"
+        title="Create invoice"
+        subtitle="Generate a membership charge and set its due date and payment status."
       />
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Member Selection */}
-        <div className="card p-6 mb-6">
-          <div className="mb-4">
-            <h3 className="text-section-title text-lg">Select Member</h3>
-            <p className="text-sm text-slate-400 mt-1">Choose the member for this invoice</p>
-          </div>
-          <div className="border-t border-slate-100 pt-6">
-            <label className="text-label block mb-2">Member <span className="text-red-500">*</span></label>
-            <select {...register('member_id')} className="select-field">
-              <option value="">Select a member...</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.full_name} — {m.phone}</option>)}
+      <form onSubmit={handleSubmit(onSubmit)} className="page-stack" noValidate>
+        <SectionCard
+          title="Member"
+          description="Choose the member who will receive this invoice."
+          icon={<UserRound className="h-5 w-5" />}
+        >
+          <FormField
+            label="Member"
+            htmlFor="member_id"
+            required
+            error={errors.member_id?.message}
+          >
+            <select
+              id="member_id"
+              className="select-field"
+              aria-invalid={Boolean(errors.member_id)}
+              {...register('member_id')}
+            >
+              <option value="">Select a member</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>{member.full_name} - {member.phone}</option>
+              ))}
             </select>
-            {errors.member_id && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.member_id.message}</p>}
+          </FormField>
 
-            {selectedMember && settings && (
-              <div className="mt-4 pt-4 border-t border-slate-50">
-                <p className="text-xs text-slate-400 mb-2 font-medium">Quick fill by plan:</p>
-                <div className="flex gap-2 flex-wrap">
-                  {MEMBERSHIP_PLANS.map(plan => {
-                    const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
-                    return (
-                      <button
-                        type="button"
-                        key={plan}
-                        onClick={() => applyPlanPrice(plan)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-                      >
-                        {plan} — {formatCurrency(Number(settings[key]))}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Invoice Details */}
-        <div className="card p-6 mb-6">
-          <div className="mb-4">
-            <h3 className="text-section-title text-lg">Invoice Details</h3>
-            <p className="text-sm text-slate-400 mt-1">Amount, due date, and status</p>
-          </div>
-          <div className="border-t border-slate-100 pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <div>
-                <label className="text-label block mb-2">Amount (₹) <span className="text-red-500">*</span></label>
-                <input {...register('amount')} type="number" step="0.01" placeholder="1500" className="input-field" />
-                {errors.amount && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.amount.message}</p>}
-              </div>
-              <div>
-                <label className="text-label block mb-2">Due Date <span className="text-red-500">*</span></label>
-                <input {...register('due_date')} type="date" className="input-field" />
-                {errors.due_date && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.due_date.message}</p>}
-              </div>
-              <div>
-                <label className="text-label block mb-2">Status <span className="text-red-500">*</span></label>
-                <select {...register('status')} className="select-field">
-                  {INVOICE_STATUSES.map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-label block mb-2">Notes</label>
-                <input {...register('notes')} type="text" placeholder="Optional note..." className="input-field" />
+          {selectedMember && settings && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <p className="mb-2 text-xs font-semibold text-slate-500">Quick fill by membership plan</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {MEMBERSHIP_PLANS.map((plan) => {
+                  const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
+                  return (
+                    <button
+                      type="button"
+                      key={plan}
+                      onClick={() => applyPlanPrice(plan)}
+                      className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left transition-colors hover:bg-amber-100"
+                    >
+                      <span className="block text-xs font-semibold text-amber-900">{plan}</span>
+                      <span className="mt-1 block text-[11px] text-amber-700">{formatCurrency(Number(settings[key]))}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </SectionCard>
 
-        {error && <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 mb-6 font-medium">{error}</div>}
+        <SectionCard
+          title="Invoice details"
+          description="Set the charge amount, due date, and current status."
+          icon={<ReceiptText className="h-5 w-5" />}
+        >
+          <div className="field-grid field-grid-2">
+            <FormField
+              label="Amount (INR)"
+              htmlFor="amount"
+              required
+              error={errors.amount?.message}
+            >
+              <input
+                id="amount"
+                type="number"
+                min="1"
+                step="0.01"
+                placeholder="1500"
+                className="input-field"
+                aria-invalid={Boolean(errors.amount)}
+                {...register('amount')}
+              />
+            </FormField>
 
-        {/* Sticky Footer */}
-        <div className="sticky bottom-0 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-4 bg-[#F8FAFC]/80 backdrop-blur-lg border-t border-slate-200 z-10">
-          <div className="flex flex-col sm:flex-row gap-3 justify-end max-w-3xl mx-auto">
-            <Link href="/invoices" className="btn-outline w-full sm:w-auto">Cancel</Link>
-            <button type="submit" disabled={submitting} className="btn-gold-gradient w-full sm:w-auto">
-              {submitting ? <Loader2 className="w-5 h-5 spin" /> : <Save className="w-5 h-5" />}
-              {submitting ? 'Creating...' : 'Create Invoice'}
-            </button>
+            <FormField
+              label="Due date"
+              htmlFor="due_date"
+              required
+              error={errors.due_date?.message}
+            >
+              <input
+                id="due_date"
+                type="date"
+                className="input-field"
+                aria-invalid={Boolean(errors.due_date)}
+                {...register('due_date')}
+              />
+            </FormField>
+
+            <FormField label="Status" htmlFor="status" required>
+              <select id="status" className="select-field" {...register('status')}>
+                {INVOICE_STATUSES.map((status) => <option key={status}>{status}</option>)}
+              </select>
+            </FormField>
+
+            <FormField label="Reference note" htmlFor="notes">
+              <div className="input-with-icon">
+                <FileText />
+                <input
+                  id="notes"
+                  type="text"
+                  placeholder="Optional note"
+                  className="input-field"
+                  {...register('notes')}
+                />
+              </div>
+            </FormField>
           </div>
-        </div>
+        </SectionCard>
+
+        {error && <FormError>{error}</FormError>}
+
+        <FormActions sticky>
+          <Link href="/invoices" className="btn btn-secondary w-full sm:w-auto">Cancel</Link>
+          <button type="submit" disabled={submitting} className="btn btn-primary w-full sm:w-auto">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {submitting ? 'Creating...' : 'Create invoice'}
+          </button>
+        </FormActions>
       </form>
-    </motion.div>
+    </div>
   );
 }
 
 export default function NewInvoicePage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-slate-400">Loading...</div>}>
+    <Suspense fallback={<LoadingSpinner />}>
       <NewInvoiceForm />
     </Suspense>
   );

@@ -1,33 +1,47 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Activity, FileText, Loader2, Save, UserRound } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Save, Loader2, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { PageHeader } from '@/components/ui/Primitives';
-import { healthSchema, HealthFormValues, HealthFormInput } from '@/types';
+import {
+  Breadcrumb,
+  FormActions,
+  FormError,
+  FormField,
+  LoadingSpinner,
+  PageHeader,
+  SectionCard,
+} from '@/components/ui/Primitives';
 import { createHealthAssessment } from '@/lib/actions/health';
 import { getMembers } from '@/lib/actions/members';
-import { Member } from '@/types';
+import { HealthFormInput, HealthFormValues, healthSchema, Member } from '@/types';
 import { calculateBMI, getBMICategory } from '@/lib/utils';
 
 function BMIIndicator({ bmi }: { bmi: number | null }) {
-  if (!bmi) return null;
+  if (!bmi) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+        Enter height and weight to calculate BMI automatically.
+      </div>
+    );
+  }
+
   const { label, color } = getBMICategory(bmi);
   const percent = Math.min(100, Math.max(0, ((bmi - 10) / 30) * 100));
+
   return (
-    <div className="p-4 rounded-xl border border-slate-100 bg-slate-50">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-slate-500">BMI</span>
-        <span className="font-bold text-slate-900" style={{ color }}>{bmi} — {label}</span>
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3 flex items-center justify-between gap-4">
+        <span className="text-xs font-semibold text-slate-500">Calculated BMI</span>
+        <span className="text-sm font-bold" style={{ color }}>{bmi} - {label}</span>
       </div>
-      <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${percent}%`, background: color }} />
+      <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+        <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${percent}%`, background: color }} />
       </div>
-      <div className="flex justify-between text-xs text-slate-400 mt-1">
+      <div className="mt-2 flex justify-between text-[10px] font-medium text-slate-400">
         <span>10</span><span>18.5</span><span>25</span><span>30</span><span>40+</span>
       </div>
     </div>
@@ -42,7 +56,12 @@ function NewHealthForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<HealthFormInput, any, HealthFormValues>({
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm<HealthFormInput, unknown, HealthFormValues>({
     resolver: zodResolver(healthSchema),
     defaultValues: { member_id: preselectedMember ?? '' },
   });
@@ -51,7 +70,9 @@ function NewHealthForm() {
   const weight = useWatch({ control, name: 'weight' });
   const bmi = height && weight ? calculateBMI(Number(weight), Number(height)) : null;
 
-  useEffect(() => { getMembers().then(setMembers); }, []);
+  useEffect(() => {
+    getMembers().then(setMembers);
+  }, []);
 
   async function onSubmit(data: HealthFormValues) {
     setSubmitting(true);
@@ -59,115 +80,125 @@ function NewHealthForm() {
     try {
       const assessment = await createHealthAssessment(data);
       router.push(`/health/${assessment.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save assessment');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to save assessment.');
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-3xl mx-auto"
-    >
-      {/* Breadcrumb */}
-      <div className="mb-6 flex items-center text-sm text-slate-400 gap-1.5 font-medium">
-        <Link href="/health" className="hover:text-slate-600 transition-colors">Health Assessments</Link>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-slate-900">New Assessment</span>
-      </div>
-
+    <div className="page-narrow page-enter">
+      <Breadcrumb
+        items={[
+          { label: 'Health assessments', href: '/health' },
+          { label: 'New assessment' },
+        ]}
+      />
       <PageHeader
-        title="New Health Assessment"
-        subtitle="Record member fitness metrics"
+        title="New health assessment"
+        subtitle="Record body metrics and relevant medical notes for a member."
       />
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Member Selection */}
-        <div className="card p-6 mb-6">
-          <div className="mb-4">
-            <h3 className="text-section-title text-lg">Select Member</h3>
-            <p className="text-sm text-slate-400 mt-1">Choose the member for this assessment</p>
-          </div>
-          <div className="border-t border-slate-100 pt-6">
-            <label className="text-label block mb-2">Member <span className="text-red-500">*</span></label>
-            <select {...register('member_id')} className="select-field">
-              <option value="">Select a member...</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.full_name} — {m.phone}</option>)}
-            </select>
-            {errors.member_id && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.member_id.message}</p>}
-          </div>
-        </div>
-
-        {/* Body Measurements */}
-        <div className="card p-6 mb-6">
-          <div className="mb-4">
-            <h3 className="text-section-title text-lg">Body Measurements</h3>
-            <p className="text-sm text-slate-400 mt-1">Height, weight, and body composition</p>
-          </div>
-          <div className="border-t border-slate-100 pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {[
-                { name: 'height' as const, label: 'Height (cm)', placeholder: '175' },
-                { name: 'weight' as const, label: 'Weight (kg)', placeholder: '70' },
-                { name: 'body_fat' as const, label: 'Body Fat (%)', placeholder: '20' },
-              ].map(f => (
-                <div key={f.name}>
-                  <label className="text-label block mb-2">{f.label}</label>
-                  <input {...register(f.name)} type="number" step="0.1" placeholder={f.placeholder} className="input-field" />
-                  {errors[f.name] && <p className="text-xs text-red-500 mt-1.5 font-medium">{String(errors[f.name]?.message)}</p>}
-                </div>
+      <form onSubmit={handleSubmit(onSubmit)} className="page-stack" noValidate>
+        <SectionCard
+          title="Member"
+          description="Choose the profile this assessment belongs to."
+          icon={<UserRound className="h-5 w-5" />}
+        >
+          <FormField
+            label="Member"
+            htmlFor="member_id"
+            required
+            error={errors.member_id?.message}
+          >
+            <select
+              id="member_id"
+              className="select-field"
+              aria-invalid={Boolean(errors.member_id)}
+              {...register('member_id')}
+            >
+              <option value="">Select a member</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>{member.full_name} - {member.phone}</option>
               ))}
-            </div>
-            <div className="mt-5">
-              <BMIIndicator bmi={bmi} />
-            </div>
-          </div>
-        </div>
+            </select>
+          </FormField>
+        </SectionCard>
 
-        {/* Medical History */}
-        <div className="card p-6 mb-6">
-          <div className="mb-4">
-            <h3 className="text-section-title text-lg">Medical History</h3>
-            <p className="text-sm text-slate-400 mt-1">Past injuries, conditions, and notes</p>
-          </div>
-          <div className="border-t border-slate-100 pt-6 space-y-5">
+        <SectionCard
+          title="Body measurements"
+          description="Use metric units for consistent tracking."
+          icon={<Activity className="h-5 w-5" />}
+        >
+          <div className="field-grid field-grid-3">
             {[
-              { name: 'injuries' as const, label: 'Injury History', placeholder: 'Describe any past injuries...' },
-              { name: 'medical_conditions' as const, label: 'Medical Conditions', placeholder: 'Describe any medical conditions...' },
-              { name: 'notes' as const, label: 'Additional Notes', placeholder: 'Any other relevant notes...' },
-            ].map(f => (
-              <div key={f.name}>
-                <label className="text-label block mb-2">{f.label}</label>
-                <textarea {...register(f.name)} rows={3} placeholder={f.placeholder} className="textarea-field" />
-              </div>
+              { name: 'height' as const, label: 'Height (cm)', placeholder: '175' },
+              { name: 'weight' as const, label: 'Weight (kg)', placeholder: '70' },
+              { name: 'body_fat' as const, label: 'Body fat (%)', placeholder: '20' },
+            ].map((field) => (
+              <FormField
+                key={field.name}
+                label={field.label}
+                htmlFor={field.name}
+                error={errors[field.name]?.message ? String(errors[field.name]?.message) : undefined}
+              >
+                <input
+                  id={field.name}
+                  type="number"
+                  step="0.1"
+                  placeholder={field.placeholder}
+                  className="input-field"
+                  aria-invalid={Boolean(errors[field.name])}
+                  {...register(field.name)}
+                />
+              </FormField>
             ))}
           </div>
-        </div>
+          <div className="mt-4"><BMIIndicator bmi={bmi} /></div>
+        </SectionCard>
 
-        {error && <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 mb-6 font-medium">{error}</div>}
-
-        {/* Sticky Footer */}
-        <div className="sticky bottom-0 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-4 bg-[#F8FAFC]/80 backdrop-blur-lg border-t border-slate-200 z-10">
-          <div className="flex flex-col sm:flex-row gap-3 justify-end max-w-3xl mx-auto">
-            <Link href="/health" className="btn-outline w-full sm:w-auto">Cancel</Link>
-            <button type="submit" disabled={submitting} className="btn-gold-gradient w-full sm:w-auto">
-              {submitting ? <Loader2 className="w-5 h-5 spin" /> : <Save className="w-5 h-5" />}
-              {submitting ? 'Saving...' : 'Save Assessment'}
-            </button>
+        <SectionCard
+          title="Medical notes"
+          description="Capture information that may affect training recommendations."
+          icon={<FileText className="h-5 w-5" />}
+        >
+          <div className="field-grid">
+            {[
+              { name: 'injuries' as const, label: 'Injury history', placeholder: 'Describe previous or current injuries' },
+              { name: 'medical_conditions' as const, label: 'Medical conditions', placeholder: 'Describe known medical conditions' },
+              { name: 'notes' as const, label: 'Additional notes', placeholder: 'Add any other relevant context' },
+            ].map((field) => (
+              <FormField key={field.name} label={field.label} htmlFor={field.name}>
+                <textarea
+                  id={field.name}
+                  rows={3}
+                  placeholder={field.placeholder}
+                  className="textarea-field"
+                  {...register(field.name)}
+                />
+              </FormField>
+            ))}
           </div>
-        </div>
+        </SectionCard>
+
+        {error && <FormError>{error}</FormError>}
+
+        <FormActions sticky>
+          <Link href="/health" className="btn btn-secondary w-full sm:w-auto">Cancel</Link>
+          <button type="submit" disabled={submitting} className="btn btn-primary w-full sm:w-auto">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {submitting ? 'Saving...' : 'Save assessment'}
+          </button>
+        </FormActions>
       </form>
-    </motion.div>
+    </div>
   );
 }
 
 export default function NewHealthPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center text-slate-400">Loading...</div>}>
+    <Suspense fallback={<LoadingSpinner />}>
       <NewHealthForm />
     </Suspense>
   );

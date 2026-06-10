@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, FileText } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { PageHeader, Card, LoadingSpinner, EmptyState } from '@/components/ui/Primitives';
+import { ArrowRight, FileText, Plus, ReceiptText } from 'lucide-react';
+import { EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { getInvoices } from '@/lib/actions/invoices';
 import { Invoice, INVOICE_STATUSES } from '@/types';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -16,112 +16,119 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('All');
 
   useEffect(() => {
-    getInvoices().then(data => { setInvoices(data); }).finally(() => setLoading(false));
+    getInvoices()
+      .then(setInvoices)
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = statusFilter === 'All' ? invoices : invoices.filter(i => i.status === statusFilter);
+  const filtered = statusFilter === 'All'
+    ? invoices
+    : invoices.filter((invoice) => invoice.status === statusFilter);
 
   const totals = {
-    paid:    invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + Number(i.amount), 0),
-    pending: invoices.filter(i => i.status === 'Pending').reduce((s, i) => s + Number(i.amount), 0),
-    overdue: invoices.filter(i => i.status === 'Overdue').reduce((s, i) => s + Number(i.amount), 0),
+    Paid: invoices.filter((invoice) => invoice.status === 'Paid').reduce((sum, invoice) => sum + Number(invoice.amount), 0),
+    Pending: invoices.filter((invoice) => invoice.status === 'Pending').reduce((sum, invoice) => sum + Number(invoice.amount), 0),
+    Overdue: invoices.filter((invoice) => invoice.status === 'Overdue').reduce((sum, invoice) => sum + Number(invoice.amount), 0),
   };
 
+  const summary = [
+    { label: 'Paid', value: totals.Paid, color: 'text-emerald-700', surface: 'bg-emerald-50' },
+    { label: 'Pending', value: totals.Pending, color: 'text-amber-700', surface: 'bg-amber-50' },
+    { label: 'Overdue', value: totals.Overdue, color: 'text-red-700', surface: 'bg-red-50' },
+  ];
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div className="page page-enter">
       <PageHeader
         title="Invoices"
-        subtitle="Manage membership payments"
+        subtitle="Manage membership charges, due dates, and payment status."
         action={
-          <Link href="/invoices/new" className="btn-yellow text-sm">
-            <Plus className="w-4 h-4" /> Create Invoice
+          <Link href="/invoices/new" className="btn btn-primary">
+            <Plus className="h-4 w-4" /> Create invoice
           </Link>
         }
       />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {[
-          { label: 'Paid',    value: totals.paid,    color: '#166534', bg: '#DCFCE7' },
-          { label: 'Pending', value: totals.pending, color: '#92400E', bg: '#FEF3C7' },
-          { label: 'Overdue', value: totals.overdue, color: '#991B1B', bg: '#FEE2E2' },
-        ].map(({ label, value, color, bg }, i) => (
-          <motion.div
-            key={label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: i * 0.08 }}
-            className="card p-6 card-hover"
-          >
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color }}>{label}</p>
-            <p className="text-3xl font-bold text-slate-900">{formatCurrency(value)}</p>
-          </motion.div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {summary.map(({ label, value, color, surface }) => (
+          <article key={label} className="card flex min-h-32 items-center gap-4 p-5">
+            <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', surface, color)}>
+              <ReceiptText className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className={cn('text-xs font-semibold uppercase tracking-[0.06em]', color)}>{label}</p>
+              <p className="mt-2 truncate text-2xl font-bold tracking-tight text-slate-950">{formatCurrency(value)}</p>
+            </div>
+          </article>
         ))}
       </div>
 
-      {/* Filter */}
-      <Card className="mb-6">
-        <div className="flex gap-2 flex-wrap">
-          {['All', ...INVOICE_STATUSES].map(s => (
+      <section className="card mb-6 p-4 sm:p-6">
+        <div className="segmented-control" aria-label="Filter invoices by status">
+          {['All', ...INVOICE_STATUSES].map((status) => (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                statusFilter === s ? 'text-black shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'
-              }`}
-              style={statusFilter === s ? { background: 'var(--color-primary)' } : {}}
+              key={status}
+              type="button"
+              onClick={() => setStatusFilter(status)}
+              className={cn('segment', statusFilter === status && 'segment-active')}
+              aria-pressed={statusFilter === status}
             >
-              {s}
+              {status}
             </button>
           ))}
         </div>
-      </Card>
+      </section>
 
       {loading ? (
-        <LoadingSpinner size={36} />
+        <LoadingSpinner />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon="🧾"
+          icon={<FileText className="h-5 w-5" />}
           title="No invoices found"
-          action={<Link href="/invoices/new" className="btn-yellow text-sm"><Plus className="w-4 h-4" /> Create Invoice</Link>}
+          description={invoices.length === 0 ? 'Create the first invoice to begin tracking membership payments.' : 'No invoices match this status filter.'}
+          action={
+            invoices.length === 0 ? (
+              <Link href="/invoices/new" className="btn btn-primary">
+                <Plus className="h-4 w-4" /> Create invoice
+              </Link>
+            ) : undefined
+          }
         />
       ) : (
-        <Card padding={false}>
-          <div className="data-table overflow-x-auto">
-            <table className="w-full text-sm">
+        <section className="card overflow-hidden">
+          <div className="data-table">
+            <table>
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Invoice #</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Member</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden sm:table-cell">Amount</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Due Date</th>
-                  <th className="text-left px-4 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="text-right px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Action</th>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Member</th>
+                  <th className="hidden sm:table-cell">Amount</th>
+                  <th className="hidden md:table-cell">Due date</th>
+                  <th>Status</th>
+                  <th className="text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filtered.map(inv => {
-                  const member = inv.member as { full_name: string } | undefined;
+              <tbody>
+                {filtered.map((invoice) => {
+                  const member = invoice.member as { full_name: string } | undefined;
                   return (
-                    <tr key={inv.id} className="table-row-hover">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                            <FileText className="w-4 h-4 text-amber-500" />
-                          </div>
-                          <span className="font-mono text-xs font-semibold text-slate-900">{inv.invoice_number}</span>
+                    <tr key={invoice.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                            <FileText className="h-4 w-4" />
+                          </span>
+                          <span className="font-mono text-xs font-semibold text-slate-900">{invoice.invoice_number}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-medium text-slate-900">{member?.full_name ?? '—'}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-900 hidden sm:table-cell">{formatCurrency(inv.amount)}</td>
-                      <td className="px-4 py-4 text-slate-500 hidden md:table-cell">{formatDate(inv.due_date)}</td>
-                      <td className="px-4 py-4"><StatusBadge variant={inv.status} /></td>
-                      <td className="px-6 py-4 text-right">
-                        <Link href={`/invoices/${inv.id}`} className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline transition-colors">View →</Link>
+                      <td><p className="table-primary">{member?.full_name ?? '-'}</p></td>
+                      <td className="hidden font-semibold text-slate-900 sm:table-cell">{formatCurrency(invoice.amount)}</td>
+                      <td className="hidden md:table-cell">{formatDate(invoice.due_date)}</td>
+                      <td><StatusBadge variant={invoice.status} /></td>
+                      <td className="text-right">
+                        <Link href={`/invoices/${invoice.id}`} className="btn btn-ghost btn-sm">
+                          View <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
                       </td>
                     </tr>
                   );
@@ -130,49 +137,42 @@ export default function InvoicesPage() {
             </table>
           </div>
 
-          <div className="data-cards flex-col divide-y divide-slate-100 hidden">
-            {filtered.map(inv => {
-              const member = inv.member as { full_name: string } | undefined;
+          <div className="data-cards">
+            {filtered.map((invoice) => {
+              const member = invoice.member as { full_name: string } | undefined;
               return (
-                <div key={inv.id} className="p-4 flex flex-col gap-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                        <FileText className="w-4 h-4 text-amber-500" />
+                <article key={invoice.id} className="mobile-record">
+                  <div className="mobile-record-header">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-xs font-semibold text-slate-900">{invoice.invoice_number}</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-slate-900">{member?.full_name ?? '-'}</p>
                       </div>
-                      <div>
-                        <p className="font-mono text-xs font-semibold text-slate-900">{inv.invoice_number}</p>
-                        <p className="text-sm font-medium text-slate-900">{member?.full_name ?? '—'}</p>
-                      </div>
                     </div>
-                    <StatusBadge variant={inv.status} />
+                    <StatusBadge variant={invoice.status} />
                   </div>
-                  
-                  <div className="flex items-center justify-between mt-1 text-sm">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-slate-500 text-xs">Amount</span>
-                      <span className="font-semibold text-slate-900">{formatCurrency(inv.amount)}</span>
+                  <div className="mobile-record-meta">
+                    <div>
+                      <p className="metric-label">Amount</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(invoice.amount)}</p>
                     </div>
-                    <div className="flex flex-col gap-1 items-end">
-                      <span className="text-slate-500 text-xs">Due Date</span>
-                      <span className="font-medium text-slate-900">{formatDate(inv.due_date)}</span>
+                    <div className="text-right">
+                      <p className="metric-label">Due date</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(invoice.due_date)}</p>
                     </div>
                   </div>
-
-                  <div className="mt-2 pt-3 border-t border-slate-50">
-                    <Link
-                      href={`/invoices/${inv.id}`}
-                      className="block w-full py-2 text-center rounded-lg bg-amber-50 text-amber-600 text-sm font-medium hover:bg-amber-100 transition-colors"
-                    >
-                      View Invoice
-                    </Link>
+                  <div className="mobile-record-actions">
+                    <Link href={`/invoices/${invoice.id}`} className="btn btn-secondary btn-sm">View invoice</Link>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
-        </Card>
+        </section>
       )}
-    </motion.div>
+    </div>
   );
 }

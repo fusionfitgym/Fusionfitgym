@@ -2,25 +2,42 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Users, UserCheck, AlertTriangle, TrendingUp, Dumbbell, UserPlus, FileText, ClipboardList } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  ClipboardList,
+  Dumbbell,
+  FileText,
+  TrendingUp,
+  UserCheck,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentMembers } from '@/components/dashboard/RecentMembers';
-import { LoadingSpinner } from '@/components/ui/Primitives';
+import { LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
 import { getMembers } from '@/lib/actions/members';
 import { getInvoices } from '@/lib/actions/invoices';
-import { Member, Invoice } from '@/types';
+import { Invoice, Member } from '@/types';
 import { formatCurrency, isExpiringSoon } from '@/lib/utils';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
-} from 'recharts';
 
-const PLAN_COLORS: Record<string, string> = {
-  Monthly:   '#FFD700',
-  Quarterly: '#FFA500',
-  Biannual:  '#FF8C00',
-  Annual:    '#E6C200',
+const planColors: Record<string, string> = {
+  Monthly: '#f4c430',
+  Quarterly: '#f59e0b',
+  Biannual: '#64748b',
+  Annual: '#18181b',
 };
 
 export default function DashboardPage() {
@@ -30,183 +47,196 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([getMembers(), getInvoices()])
-      .then(([m, i]) => { setMembers(m); setInvoices(i); })
+      .then(([memberData, invoiceData]) => {
+        setMembers(memberData);
+        setInvoices(invoiceData);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <LoadingSpinner size={40} />;
 
   const total = members.length;
-  const active = members.filter(m => m.status === 'Active').length;
-  const expiringSoon = members.filter(m => m.status === 'Active' && isExpiringSoon(m.join_date, m.membership_plan)).length;
+  const active = members.filter((member) => member.status === 'Active').length;
+  const expiringSoon = members.filter(
+    (member) =>
+      member.status === 'Active' &&
+      isExpiringSoon(member.join_date, member.membership_plan),
+  ).length;
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthlyRevenue = invoices
-    .filter(i => i.status === 'Paid' && new Date(i.created_at) >= monthStart)
-    .reduce((sum, i) => sum + Number(i.amount), 0);
+    .filter((invoice) => invoice.status === 'Paid' && new Date(invoice.created_at) >= monthStart)
+    .reduce((sum, invoice) => sum + Number(invoice.amount), 0);
 
-  // Plan distribution
   const planCounts: Record<string, number> = {};
-  members.forEach(m => { planCounts[m.membership_plan] = (planCounts[m.membership_plan] ?? 0) + 1; });
+  members.forEach((member) => {
+    planCounts[member.membership_plan] = (planCounts[member.membership_plan] ?? 0) + 1;
+  });
   const pieData = Object.entries(planCounts).map(([name, value]) => ({ name, value }));
 
-  // Monthly revenue bar chart (last 6 months)
-  const barData = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    const label = d.toLocaleString('en-IN', { month: 'short' });
-    const start = new Date(d.getFullYear(), d.getMonth(), 1);
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    const rev = invoices
-      .filter(inv => inv.status === 'Paid' && new Date(inv.created_at) >= start && new Date(inv.created_at) <= end)
-      .reduce((sum, inv) => sum + Number(inv.amount), 0);
-    return { month: label, revenue: rev };
+  const revenueData = Array.from({ length: 6 }).map((_, index) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - index));
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const revenue = invoices
+      .filter((invoice) => {
+        const createdAt = new Date(invoice.created_at);
+        return invoice.status === 'Paid' && createdAt >= start && createdAt <= end;
+      })
+      .reduce((sum, invoice) => sum + Number(invoice.amount), 0);
+
+    return {
+      month: date.toLocaleString('en-IN', { month: 'short' }),
+      revenue,
+    };
   });
 
   const quickActions = [
-    { href: '/members/add',  label: 'Add Member',         icon: UserPlus,     bg: 'bg-amber-50',   iconColor: 'text-amber-500' },
-    { href: '/invoices/new', label: 'Create Invoice',     icon: FileText,     bg: 'bg-emerald-50', iconColor: 'text-emerald-500' },
-    { href: '/health/new',   label: 'Health Assessment',  icon: Dumbbell,     bg: 'bg-blue-50',    iconColor: 'text-blue-500'  },
-    { href: '/parq/new',     label: 'New PAR-Q Form',     icon: ClipboardList,bg: 'bg-purple-50',  iconColor: 'text-purple-500'},
+    { href: '/members/add', label: 'Add member', description: 'Create a member profile', icon: UserPlus },
+    { href: '/invoices/new', label: 'Create invoice', description: 'Record a membership payment', icon: FileText },
+    { href: '/health/new', label: 'Health assessment', description: 'Capture fitness metrics', icon: Dumbbell },
+    { href: '/parq/new', label: 'New PAR-Q form', description: 'Run readiness screening', icon: ClipboardList },
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-    >
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-page-title">Dashboard</h1>
-        <p className="text-slate-500 mt-1 text-base font-medium">Welcome back — here&apos;s what&apos;s happening at FusionFit Gym.</p>
-      </div>
+    <div className="page page-enter">
+      <PageHeader
+        title="Dashboard"
+        subtitle="A concise view of membership health, revenue, and day-to-day activity."
+        action={
+          <Link href="/members/add" className="btn btn-primary">
+            <UserPlus className="h-4 w-4" /> Add member
+          </Link>
+        }
+      />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         <StatCard
-          title="Total Members"
+          title="Total members"
           value={total}
-          icon={<Users className="w-6 h-6" />}
-          subtitle="All registered"
+          icon={<Users className="h-5 w-5" />}
+          subtitle="All registered members"
           accent
-          index={0}
         />
         <StatCard
-          title="Active Members"
+          title="Active members"
           value={active}
-          icon={<UserCheck className="w-6 h-6" />}
-          subtitle={`${total > 0 ? Math.round((active / total) * 100) : 0}% of total`}
-          index={1}
+          icon={<UserCheck className="h-5 w-5" />}
+          subtitle={`${total > 0 ? Math.round((active / total) * 100) : 0}% of all members`}
         />
         <StatCard
-          title="Expiring Soon"
+          title="Expiring soon"
           value={expiringSoon}
-          icon={<AlertTriangle className="w-6 h-6" />}
-          subtitle="Within 7 days"
-          index={2}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          subtitle="Memberships ending within 7 days"
         />
         <StatCard
-          title="Monthly Revenue"
+          title="Monthly revenue"
           value={formatCurrency(monthlyRevenue)}
-          icon={<TrendingUp className="w-6 h-6" />}
-          subtitle="Paid invoices"
-          index={3}
+          icon={<TrendingUp className="h-5 w-5" />}
+          subtitle="Paid invoices this month"
         />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {quickActions.map(({ href, label, icon: Icon, bg, iconColor }, i) => (
-          <motion.div
-            key={href}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 + i * 0.06 }}
-          >
+      <section className="mt-6">
+        <div className="mb-4">
+          <h2 className="section-title">Quick actions</h2>
+          <p className="section-description">Common workflows, one click away</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {quickActions.map(({ href, label, description, icon: Icon }) => (
             <Link
+              key={href}
               href={href}
-              className="flex flex-col items-center gap-3 p-5 card card-hover transition-all duration-200"
+              className="card card-hover flex min-h-24 items-center gap-4 p-4"
             >
-              <div className={`w-11 h-11 rounded-xl ${bg} flex items-center justify-center`}>
-                <Icon className={`w-5 h-5 ${iconColor}`} />
-              </div>
-              <span className="text-xs font-semibold text-slate-700 text-center">{label}</span>
+              <span className="icon-box">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-950">{label}</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">{description}</span>
+              </span>
             </Link>
-          </motion.div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Charts + Recent Members */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Revenue Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4 }}
-          className="lg:col-span-2 card p-6"
-        >
-          <h2 className="font-bold text-slate-900 text-lg mb-6">Revenue (Last 6 Months)</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94A3B8' }} />
-              <YAxis tick={{ fontSize: 12, fill: '#94A3B8' }} />
-              <Tooltip
-                formatter={(value) => {
-                  const numVal = typeof value === 'number' ? value : Number(value || 0);
-                  return [formatCurrency(numVal), 'Revenue'];
-                }}
-                contentStyle={{ borderRadius: 12, border: '1px solid #E5E7EB', fontSize: 13, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
-              />
-              <Bar dataKey="revenue" fill="#FFD700" radius={[6, 6, 0, 0]} maxBarSize={44} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Plan Distribution */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.5 }}
-          className="card p-6"
-        >
-          <h2 className="font-bold text-slate-900 text-lg mb-6">Membership Plans</h2>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  dataKey="value"
-                  paddingAngle={3}
-                >
-                  {pieData.map((entry) => (
-                    <Cell key={entry.name} fill={PLAN_COLORS[entry.name] ?? '#FFD700'} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #E5E7EB', fontSize: 13 }} />
-                <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <section className="card min-h-80 p-4 sm:p-6 xl:col-span-2">
+          <div className="mb-6">
+            <h2 className="section-title">Revenue trend</h2>
+            <p className="section-description">Paid invoice volume over the last six months</p>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={revenueData} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e9edf2" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#8c94a3' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#8c94a3' }} />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  formatter={(value) => [formatCurrency(Number(value ?? 0)), 'Revenue']}
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: '1px solid #e2e5ea',
+                    boxShadow: '0 12px 28px rgba(15,23,42,0.08)',
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="revenue" fill="#f4c430" radius={[6, 6, 0, 0]} maxBarSize={48} />
+              </BarChart>
             </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="card min-h-80 p-4 sm:p-6">
+          <div className="mb-6">
+            <h2 className="section-title">Membership mix</h2>
+            <p className="section-description">Distribution across available plans</p>
+          </div>
+          {pieData.length > 0 ? (
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={52}
+                    outerRadius={82}
+                    dataKey="value"
+                    paddingAngle={3}
+                    stroke="none"
+                  >
+                    {pieData.map((entry) => (
+                      <Cell key={entry.name} fill={planColors[entry.name] ?? '#f4c430'} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 10,
+                      border: '1px solid #e2e5ea',
+                      boxShadow: '0 12px 28px rgba(15,23,42,0.08)',
+                      fontSize: 12,
+                    }}
+                  />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: 12, color: '#5e6573' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-48 text-slate-400 text-sm">No data yet</div>
+            <div className="flex h-64 items-center justify-center text-sm text-slate-400">No membership data yet</div>
           )}
-        </motion.div>
+        </section>
       </div>
 
-      {/* Recent Members */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.55 }}
-      >
+      <div className="mt-6">
         <RecentMembers members={members} />
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

@@ -1,15 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { use } from 'react';
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  Download,
+  Loader2,
+} from 'lucide-react';
+import {
+  Breadcrumb,
+  LoadingSpinner,
+  PageHeader,
+  SectionCard,
+} from '@/components/ui/Primitives';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 import { getInvoiceById, updateInvoiceStatus } from '@/lib/actions/invoices';
 import { getSettings } from '@/lib/actions/settings';
-import { Invoice, GymSettings, INVOICE_STATUSES } from '@/types';
-import { Card, LoadingSpinner } from '@/components/ui/Primitives';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { formatDate, formatCurrency } from '@/lib/utils';
+import { GymSettings, Invoice, INVOICE_STATUSES } from '@/types';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -20,10 +32,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    Promise.all([getInvoiceById(id), getSettings()]).then(([inv, s]) => {
-      setInvoice(inv);
-      setSettings(s);
-    }).finally(() => setLoading(false));
+    Promise.all([getInvoiceById(id), getSettings()])
+      .then(([invoiceData, settingsData]) => {
+        setInvoice(invoiceData);
+        setSettings(settingsData);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   async function handleStatusChange(status: Invoice['status']) {
@@ -31,7 +45,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setUpdating(true);
     try {
       await updateInvoiceStatus(id, status);
-      setInvoice(prev => prev ? { ...prev, status } : null);
+      setInvoice((current) => current ? { ...current, status } : null);
     } finally {
       setUpdating(false);
     }
@@ -48,134 +62,144 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  if (loading) return <LoadingSpinner size={36} />;
-  if (!invoice) return <div className="text-gray-500 text-center py-16">Invoice not found.</div>;
+  if (loading) return <LoadingSpinner />;
+  if (!invoice) return <div className="empty-state"><p className="card-title">Invoice not found</p></div>;
 
-  const member = invoice.member as { full_name: string; phone?: string; email?: string; address?: string; membership_plan?: string } | undefined;
-  const statusIcons = { Paid: CheckCircle, Pending: Clock, Overdue: AlertCircle };
+  const member = invoice.member as {
+    full_name: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    membership_plan?: string;
+  } | undefined;
+
+  const statusIcons = {
+    Paid: CheckCircle,
+    Pending: Clock,
+    Overdue: AlertCircle,
+  };
 
   return (
-    <div className="page-enter max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/invoices" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-          <ArrowLeft className="w-4 h-4 text-gray-500" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{invoice.invoice_number}</h1>
-          <p className="text-sm text-gray-400">Created {formatDate(invoice.created_at)}</p>
-        </div>
-        <button onClick={handleDownloadPDF} disabled={downloading} className="btn-yellow text-sm">
-          {downloading ? <Loader2 className="w-4 h-4 spin" /> : <Download className="w-4 h-4" />}
-          Download PDF
-        </button>
-      </div>
+    <div className="page-medium page-enter">
+      <Breadcrumb
+        items={[
+          { label: 'Invoices', href: '/invoices' },
+          { label: invoice.invoice_number },
+        ]}
+      />
+      <PageHeader
+        title={invoice.invoice_number}
+        subtitle={`Created ${formatDate(invoice.created_at)}`}
+        action={
+          <>
+            <Link href="/invoices" className="btn btn-secondary">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Link>
+            <button
+              type="button"
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              className="btn btn-primary"
+            >
+              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Download PDF
+            </button>
+          </>
+        }
+      />
 
-      <div className="space-y-4">
-        {/* Invoice Preview */}
-        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
-          {/* Invoice Header */}
-          <div className="p-6 text-white" style={{ background: 'var(--gym-black)' }}>
-            <div className="flex items-start justify-between">
+      <div className="page-stack">
+        <section className="card overflow-hidden">
+          <div className="bg-[#0b0d12] p-5 text-white sm:p-6">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-2xl font-bold" style={{ color: 'var(--gym-yellow)', fontFamily: 'Bebas Neue, sans-serif', letterSpacing: '0.05em' }}>
-                  {settings?.gym_name ?? 'FusionFit Gym'}
-                </h2>
-                <p className="text-gray-400 text-xs mt-1">{settings?.gym_address}</p>
-                <p className="text-gray-400 text-xs">{settings?.gym_phone} | {settings?.gym_email}</p>
+                <h2 className="text-2xl font-bold tracking-tight text-amber-300">{settings?.gym_name ?? 'FusionFit Gym'}</h2>
+                {settings?.gym_address && <p className="mt-2 text-xs text-zinc-400">{settings.gym_address}</p>}
+                <p className="mt-1 text-xs text-zinc-400">
+                  {[settings?.gym_phone, settings?.gym_email].filter(Boolean).join(' | ')}
+                </p>
               </div>
-              <div className="text-right">
-                <p className="text-gray-400 text-xs uppercase tracking-widest mb-1">Invoice</p>
-                <p className="font-mono font-bold text-white">{invoice.invoice_number}</p>
-                <div className="mt-2"><StatusBadge variant={invoice.status} /></div>
+              <div className="sm:text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Invoice</p>
+                <p className="mt-1 font-mono text-sm font-bold text-white">{invoice.invoice_number}</p>
+                <div className="mt-3"><StatusBadge variant={invoice.status} /></div>
               </div>
             </div>
           </div>
 
-          {/* Invoice Body */}
-          <div className="p-6 bg-white">
-            {/* Bill To / Details */}
-            <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="bg-white p-4 sm:p-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase mb-2">Bill To</p>
-                <p className="font-bold text-gray-900">{member?.full_name}</p>
-                {member?.phone && <p className="text-sm text-gray-500">{member.phone}</p>}
-                {member?.email && <p className="text-sm text-gray-500">{member.email}</p>}
-                {member?.address && <p className="text-sm text-gray-500">{member.address}</p>}
+                <p className="metric-label">Bill to</p>
+                <p className="mt-2 text-base font-bold text-slate-950">{member?.full_name ?? '-'}</p>
+                {member?.phone && <p className="mt-1 text-sm text-slate-600">{member.phone}</p>}
+                {member?.email && <p className="mt-1 break-all text-sm text-slate-600">{member.email}</p>}
+                {member?.address && <p className="mt-1 text-sm leading-6 text-slate-600">{member.address}</p>}
               </div>
-              <div className="text-right">
-                <p className="text-xs font-bold text-gray-400 uppercase mb-2">Details</p>
-                <div className="space-y-1">
+              <div className="sm:text-right">
+                <p className="metric-label">Invoice details</p>
+                <div className="mt-2 space-y-2">
                   {[
-                    ['Plan',     member?.membership_plan ?? '—'],
-                    ['Due Date', formatDate(invoice.due_date)],
-                    ['Created',  formatDate(invoice.created_at)],
+                    ['Plan', member?.membership_plan ?? '-'],
+                    ['Due date', formatDate(invoice.due_date)],
+                    ['Created', formatDate(invoice.created_at)],
                   ].map(([label, value]) => (
-                    <div key={label} className="flex justify-end gap-3 text-sm">
-                      <span className="text-gray-400">{label}:</span>
-                      <span className="font-medium text-gray-900">{value}</span>
+                    <div key={label} className="flex justify-between gap-4 text-sm sm:justify-end">
+                      <span className="text-slate-500">{label}</span>
+                      <span className="font-semibold text-slate-900">{value}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Line Items */}
-            <div className="rounded-xl overflow-hidden border border-gray-100">
-              <table className="w-full text-sm">
-                <thead style={{ background: 'var(--gym-black)' }}>
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--gym-yellow)' }}>Description</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--gym-yellow)' }}>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-gray-50">
-                    <td className="px-4 py-3 text-gray-700">Membership Fee — {member?.membership_plan}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatCurrency(invoice.amount)}</td>
-                  </tr>
-                </tbody>
-                <tfoot style={{ background: 'var(--gym-yellow)' }}>
-                  <tr>
-                    <td className="px-4 py-3 font-bold text-black">TOTAL DUE</td>
-                    <td className="px-4 py-3 text-right font-bold text-black text-lg">{formatCurrency(invoice.amount)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+            <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 bg-slate-950 px-4 py-3 text-xs font-semibold uppercase tracking-[0.06em] text-amber-300">
+                <span>Description</span>
+                <span>Amount</span>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-4 text-sm">
+                <span className="text-slate-700">Membership fee - {member?.membership_plan ?? 'Plan'}</span>
+                <span className="font-semibold text-slate-950">{formatCurrency(invoice.amount)}</span>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-amber-300 bg-amber-300 px-4 py-4">
+                <span className="text-sm font-bold text-zinc-950">Total due</span>
+                <span className="text-lg font-bold text-zinc-950">{formatCurrency(invoice.amount)}</span>
+              </div>
             </div>
 
             {invoice.notes && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-xl">
-                <p className="text-xs font-semibold text-gray-500 mb-1">Notes</p>
-                <p className="text-sm text-gray-700">{invoice.notes}</p>
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="metric-label">Notes</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{invoice.notes}</p>
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Status Change */}
-        <Card>
-          <h3 className="font-semibold text-gray-900 mb-3">Update Payment Status</h3>
-          <div className="flex gap-2 flex-wrap">
-            {INVOICE_STATUSES.map(status => {
+        <SectionCard
+          title="Payment status"
+          description="Update the invoice as payment progresses."
+        >
+          <div className="segmented-control">
+            {INVOICE_STATUSES.map((status) => {
               const Icon = statusIcons[status];
-              const isActive = invoice.status === status;
+              const active = invoice.status === status;
               return (
                 <button
                   key={status}
-                  onClick={() => handleStatusChange(status)}
-                  disabled={updating || isActive}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive ? 'text-black' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                  } disabled:opacity-50`}
-                  style={isActive ? { background: 'var(--gym-yellow)' } : {}}
+                  type="button"
+                  onClick={() => void handleStatusChange(status)}
+                  disabled={updating || active}
+                  className={cn('segment inline-flex items-center gap-2', active && 'segment-active')}
                 >
-                  {updating ? <Loader2 className="w-3.5 h-3.5 spin" /> : <Icon className="w-3.5 h-3.5" />}
+                  {updating && !active ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
                   {status}
                 </button>
               );
             })}
           </div>
-        </Card>
+        </SectionCard>
       </div>
     </div>
   );

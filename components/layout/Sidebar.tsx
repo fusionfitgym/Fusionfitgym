@@ -3,147 +3,204 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Users, UserPlus, HeartPulse,
-  ClipboardList, FileText, Settings, Dumbbell, Menu, X,
+  ClipboardList,
+  Dumbbell,
+  FileText,
+  HeartPulse,
+  LayoutDashboard,
+  Menu,
+  Settings,
+  UserPlus,
+  Users,
+  X,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/',           label: 'Dashboard',          icon: LayoutDashboard },
-  { href: '/members',    label: 'Members',            icon: Users },
-  { href: '/members/add',label: 'Add Member',         icon: UserPlus },
-  { href: '/health',     label: 'Health Assessments', icon: HeartPulse },
-  { href: '/parq',       label: 'PAR-Q Forms',        icon: ClipboardList },
-  { href: '/invoices',   label: 'Invoices',           icon: FileText },
-  { href: '/settings',   label: 'Settings',           icon: Settings },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/members', label: 'Members', icon: Users },
+  { href: '/members/add', label: 'Add Member', icon: UserPlus },
+  { href: '/health', label: 'Health Assessments', icon: HeartPulse },
+  { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
+  { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-function NavLink({ href, label, icon: Icon, isActive, isCollapsed, onClick }: {
-  href: string; label: string; icon: React.ElementType; isActive: boolean; isCollapsed?: boolean; onClick?: () => void;
+function isRouteActive(pathname: string, href: string) {
+  if (href === '/') return pathname === '/';
+  if (href === '/members/add') return pathname === '/members/add';
+  if (href === '/members') {
+    return pathname === '/members' || (pathname.startsWith('/members/') && pathname !== '/members/add');
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  active,
+  collapsed,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  active: boolean;
+  collapsed?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <li>
       <Link
         href={href}
         onClick={onClick}
-        title={isCollapsed ? label : undefined}
-        className={`relative flex items-center ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2.5'} rounded-lg text-[13px] font-medium transition-all duration-200 ${
-          isActive
-            ? 'bg-[#FFD700] text-black font-semibold shadow-[0_0_12px_rgba(255,215,0,0.25)]'
-            : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60'
-        }`}
-      >
-        {isActive && !isCollapsed && (
-          <span className="absolute -left-[1px] top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r bg-yellow-600" />
+        title={collapsed ? label : undefined}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'group relative flex min-h-11 items-center rounded-xl text-[13px] font-medium transition-colors duration-150',
+          collapsed ? 'justify-center px-3' : 'gap-3 px-3',
+          active
+            ? 'bg-amber-300 text-zinc-950 shadow-[0_8px_24px_rgba(244,196,48,0.18)]'
+            : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100',
         )}
-        <Icon className={`${isCollapsed ? 'w-5 h-5' : 'w-4 h-4'} flex-shrink-0`} />
-        {!isCollapsed && <span className="truncate">{label}</span>}
+      >
+        <Icon className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+        {!collapsed && <span className="truncate">{label}</span>}
       </Link>
     </li>
   );
 }
 
-const NavContent = ({ pathname, isCollapsed, onNavigate }: { pathname: string; isCollapsed?: boolean; onNavigate?: () => void }) => (
-  <>
-    {/* Logo */}
-    <div className={`py-5 border-b border-zinc-800/80 flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-4 gap-2.5'}`}>
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#FFD700] flex-shrink-0">
-        <Dumbbell className="w-4 h-4 text-black" />
+function NavContent({
+  pathname,
+  collapsed,
+  onNavigate,
+  onClose,
+}: {
+  pathname: string;
+  collapsed?: boolean;
+  onNavigate?: () => void;
+  onClose?: () => void;
+}) {
+  return (
+    <>
+      <div className={cn('flex h-20 items-center border-b border-white/[0.07]', collapsed ? 'justify-center px-2' : 'gap-3 px-4')}>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-300 shadow-[0_6px_20px_rgba(244,196,48,0.2)]">
+          <Dumbbell className="h-5 w-5 text-zinc-950" strokeWidth={2.2} />
+        </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold tracking-tight text-white">FusionFit</p>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Gym management</p>
+          </div>
+        )}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+            aria-label="Close navigation"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
-      {!isCollapsed && (
-        <div className="min-w-0 flex-1">
-          <div className="font-bold text-white text-[13px] leading-tight truncate">FusionFit</div>
-          <div className="text-[9px] text-zinc-600 font-semibold uppercase tracking-[0.15em] truncate">Gym Management</div>
+
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" aria-label="Primary navigation">
+        {!collapsed && (
+          <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Workspace</p>
+        )}
+        <ul className="space-y-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.href}
+              {...item}
+              active={isRouteActive(pathname, item.href)}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            />
+          ))}
+        </ul>
+      </nav>
+
+      {!collapsed && (
+        <div className="border-t border-white/[0.07] px-4 py-4">
+          <p className="text-center text-[10px] font-medium text-zinc-600">FusionFit workspace</p>
         </div>
       )}
-    </div>
-
-    {/* Nav */}
-    <nav className="flex-1 px-3 pt-4 pb-2 overflow-y-auto overflow-x-hidden">
-      {!isCollapsed && (
-        <p className="text-[9px] font-semibold text-zinc-600 uppercase tracking-[0.15em] mb-2 px-3">Menu</p>
-      )}
-      <ul className="space-y-1">
-        {navItems.map(({ href, label, icon }) => {
-          const isActive =
-            href === '/' ? pathname === '/' :
-            href === '/members/add' ? pathname === '/members/add' :
-            pathname === href || pathname.startsWith(href + '/');
-          return (
-            <NavLink key={href} href={href} label={label} icon={icon} isActive={isActive} isCollapsed={isCollapsed} onClick={onNavigate} />
-          );
-        })}
-      </ul>
-    </nav>
-
-    {/* Footer */}
-    {!isCollapsed && (
-      <div className="px-4 py-3 border-t border-zinc-800/80">
-        <p className="text-[9px] text-zinc-700 text-center font-medium truncate">© 2025 FusionFit</p>
-      </div>
-    )}
-  </>
-);
+    </>
+  );
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Close mobile menu on route change
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
-  // Close on Escape
-  const handleEsc = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') setMobileOpen(false);
-  }, []);
   useEffect(() => {
-    document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [handleEsc]);
-
-  // Lock body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeMobile();
     }
-    return () => { document.body.style.overflow = ''; };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [closeMobile]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [mobileOpen]);
 
   return (
     <>
-      {/* Desktop/Tablet Sidebar (Grid Item) */}
-      <aside className="hidden md:flex flex-col h-screen sticky top-0 bg-[#09090B] border-r border-zinc-800/80 z-40 overflow-hidden">
-        <div className="hidden lg:flex flex-col h-full w-full">
+      <aside className="sticky top-0 z-40 hidden h-screen flex-col overflow-hidden border-r border-white/[0.07] bg-[#0b0d12] md:flex">
+        <div className="hidden h-full w-full flex-col lg:flex">
           <NavContent pathname={pathname} />
         </div>
-        <div className="flex lg:hidden flex-col h-full w-full">
-          <NavContent pathname={pathname} isCollapsed={true} />
+        <div className="flex h-full w-full flex-col lg:hidden">
+          <NavContent pathname={pathname} collapsed />
         </div>
       </aside>
 
-      {/* Mobile Toggle Button */}
-      <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-white/80 backdrop-blur-lg border-b border-slate-200 z-40 flex items-center px-4">
+      <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200/90 bg-white/90 px-4 backdrop-blur-xl md:hidden">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-300">
+            <Dumbbell className="h-5 w-5 text-zinc-950" />
+          </div>
+          <div>
+            <p className="text-sm font-bold tracking-tight text-slate-950">FusionFit</p>
+            <p className="text-[10px] font-medium text-slate-500">Gym management</p>
+          </div>
+        </div>
         <button
-          onClick={() => setMobileOpen(v => !v)}
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-white bg-[#09090B] active:scale-95 transition-transform"
-          aria-label="Toggle menu"
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          aria-label="Open navigation"
+          aria-expanded={mobileOpen}
         >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <Menu className="h-5 w-5" />
         </button>
-        <div className="ml-3 font-bold text-slate-900 text-[15px]">FusionFit</div>
-      </div>
+      </header>
 
-      {/* Mobile Drawer Overlay */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex" onClick={() => setMobileOpen(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full bg-black/55 backdrop-blur-sm"
+            onClick={closeMobile}
+            aria-label="Close navigation"
+          />
           <aside
-            className="relative flex flex-col h-full z-50 w-[260px] bg-[#09090B] shadow-2xl animate-[slideIn_0.2s_ease]"
-            onClick={e => e.stopPropagation()}
+            className="relative z-10 flex h-full w-[min(288px,86vw)] flex-col bg-[#0b0d12] shadow-2xl"
+            style={{ animation: 'slide-in 180ms ease-out both' }}
           >
-            <NavContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <NavContent pathname={pathname} onNavigate={closeMobile} onClose={closeMobile} />
           </aside>
         </div>
       )}

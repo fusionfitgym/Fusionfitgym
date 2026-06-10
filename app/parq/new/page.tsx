@@ -1,16 +1,24 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ClipboardCheck, FileText, Loader2, Save, UserRound } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { PageHeader, Card } from '@/components/ui/Primitives';
-import { parqSchema, ParqFormValues, PARQ_QUESTIONS } from '@/types';
+import {
+  Breadcrumb,
+  FormActions,
+  FormError,
+  FormField,
+  LoadingSpinner,
+  PageHeader,
+  SectionCard,
+} from '@/components/ui/Primitives';
 import { createParqResponse } from '@/lib/actions/parq';
 import { getMembers } from '@/lib/actions/members';
-import { Member } from '@/types';
+import { Member, PARQ_QUESTIONS, ParqFormValues, parqSchema } from '@/types';
+import { cn } from '@/lib/utils';
 
 function NewParqForm() {
   const router = useRouter();
@@ -20,11 +28,22 @@ function NewParqForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<ParqFormValues>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ParqFormValues>({
     resolver: zodResolver(parqSchema),
     defaultValues: {
       member_id: preselectedMember ?? '',
-      q1: 'no', q2: 'no', q3: 'no', q4: 'no', q5: 'no', q6: 'no', q7: 'no',
+      q1: 'no',
+      q2: 'no',
+      q3: 'no',
+      q4: 'no',
+      q5: 'no',
+      q6: 'no',
+      q7: 'no',
+      notes: '',
     },
   });
 
@@ -38,103 +57,116 @@ function NewParqForm() {
     try {
       const response = await createParqResponse(data);
       router.push(`/parq/${response.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save PAR-Q');
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Failed to save PAR-Q form.');
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="page-enter max-w-3xl mx-auto">
+    <div className="page-narrow page-enter">
+      <Breadcrumb
+        items={[
+          { label: 'PAR-Q forms', href: '/parq' },
+          { label: 'New PAR-Q' },
+        ]}
+      />
       <PageHeader
-        title="New PAR-Q Form"
-        subtitle="Physical Activity Readiness Questionnaire"
-        action={
-          <Link href="/parq" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Link>
-        }
+        title="New PAR-Q form"
+        subtitle="Complete the readiness questionnaire before beginning a new activity program."
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Member Select */}
-        <Card>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">
-            Member <span className="text-red-500">*</span>
-          </label>
-          <select
-            {...register('member_id')}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+      <form onSubmit={handleSubmit(onSubmit)} className="page-stack" noValidate>
+        <SectionCard
+          title="Member"
+          description="Select the member completing this screening."
+          icon={<UserRound className="h-5 w-5" />}
+        >
+          <FormField
+            label="Member"
+            htmlFor="member_id"
+            required
+            error={errors.member_id?.message}
           >
-            <option value="">Select a member...</option>
-            {members.map(m => (
-              <option key={m.id} value={m.id}>{m.full_name} — {m.phone}</option>
-            ))}
-          </select>
-          {errors.member_id && <p className="text-xs text-red-500 mt-1">{errors.member_id.message}</p>}
-        </Card>
+            <select
+              id="member_id"
+              className="select-field"
+              aria-invalid={Boolean(errors.member_id)}
+              {...register('member_id')}
+            >
+              <option value="">Select a member</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>{member.full_name} - {member.phone}</option>
+              ))}
+            </select>
+          </FormField>
+        </SectionCard>
 
-        {/* PAR-Q Questions */}
-        <Card>
-          <div className="mb-4">
-            <h3 className="font-bold text-gray-900">Health Screening Questions</h3>
-            <p className="text-xs text-gray-500 mt-1">
-              Please answer YES or NO honestly to each question below. This form should be completed before starting any new physical activity program.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {PARQ_QUESTIONS.map((q, i) => (
-              <div key={q.id} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                <p className="text-sm text-gray-800 font-medium mb-3">
-                  <span className="inline-flex w-6 h-6 rounded-full items-center justify-center text-xs font-bold mr-2 text-black" style={{ background: 'var(--gym-yellow)' }}>
-                    {i + 1}
+        <SectionCard
+          title="Health screening"
+          description="Answer every question honestly. A yes response may require medical clearance."
+          icon={<ClipboardCheck className="h-5 w-5" />}
+        >
+          <div className="space-y-3">
+            {PARQ_QUESTIONS.map((question, index) => (
+              <fieldset key={question.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <legend className="sr-only">Question {index + 1}</legend>
+                <div className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-300 text-xs font-bold text-zinc-950">
+                    {index + 1}
                   </span>
-                  {q.text}
-                </p>
-                <div className="flex gap-4">
-                  {['yes', 'no'].map(ans => (
-                    <label key={ans} className="flex items-center gap-2 cursor-pointer group">
+                  <p className="text-sm font-medium leading-6 text-slate-800">{question.text}</p>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:ml-10 sm:max-w-xs">
+                  {['yes', 'no'].map((answer) => (
+                    <label
+                      key={answer}
+                      className={cn(
+                        'flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors',
+                        'has-[:checked]:border-amber-400 has-[:checked]:bg-amber-50 has-[:checked]:text-amber-900',
+                      )}
+                    >
                       <input
                         type="radio"
-                        value={ans}
-                        {...register(q.id as keyof ParqFormValues)}
-                        className="w-4 h-4 accent-yellow-400"
+                        value={answer}
+                        className="h-4 w-4 accent-amber-500"
+                        {...register(question.id as keyof ParqFormValues)}
                       />
-                      <span className="text-sm font-medium capitalize text-gray-700 group-hover:text-gray-900">
-                        {ans === 'yes' ? '✅ Yes' : '❌ No'}
-                      </span>
+                      {answer === 'yes' ? 'Yes' : 'No'}
                     </label>
                   ))}
                 </div>
-              </div>
+              </fieldset>
             ))}
           </div>
-        </Card>
+        </SectionCard>
 
-        {/* Notes */}
-        <Card>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Additional Notes</label>
-          <textarea
-            {...register('notes')}
-            rows={3}
-            placeholder="Any additional notes about the member's health..."
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm resize-none"
-          />
-        </Card>
+        <SectionCard
+          title="Additional notes"
+          description="Add context for any yes answers or other relevant health information."
+          icon={<FileText className="h-5 w-5" />}
+        >
+          <FormField label="Notes" htmlFor="notes">
+            <textarea
+              id="notes"
+              rows={4}
+              placeholder="Optional notes about the member's health"
+              className="textarea-field"
+              {...register('notes')}
+            />
+          </FormField>
+        </SectionCard>
 
-        {error && <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600">{error}</div>}
+        {error && <FormError>{error}</FormError>}
 
-        <div className="flex gap-3">
-          <button type="submit" disabled={submitting} className="btn-yellow">
-            {submitting ? <Loader2 className="w-4 h-4 spin" /> : <Save className="w-4 h-4" />}
+        <FormActions sticky>
+          <Link href="/parq" className="btn btn-secondary w-full sm:w-auto">Cancel</Link>
+          <button type="submit" disabled={submitting} className="btn btn-primary w-full sm:w-auto">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {submitting ? 'Saving...' : 'Save PAR-Q'}
           </button>
-          <Link href="/parq" className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-            Cancel
-          </Link>
-        </div>
+        </FormActions>
       </form>
     </div>
   );
@@ -142,7 +174,7 @@ function NewParqForm() {
 
 export default function NewParqPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading...</div>}>
+    <Suspense fallback={<LoadingSpinner />}>
       <NewParqForm />
     </Suspense>
   );
