@@ -14,10 +14,10 @@ export function PageHeader({ title, subtitle, action, className }: PageHeaderPro
   return (
     <div className={cn('flex items-start justify-between mb-8 gap-4', className)}>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+        <h1 className="text-page-title">{title}</h1>
+        {subtitle && <p className="text-base text-slate-500 mt-1 font-medium">{subtitle}</p>}
       </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
+      {action && <div className="flex-shrink-0 pt-1">{action}</div>}
     </div>
   );
 }
@@ -32,7 +32,7 @@ export function Card({ children, className, padding = true }: CardProps) {
   return (
     <div
       className={cn(
-        'bg-white rounded-2xl border border-gray-100 shadow-sm card-glow transition-all duration-200',
+        'card',
         padding && 'p-6',
         className
       )}
@@ -44,13 +44,13 @@ export function Card({ children, className, padding = true }: CardProps) {
 
 export function LoadingSpinner({ size = 24 }: { size?: number }) {
   return (
-    <div className="flex items-center justify-center p-8">
+    <div className="flex items-center justify-center p-12">
       <div
-        className="spin rounded-full border-2 border-gray-200"
+        className="spin rounded-full border-2 border-slate-200"
         style={{
           width: size,
           height: size,
-          borderTopColor: 'var(--gym-yellow)',
+          borderTopColor: 'var(--color-primary)',
         }}
       />
     </div>
@@ -68,8 +68,8 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
   return (
     <div className="empty-state">
       {icon && <div className="text-4xl mb-2">{icon}</div>}
-      <p className="font-semibold text-gray-700 text-base">{title}</p>
-      {description && <p className="text-sm text-gray-400 text-center max-w-xs">{description}</p>}
+      <p className="font-semibold text-slate-700 text-base">{title}</p>
+      {description && <p className="text-sm text-slate-400 text-center max-w-xs">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

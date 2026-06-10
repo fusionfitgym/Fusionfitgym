@@ -4,9 +4,10 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { PageHeader, Card } from '@/components/ui/Primitives';
+import { motion } from 'framer-motion';
+import { PageHeader } from '@/components/ui/Primitives';
 import { invoiceSchema, InvoiceFormValues, InvoiceFormInput, INVOICE_STATUSES, MEMBERSHIP_PLANS } from '@/types';
 import { createInvoice } from '@/lib/actions/invoices';
 import { getMembers } from '@/lib/actions/members';
@@ -63,111 +64,114 @@ function NewInvoiceForm() {
   }
 
   return (
-    <div className="page-enter max-w-2xl mx-auto">
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="max-w-3xl mx-auto"
+    >
+      {/* Breadcrumb */}
+      <div className="mb-6 flex items-center text-sm text-slate-400 gap-1.5 font-medium">
+        <Link href="/invoices" className="hover:text-slate-600 transition-colors">Invoices</Link>
+        <ChevronRight className="w-3.5 h-3.5" />
+        <span className="text-slate-900">Create Invoice</span>
+      </div>
+
       <PageHeader
         title="Create Invoice"
         subtitle="Generate a new membership invoice"
-        action={
-          <Link href="/invoices" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </Link>
-        }
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Member */}
-        <Card>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">
-            Member <span className="text-red-500">*</span>
-          </label>
-          <select {...register('member_id')} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
-            <option value="">Select a member...</option>
-            {members.map(m => <option key={m.id} value={m.id}>{m.full_name} — {m.phone}</option>)}
-          </select>
-          {errors.member_id && <p className="text-xs text-red-500 mt-1">{errors.member_id.message}</p>}
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Member Selection */}
+        <div className="card p-6 mb-6">
+          <div className="mb-4">
+            <h3 className="text-section-title text-lg">Select Member</h3>
+            <p className="text-sm text-slate-400 mt-1">Choose the member for this invoice</p>
+          </div>
+          <div className="border-t border-slate-100 pt-6">
+            <label className="text-label block mb-2">Member <span className="text-red-500">*</span></label>
+            <select {...register('member_id')} className="select-field">
+              <option value="">Select a member...</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.full_name} — {m.phone}</option>)}
+            </select>
+            {errors.member_id && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.member_id.message}</p>}
 
-          {/* Quick plan price buttons */}
-          {selectedMember && settings && (
-            <div className="mt-3 pt-3 border-t border-gray-50">
-              <p className="text-xs text-gray-400 mb-2">Quick fill by plan:</p>
-              <div className="flex gap-2 flex-wrap">
-                {MEMBERSHIP_PLANS.map(plan => {
-                  const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
-                  return (
-                    <button
-                      type="button"
-                      key={plan}
-                      onClick={() => applyPlanPrice(plan)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
-                    >
-                      {plan} — {formatCurrency(Number(settings[key]))}
-                    </button>
-                  );
-                })}
+            {selectedMember && settings && (
+              <div className="mt-4 pt-4 border-t border-slate-50">
+                <p className="text-xs text-slate-400 mb-2 font-medium">Quick fill by plan:</p>
+                <div className="flex gap-2 flex-wrap">
+                  {MEMBERSHIP_PLANS.map(plan => {
+                    const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
+                    return (
+                      <button
+                        type="button"
+                        key={plan}
+                        onClick={() => applyPlanPrice(plan)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                      >
+                        {plan} — {formatCurrency(Number(settings[key]))}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </Card>
+            )}
+          </div>
+        </div>
 
         {/* Invoice Details */}
-        <Card>
-          <h3 className="font-semibold text-gray-900 mb-4">Invoice Details</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Amount (₹) <span className="text-red-500">*</span></label>
-              <input
-                {...register('amount')}
-                type="number"
-                step="0.01"
-                placeholder="1500"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-              />
-              {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Due Date <span className="text-red-500">*</span></label>
-              <input
-                {...register('due_date')}
-                type="date"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-              />
-              {errors.due_date && <p className="text-xs text-red-500 mt-1">{errors.due_date.message}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Status <span className="text-red-500">*</span></label>
-              <select {...register('status')} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white">
-                {INVOICE_STATUSES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
-              <input
-                {...register('notes')}
-                type="text"
-                placeholder="Optional note..."
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-              />
+        <div className="card p-6 mb-6">
+          <div className="mb-4">
+            <h3 className="text-section-title text-lg">Invoice Details</h3>
+            <p className="text-sm text-slate-400 mt-1">Amount, due date, and status</p>
+          </div>
+          <div className="border-t border-slate-100 pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="text-label block mb-2">Amount (₹) <span className="text-red-500">*</span></label>
+                <input {...register('amount')} type="number" step="0.01" placeholder="1500" className="input-field" />
+                {errors.amount && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.amount.message}</p>}
+              </div>
+              <div>
+                <label className="text-label block mb-2">Due Date <span className="text-red-500">*</span></label>
+                <input {...register('due_date')} type="date" className="input-field" />
+                {errors.due_date && <p className="text-xs text-red-500 mt-1.5 font-medium">{errors.due_date.message}</p>}
+              </div>
+              <div>
+                <label className="text-label block mb-2">Status <span className="text-red-500">*</span></label>
+                <select {...register('status')} className="select-field">
+                  {INVOICE_STATUSES.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-label block mb-2">Notes</label>
+                <input {...register('notes')} type="text" placeholder="Optional note..." className="input-field" />
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
 
-        {error && <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600">{error}</div>}
+        {error && <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 mb-6 font-medium">{error}</div>}
 
-        <div className="flex gap-3">
-          <button type="submit" disabled={submitting} className="btn-yellow">
-            {submitting ? <Loader2 className="w-4 h-4 spin" /> : <Save className="w-4 h-4" />}
-            {submitting ? 'Creating...' : 'Create Invoice'}
-          </button>
-          <Link href="/invoices" className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">Cancel</Link>
+        {/* Sticky Footer */}
+        <div className="sticky bottom-0 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-4 bg-[#F8FAFC]/80 backdrop-blur-lg border-t border-slate-200 z-10">
+          <div className="flex flex-col sm:flex-row gap-3 justify-end max-w-3xl mx-auto">
+            <Link href="/invoices" className="btn-outline w-full sm:w-auto">Cancel</Link>
+            <button type="submit" disabled={submitting} className="btn-gold-gradient w-full sm:w-auto">
+              {submitting ? <Loader2 className="w-5 h-5 spin" /> : <Save className="w-5 h-5" />}
+              {submitting ? 'Creating...' : 'Create Invoice'}
+            </button>
+          </div>
         </div>
       </form>
-    </div>
+    </motion.div>
   );
 }
 
 export default function NewInvoicePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-400">Loading...</div>}>
+    <Suspense fallback={<div className="p-12 text-center text-slate-400">Loading...</div>}>
       <NewInvoiceForm />
     </Suspense>
   );
