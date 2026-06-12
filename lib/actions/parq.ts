@@ -1,7 +1,10 @@
-import { supabase } from '@/lib/supabase';
+"use server";
+
+import { createClient } from '@/lib/supabase/server';
 import { ParqResponse, ParqFormValues } from '@/types';
 
 export async function getParqResponses(): Promise<ParqResponse[]> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('parq_responses')
     .select('*, member:members(full_name, phone)')
@@ -11,6 +14,7 @@ export async function getParqResponses(): Promise<ParqResponse[]> {
 }
 
 export async function getParqByMember(memberId: string): Promise<ParqResponse[]> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('parq_responses')
     .select('*')
@@ -21,6 +25,7 @@ export async function getParqByMember(memberId: string): Promise<ParqResponse[]>
 }
 
 export async function getParqById(id: string): Promise<ParqResponse | null> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('parq_responses')
     .select('*, member:members(full_name, phone)')
@@ -31,6 +36,7 @@ export async function getParqById(id: string): Promise<ParqResponse | null> {
 }
 
 export async function createParqResponse(values: ParqFormValues): Promise<ParqResponse> {
+  const supabase = await createClient();
   const { member_id, notes, ...questionAnswers } = values;
   const answers: Record<string, string> = {};
   Object.entries(questionAnswers).forEach(([k, v]) => {

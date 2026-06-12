@@ -1,7 +1,10 @@
-import { supabase } from '@/lib/supabase';
+"use server";
+
+import { createClient } from '@/lib/supabase/server';
 import { GymSettings } from '@/types';
 
 export async function getSettings(): Promise<GymSettings> {
+  const supabase = await createClient();
   const { data, error } = await supabase.from('settings').select('key, value');
   if (error) throw error;
 
@@ -21,6 +24,7 @@ export async function getSettings(): Promise<GymSettings> {
 }
 
 export async function upsertSetting(key: string, value: string): Promise<void> {
+  const supabase = await createClient();
   const { error } = await supabase
     .from('settings')
     .upsert({ key, value }, { onConflict: 'key' });
@@ -28,6 +32,7 @@ export async function upsertSetting(key: string, value: string): Promise<void> {
 }
 
 export async function upsertSettings(settings: Partial<GymSettings>): Promise<void> {
+  const supabase = await createClient();
   const rows = Object.entries(settings).map(([key, value]) => ({ key, value: String(value) }));
   const { error } = await supabase
     .from('settings')

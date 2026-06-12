@@ -1,7 +1,10 @@
-import { supabase } from '@/lib/supabase';
+"use server";
+
+import { createClient } from '@/lib/supabase/server';
 import { Member, MemberFormValues } from '@/types';
 
 export async function getMembers(): Promise<Member[]> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
     .select('*')
@@ -11,6 +14,7 @@ export async function getMembers(): Promise<Member[]> {
 }
 
 export async function getMemberById(id: string): Promise<Member | null> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
     .select('*')
@@ -21,6 +25,7 @@ export async function getMemberById(id: string): Promise<Member | null> {
 }
 
 export async function createMember(values: MemberFormValues): Promise<Member> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
     .insert([values])
@@ -31,6 +36,7 @@ export async function createMember(values: MemberFormValues): Promise<Member> {
 }
 
 export async function updateMember(id: string, values: Partial<MemberFormValues>): Promise<Member> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
     .update(values)
@@ -42,11 +48,13 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
 }
 
 export async function deleteMember(id: string): Promise<void> {
+  const supabase = await createClient();
   const { error } = await supabase.from('members').delete().eq('id', id);
   if (error) throw error;
 }
 
 export async function uploadProfilePhoto(file: File): Promise<string> {
+  const supabase = await createClient();
   const ext = file.name.split('.').pop();
   const filename = `${Date.now()}.${ext}`;
   const { error } = await supabase.storage
@@ -58,6 +66,7 @@ export async function uploadProfilePhoto(file: File): Promise<string> {
 }
 
 export async function getDashboardStats() {
+  const supabase = await createClient();
   const { data: members } = await supabase.from('members').select('status, membership_plan, join_date');
   const { data: invoices } = await supabase
     .from('invoices')

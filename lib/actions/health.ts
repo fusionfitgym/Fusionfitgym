@@ -1,8 +1,11 @@
-import { supabase } from '@/lib/supabase';
+"use server";
+
+import { createClient } from '@/lib/supabase/server';
 import { HealthAssessment, HealthFormValues } from '@/types';
 import { calculateBMI } from '@/lib/utils';
 
 export async function getHealthAssessments(): Promise<HealthAssessment[]> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('health_assessments')
     .select('*, member:members(full_name)')
@@ -12,6 +15,7 @@ export async function getHealthAssessments(): Promise<HealthAssessment[]> {
 }
 
 export async function getHealthByMember(memberId: string): Promise<HealthAssessment[]> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('health_assessments')
     .select('*')
@@ -22,6 +26,7 @@ export async function getHealthByMember(memberId: string): Promise<HealthAssessm
 }
 
 export async function getHealthById(id: string): Promise<HealthAssessment | null> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('health_assessments')
     .select('*, member:members(full_name)')
@@ -32,6 +37,7 @@ export async function getHealthById(id: string): Promise<HealthAssessment | null
 }
 
 export async function createHealthAssessment(values: HealthFormValues): Promise<HealthAssessment> {
+  const supabase = await createClient();
   let bmi: number | undefined;
   if (values.height && values.weight) {
     bmi = calculateBMI(values.weight, values.height);
