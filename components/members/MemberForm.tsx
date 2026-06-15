@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Calendar,
+  Fingerprint,
   Loader2,
   Mail,
   MapPin,
@@ -262,8 +263,8 @@ export function MemberForm({
         </div>
 
         <SectionCard
-          title="Membership"
-          description="Plan, start date, and current account status."
+          title="Membership & Biometrics"
+          description="Plan, start date, and biometric hardware mapping."
           icon={<ShieldCheck className="h-5 w-5" />}
           className="self-start"
         >
@@ -316,6 +317,42 @@ export function MemberForm({
               >
                 {MEMBER_STATUSES.map((status) => <option key={status}>{status}</option>)}
               </select>
+            </FormField>
+
+            <FormField
+              label="Biometric ID (Card/Machine Ref)"
+              htmlFor="biometric_id"
+              error={errors.biometric_id?.message}
+            >
+              <div className="input-with-icon">
+                <Fingerprint className="text-slate-400" />
+                <input
+                  id="biometric_id"
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. BIO-1001"
+                  aria-invalid={Boolean(errors.biometric_id)}
+                  {...register('biometric_id')}
+                />
+              </div>
+            </FormField>
+
+            <FormField
+              label="Device User ID (eSSL X200B ID)"
+              htmlFor="device_user_id"
+              error={errors.device_user_id?.message}
+            >
+              <div className="input-with-icon">
+                <Fingerprint className="text-slate-400" />
+                <input
+                  id="device_user_id"
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. 1001"
+                  aria-invalid={Boolean(errors.device_user_id)}
+                  {...register('device_user_id')}
+                />
+              </div>
             </FormField>
           </div>
         </SectionCard>

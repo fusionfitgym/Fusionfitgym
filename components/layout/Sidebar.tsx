@@ -3,13 +3,16 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   ClipboardList,
   Dumbbell,
+  FileSpreadsheet,
   FileText,
   HeartPulse,
   LayoutDashboard,
   Menu,
   Settings,
+  Tv,
   UserPlus,
   Users,
   X,
@@ -20,7 +23,9 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/members', label: 'Members', icon: Users },
-  { href: '/members/add', label: 'Add Member', icon: UserPlus },
+  { href: '/attendance', label: 'Attendance', icon: Activity },
+  { href: '/monitor', label: 'Live Monitor', icon: Tv },
+  { href: '/reports', label: 'Reports', icon: FileSpreadsheet },
   { href: '/health', label: 'Health Assessments', icon: HeartPulse },
   { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
   { href: '/invoices', label: 'Invoices', icon: FileText },

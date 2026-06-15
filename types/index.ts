@@ -13,6 +13,10 @@ export interface Member {
   join_date: string;
   status: 'Active' | 'Inactive' | 'Expired' | 'Frozen';
   profile_photo?: string | null;
+  biometric_id?: string | null;
+  device_user_id?: string | null;
+  membership_status?: string | null;
+  last_checkin?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -28,9 +32,24 @@ export const memberSchema = z.object({
   join_date: z.string().min(1, 'Join date is required'),
   status: z.enum(['Active', 'Inactive', 'Expired', 'Frozen']),
   profile_photo: z.string().optional().or(z.literal('')),
+  biometric_id: z.string().optional().or(z.literal('')),
+  device_user_id: z.string().optional().or(z.literal('')),
+  membership_status: z.string().optional().or(z.literal('')),
 });
 
 export type MemberFormValues = z.infer<typeof memberSchema>;
+
+// ── Attendance Logs ──────────────────────────────────────────
+export interface AttendanceLog {
+  id: string;
+  member_id: string;
+  member_name: string;
+  device_user_id: string;
+  punch_time: string;
+  punch_type: 'checkin' | 'checkout';
+  created_at?: string;
+  member?: Member;
+}
 
 // ── PAR-Q ───────────────────────────────────────────────────
 export interface ParqResponse {
