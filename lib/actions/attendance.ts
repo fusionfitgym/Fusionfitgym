@@ -159,3 +159,16 @@ export async function getAttendanceAnalytics() {
     hourlyDistribution,
   };
 }
+
+export async function deleteAttendanceLog(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('attendance_logs')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error in deleteAttendanceLog:', error);
+    throw error;
+  }
+}

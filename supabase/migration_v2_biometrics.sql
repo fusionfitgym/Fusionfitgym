@@ -66,3 +66,44 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE attendance_logs;
   END IF;
 END $$;
+
+-- ── 6. Seed Biometric Mappings for Sample Members ────────────
+-- Map biometric device codes to existing test members based on phone numbers
+UPDATE members SET device_user_id = '1001', biometric_id = 'BIO-1001' WHERE phone = '+91 98001 11111';
+UPDATE members SET device_user_id = '1002', biometric_id = 'BIO-1002' WHERE phone = '+91 98002 22222';
+UPDATE members SET device_user_id = '1003', biometric_id = 'BIO-1003' WHERE phone = '+91 98003 33333';
+UPDATE members SET device_user_id = '1005', biometric_id = 'BIO-1005' WHERE phone = '+91 98005 55555';
+UPDATE members SET device_user_id = '1006', biometric_id = 'BIO-1006' WHERE phone = '+91 98006 66666';
+
+-- ── 7. Seed Demo Attendance Logs ─────────────────────────────
+-- Clear any testing logs to allow re-runs of the script cleanly
+DELETE FROM attendance_logs;
+
+-- Punch log: Arjun Sharma checked in at 7:00 AM and out at 9:00 AM today
+INSERT INTO attendance_logs (member_id, member_name, device_user_id, punch_time, punch_type)
+SELECT id, full_name, device_user_id, (CURRENT_DATE + INTERVAL '7 hours')::TIMESTAMPTZ, 'checkin'
+FROM members WHERE device_user_id = '1001';
+
+INSERT INTO attendance_logs (member_id, member_name, device_user_id, punch_time, punch_type)
+SELECT id, full_name, device_user_id, (CURRENT_DATE + INTERVAL '9 hours')::TIMESTAMPTZ, 'checkout'
+FROM members WHERE device_user_id = '1001';
+
+-- Punch log: Priya Nair checked in at 8:00 AM and out at 10:15 AM today
+INSERT INTO attendance_logs (member_id, member_name, device_user_id, punch_time, punch_type)
+SELECT id, full_name, device_user_id, (CURRENT_DATE + INTERVAL '8 hours')::TIMESTAMPTZ, 'checkin'
+FROM members WHERE device_user_id = '1002';
+
+INSERT INTO attendance_logs (member_id, member_name, device_user_id, punch_time, punch_type)
+SELECT id, full_name, device_user_id, (CURRENT_DATE + INTERVAL '10 hours 15 minutes')::TIMESTAMPTZ, 'checkout'
+FROM members WHERE device_user_id = '1002';
+
+-- Punch log: Rahul Verma checked in at 6:00 PM today (remains checked-in)
+INSERT INTO attendance_logs (member_id, member_name, device_user_id, punch_time, punch_type)
+SELECT id, full_name, device_user_id, (CURRENT_DATE + INTERVAL '18 hours')::TIMESTAMPTZ, 'checkin'
+FROM members WHERE device_user_id = '1003';
+
+-- Punch log: Vikram Singh checked in at 7:30 PM today (remains checked-in)
+INSERT INTO attendance_logs (member_id, member_name, device_user_id, punch_time, punch_type)
+SELECT id, full_name, device_user_id, (CURRENT_DATE + INTERVAL '19 hours 30 minutes')::TIMESTAMPTZ, 'checkin'
+FROM members WHERE device_user_id = '1005';
+

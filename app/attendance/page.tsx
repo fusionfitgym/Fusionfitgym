@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Activity,
   ArrowRight,
@@ -8,6 +9,7 @@ import {
   Clock,
   Fingerprint,
   Search,
+  Trash2,
   UserCheck,
   UserX,
 } from 'lucide-react';
@@ -21,7 +23,12 @@ import {
   YAxis,
 } from 'recharts';
 import { LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
-import { getAttendanceAnalytics, getTodayAttendanceLogs } from '@/lib/actions/attendance';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import {
+  getAttendanceAnalytics,
+  getTodayAttendanceLogs,
+  deleteAttendanceLog,
+} from '@/lib/actions/attendance';
 import { AttendanceLog } from '@/types';
 import { formatDate } from '@/lib/utils';
 
@@ -47,6 +54,16 @@ export default function AttendancePage() {
     const interval = setInterval(fetchAttendanceData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAttendanceLog(id);
+      fetchAttendanceData(); // Refresh UI counters, trends, and records lists
+    } catch (err) {
+      console.error('Failed to delete log:', err);
+      window.alert('Failed to delete log.');
+    }
+  };
 
   if (loading) return <LoadingSpinner size={40} />;
 
@@ -155,7 +172,7 @@ export default function AttendancePage() {
                     <th>Device user ID</th>
                     <th>Time</th>
                     <th>Punch type</th>
-                    <th className="text-right">Action</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -192,9 +209,25 @@ export default function AttendancePage() {
                         </span>
                       </td>
                       <td className="text-right">
-                        <a href={`/members/${log.member_id}`} className="btn btn-ghost btn-sm">
-                          Profile <ArrowRight className="h-3 w-3" />
-                        </a>
+                        <div className="flex justify-end items-center gap-2">
+                          <Link href={`/members/${log.member_id}`} className="btn btn-ghost btn-sm">
+                            Profile <ArrowRight className="h-3 w-3" />
+                          </Link>
+                          <ConfirmDialog
+                            title="Delete log?"
+                            description="This will permanently delete this check-in record."
+                            onConfirm={() => void handleDelete(log.id)}
+                            trigger={
+                              <button
+                                type="button"
+                                className="table-action table-action-danger flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 hover:bg-rose-50 hover:border-rose-100"
+                                title="Delete log"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            }
+                          />
+                        </div>
                       </td>
                     </tr>
                   ))}
