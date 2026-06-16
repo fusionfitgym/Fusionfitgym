@@ -10,6 +10,8 @@ import {
   MapPin,
   Phone,
   Save,
+  MessageSquare,
+  Send,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import {
@@ -21,11 +23,19 @@ import {
 } from '@/components/ui/Primitives';
 import { getSettings, upsertSettings } from '@/lib/actions/settings';
 import { GymSettings } from '@/types';
+import { sendTestSMSAction } from '@/lib/actions/sms';
+import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  
+  // Test SMS states
+  const [testPhone, setTestPhone] = useState('');
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const { register, handleSubmit, reset } = useForm<GymSettings>();
 
   useEffect(() => {
@@ -33,6 +43,20 @@ export default function SettingsPage() {
       .then(reset)
       .finally(() => setLoading(false));
   }, [reset]);
+
+  async function handleSendTest() {
+    if (!testPhone) return;
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      const result = await sendTestSMSAction(testPhone);
+      setTestResult(result);
+    } catch (err: any) {
+      setTestResult({ success: false, message: err?.message || 'Failed to send test SMS.' });
+    } finally {
+      setSendingTest(false);
+    }
+  }
 
   async function onSubmit(data: GymSettings) {
     setSaving(true);
@@ -106,6 +130,82 @@ export default function SettingsPage() {
                 </FormField>
               </div>
             ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="SMS Configuration"
+          description="Configure your external HTTP API gateway and Sender ID details. Credentials are saved securely on the server."
+          icon={<MessageSquare className="h-5 w-5" />}
+        >
+          <div className="field-grid field-grid-2">
+            {[
+              { name: 'sms_provider_name' as const, label: 'SMS Provider Name', placeholder: 'Generic HTTP API' },
+              { name: 'sms_sender_id' as const, label: 'Sender ID', placeholder: 'FUSFIT' },
+              { name: 'sms_api_url' as const, label: 'API URL', placeholder: 'https://api.sms-provider.com/send?key={api_key}&to={phone}&msg={message}' },
+              { name: 'sms_api_key' as const, label: 'API Key', placeholder: 'Your API key or bearer token' },
+            ].map(({ name, label, placeholder }) => (
+              <FormField key={name} label={label} htmlFor={name}>
+                <input
+                  id={name}
+                  type={name === 'sms_api_key' ? 'password' : 'text'}
+                  placeholder={placeholder}
+                  className="input-field"
+                  {...register(name)}
+                />
+              </FormField>
+            ))}
+          </div>
+
+          <div className="mt-6 flex items-center gap-3">
+            <input
+              id="sms_enabled"
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+              {...register('sms_enabled')}
+            />
+            <label htmlFor="sms_enabled" className="text-sm font-semibold text-slate-700 cursor-pointer">
+              Enable SMS Notifications
+            </label>
+          </div>
+
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            <h4 className="text-sm font-bold text-slate-900 mb-2">Test SMS Integration</h4>
+            <p className="text-xs text-slate-500 mb-4">
+              Enter a phone number and click send to test your configuration. Make sure to **save settings first** before testing.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 items-end max-w-md">
+              <div className="flex-1 w-full">
+                <FormField label="Test Phone Number" htmlFor="test_phone">
+                  <input
+                    id="test_phone"
+                    type="text"
+                    placeholder="+919876543210"
+                    className="input-field"
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
+                  />
+                </FormField>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleSendTest()}
+                disabled={sendingTest || !testPhone}
+                className="btn btn-secondary min-h-[44px] w-full sm:w-auto shrink-0"
+              >
+                {sendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Send Test SMS
+              </button>
+            </div>
+            {testResult && (
+              <div className={cn("mt-3 rounded-lg p-3 text-xs font-semibold border", 
+                testResult.success 
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
+                  : "bg-red-50 border-red-200 text-red-800"
+              )}>
+                {testResult.message}
+              </div>
+            )}
           </div>
         </SectionCard>
 

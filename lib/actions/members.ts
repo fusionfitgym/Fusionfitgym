@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { Member, MemberFormValues } from '@/types';
+import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
+import { getMembershipExpiry, formatDate } from '@/lib/utils';
 
 export async function getMembers(): Promise<Member[]> {
   const supabase = await createClient();
@@ -32,11 +34,29 @@ export async function createMember(values: MemberFormValues): Promise<Member> {
     .select()
     .single();
   if (error) throw error;
+
+  // Dispatch welcome SMS to the new member
+  try {
+    if (data.phone) {
+      await sendWelcomeSMS(data.id, data.full_name, data.phone);
+    }
+  } catch (smsErr) {
+    console.error('Failed to trigger welcome SMS:', smsErr);
+  }
+
   return data as Member;
 }
 
 export async function updateMember(id: string, values: Partial<MemberFormValues>): Promise<Member> {
   const supabase = await createClient();
+
+  // Retrieve current member record to check status/plan changes
+  const { data: oldMember } = await supabase
+    .from('members')
+    .select('full_name, phone, join_date, status, membership_plan')
+    .eq('id', id)
+    .single();
+
   const { data, error } = await supabase
     .from('members')
     .update(values)
@@ -44,6 +64,24 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
     .select()
     .single();
   if (error) throw error;
+
+  // Trigger automated Renewal SMS if membership start shifted or reactivated to Active
+  if (oldMember && data && data.phone) {
+    const isPlanRenewed = values.join_date && values.join_date !== oldMember.join_date;
+    const isStatusActivated = (oldMember.status === 'Expired' || oldMember.status === 'Inactive') && data.status === 'Active';
+
+    if (isPlanRenewed || isStatusActivated) {
+      const newExpiry = getMembershipExpiry(data.join_date, data.membership_plan);
+      const formattedExpiry = formatDate(newExpiry);
+      
+      try {
+        await sendRenewalSMS(data.id, data.full_name, formattedExpiry, data.phone);
+      } catch (smsErr) {
+        console.error('Failed to trigger renewal SMS:', smsErr);
+      }
+    }
+  }
+
   return data as Member;
 }
 

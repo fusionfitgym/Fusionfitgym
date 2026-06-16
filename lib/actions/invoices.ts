@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { Invoice, InvoiceFormValues } from '@/types';
+import { sendInvoiceSMS } from '@/lib/sms';
 
 export async function getInvoices(): Promise<Invoice[]> {
   const supabase = await createClient();
@@ -43,6 +44,28 @@ export async function createInvoice(values: InvoiceFormValues): Promise<Invoice>
     .select()
     .single();
   if (error) throw error;
+
+  // Retrieve member details to send automated invoice SMS
+  try {
+    const { data: member } = await supabase
+      .from('members')
+      .select('phone, membership_plan')
+      .eq('id', values.member_id)
+      .single();
+
+    if (member && member.phone) {
+      await sendInvoiceSMS(
+        data.member_id,
+        data.invoice_number,
+        member.membership_plan,
+        data.amount,
+        member.phone
+      );
+    }
+  } catch (smsErr) {
+    console.error('Failed to trigger invoice notification SMS:', smsErr);
+  }
+
   return data as Invoice;
 }
 

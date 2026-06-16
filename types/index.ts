@@ -169,7 +169,28 @@ export interface GymSettings {
   plan_quarterly: string;
   plan_biannual: string;
   plan_annual: string;
+  sms_provider_name: string;
+  sms_api_url: string;
+  sms_api_key: string;
+  sms_sender_id: string;
+  sms_enabled: boolean;
 }
+
+// ── SMS Logs ────────────────────────────────────────────────
+export interface SMSLog {
+  id: string;
+  member_id: string | null;
+  phone: string;
+  sms_type: string;
+  message: string;
+  status: string | null;
+  provider_response: string | null;
+  created_at: string;
+  member?: {
+    full_name: string;
+  } | null;
+}
+
 
 export const MEMBERSHIP_PLANS = ['Monthly', 'Quarterly', 'Biannual', 'Annual'] as const;
 export const MEMBER_STATUSES = ['Active', 'Inactive', 'Expired', 'Frozen'] as const;

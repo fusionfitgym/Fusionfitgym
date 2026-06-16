@@ -16,6 +16,7 @@ import {
   UserPlus,
   Users,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/health', label: 'Health Assessments', icon: HeartPulse },
   { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
   { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/sms', label: 'SMS Logs', icon: MessageSquare },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

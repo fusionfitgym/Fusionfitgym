@@ -14,6 +14,7 @@ import {
   UserCheck,
   UserPlus,
   Users,
+  Send,
 } from 'lucide-react';
 import {
   Bar,
@@ -34,8 +35,9 @@ import { LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
 import { getMembers } from '@/lib/actions/members';
 import { getInvoices } from '@/lib/actions/invoices';
 import { getAttendanceAnalytics } from '@/lib/actions/attendance';
+import { getSMSStats } from '@/lib/actions/sms';
 import { Invoice, Member } from '@/types';
-import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate } from '@/lib/utils';
+import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
 
 const planColors: Record<string, string> = {
   Monthly: '#f4c430',
@@ -48,14 +50,16 @@ export default function DashboardPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [attendance, setAttendance] = useState<any>(null);
+  const [smsStats, setSmsStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getMembers(), getInvoices(), getAttendanceAnalytics()])
-      .then(([memberData, invoiceData, attendanceData]) => {
+    Promise.all([getMembers(), getInvoices(), getAttendanceAnalytics(), getSMSStats()])
+      .then(([memberData, invoiceData, attendanceData, smsStatsData]) => {
         setMembers(memberData);
         setInvoices(invoiceData);
         setAttendance(attendanceData);
+        setSmsStats(smsStatsData);
       })
       .catch((err) => console.error('Failed to load dashboard data:', err))
       .finally(() => setLoading(false));
@@ -159,6 +163,37 @@ export default function DashboardPage() {
           subtitle="Paid invoices this month"
         />
       </div>
+
+      {/* SMS Summary Card */}
+      {smsStats && (
+        <section className="card mt-6 p-4 sm:p-5 border-amber-200 bg-amber-50/15">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3.5 mb-3.5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2">
+                <Send className="h-4 w-4 text-amber-600" />
+                SMS System Summary
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time status of system-generated notifications and member alerts</p>
+            </div>
+            <Link href="/sms" className="btn btn-ghost btn-sm text-amber-700 hover:text-amber-800 self-start sm:self-auto">
+              Open SMS logs <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            {[
+              { label: 'Messages Sent Today', value: smsStats.todaySent, color: 'text-emerald-700' },
+              { label: 'Failed Messages', value: smsStats.failed, color: 'text-red-600' },
+              { label: 'Monthly SMS Cost', value: `₹${smsStats.monthlyCost.toFixed(2)}`, color: 'text-amber-700' },
+              { label: 'Delivery Success Rate', value: `${smsStats.successRate}%`, color: 'text-blue-700' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-white/70 backdrop-blur-sm rounded-xl p-3 border border-slate-200/40">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{label}</span>
+                <span className={cn("text-lg font-extrabold block mt-1 tracking-tight", color)}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Quick Actions */}
       <section className="mt-6">

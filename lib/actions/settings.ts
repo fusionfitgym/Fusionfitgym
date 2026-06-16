@@ -20,6 +20,11 @@ export async function getSettings(): Promise<GymSettings> {
     plan_quarterly: map.plan_quarterly ?? '4000',
     plan_biannual: map.plan_biannual ?? '7500',
     plan_annual:   map.plan_annual   ?? '14000',
+    sms_provider_name: map.sms_provider_name ?? 'Generic HTTP API',
+    sms_api_url:   map.sms_api_url   ?? '',
+    sms_api_key:   map.sms_api_key   ?? '',
+    sms_sender_id: map.sms_sender_id ?? 'FUSFIT',
+    sms_enabled:   map.sms_enabled   === 'true',
   };
 }
 
