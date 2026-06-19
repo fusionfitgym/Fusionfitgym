@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { GymSettings } from '@/types';
+import { validateRole } from './auth';
+import { logAudit } from './audit';
 
 export async function getSettings(): Promise<GymSettings> {
   const supabase = await createClient();
@@ -29,18 +31,24 @@ export async function getSettings(): Promise<GymSettings> {
 }
 
 export async function upsertSetting(key: string, value: string): Promise<void> {
+  const { user } = await validateRole(['Super Admin', 'Admin']);
   const supabase = await createClient();
   const { error } = await supabase
     .from('settings')
     .upsert({ key, value }, { onConflict: 'key' });
   if (error) throw error;
+
+  await logAudit(`Updated setting: ${key} = ${value}`, 'Settings', user.id);
 }
 
 export async function upsertSettings(settings: Partial<GymSettings>): Promise<void> {
+  const { user } = await validateRole(['Super Admin', 'Admin']);
   const supabase = await createClient();
   const rows = Object.entries(settings).map(([key, value]) => ({ key, value: String(value) }));
   const { error } = await supabase
     .from('settings')
     .upsert(rows, { onConflict: 'key' });
   if (error) throw error;
+
+  await logAudit('Updated multiple gym settings', 'Settings', user.id);
 }

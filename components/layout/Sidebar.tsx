@@ -17,9 +17,11 @@ import {
   Users,
   X,
   MessageSquare,
+  LogOut,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -91,6 +93,48 @@ function NavContent({
   onNavigate?: () => void;
   onClose?: () => void;
 }) {
+  const { profile, user, signOut } = useAuth();
+
+  // Role-based route filtering
+  const filteredItems = navItems.filter((item) => {
+    if (!profile) return false;
+    const role = profile.role;
+    
+    if (role === 'Super Admin') return true;
+    if (role === 'Admin') {
+      return ['/', '/members', '/attendance', '/monitor', '/invoices', '/reports', '/sms', '/settings'].includes(item.href);
+    }
+    if (role === 'Receptionist') {
+      return ['/', '/members', '/attendance', '/monitor', '/invoices'].includes(item.href);
+    }
+    if (role === 'Trainer') {
+      return ['/', '/members', '/health', '/parq'].includes(item.href);
+    }
+    return false;
+  });
+
+  // Inject User Management for Super Admins
+  const finalItems = [...filteredItems];
+  if (profile?.role === 'Super Admin') {
+    const settingsIndex = finalItems.findIndex((item) => item.href === '/settings');
+    const userMgmtItem = { href: '/settings/users', label: 'User Management', icon: UserPlus };
+    if (settingsIndex !== -1) {
+      finalItems.splice(settingsIndex, 0, userMgmtItem);
+    } else {
+      finalItems.push(userMgmtItem);
+    }
+  }
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <>
       <div className={cn('flex h-20 items-center border-b border-white/[0.07]', collapsed ? 'justify-center px-2' : 'gap-3 px-4')}>
@@ -120,7 +164,7 @@ function NavContent({
           <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Workspace</p>
         )}
         <ul className="space-y-1">
-          {navItems.map((item) => (
+          {finalItems.map((item) => (
             <NavLink
               key={item.href}
               {...item}
@@ -132,9 +176,64 @@ function NavContent({
         </ul>
       </nav>
 
-      {!collapsed && (
-        <div className="border-t border-white/[0.07] px-4 py-4">
-          <p className="text-center text-[10px] font-medium text-zinc-600">FusionFit workspace</p>
+      {/* User Profile Card Footer */}
+      {profile && (
+        <div className={cn('border-t border-white/[0.07] p-3 flex flex-col gap-3.5 bg-zinc-950/20', collapsed ? 'items-center' : '')}>
+          <div className="flex items-center gap-3">
+            <div
+              className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300 font-extrabold text-sm"
+              title={collapsed ? profile.full_name : undefined}
+            >
+              {getInitials(profile.full_name)}
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-white leading-tight">{profile.full_name}</p>
+                <span
+                  className={cn(
+                    'inline-block text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded mt-1.5',
+                    profile.role === 'Super Admin'
+                      ? 'bg-amber-300 text-zinc-950'
+                      : profile.role === 'Admin'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : profile.role === 'Receptionist'
+                      ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+                  )}
+                >
+                  {profile.role}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {!collapsed && user?.last_sign_in_at && (
+            <div className="text-[10px] text-zinc-500 font-medium leading-tight">
+              Last login: <br />
+              <span className="text-zinc-400 font-semibold mt-0.5 inline-block">
+                {new Date(user.last_sign_in_at).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+          )}
+
+          <button
+            onClick={signOut}
+            title="Sign out of system"
+            className={cn(
+              'flex items-center justify-center text-zinc-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-150 cursor-pointer',
+              collapsed
+                ? 'h-10 w-10 border border-white/[0.06] hover:border-red-500/25'
+                : 'w-full gap-2 px-3 py-2 text-xs border border-white/[0.06] hover:border-red-500/20 font-semibold',
+            )}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>Sign Out</span>}
+          </button>
         </div>
       )}
     </>

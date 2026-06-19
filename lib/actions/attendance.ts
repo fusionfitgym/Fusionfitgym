@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { AttendanceLog } from '@/types';
+import { validateRole } from './auth';
+import { logAudit } from './audit';
 
 // Fetch all attendance logs for the current calendar day
 export async function getTodayAttendanceLogs(): Promise<AttendanceLog[]> {
@@ -161,7 +163,15 @@ export async function getAttendanceAnalytics() {
 }
 
 export async function deleteAttendanceLog(id: string): Promise<void> {
+  const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
   const supabase = await createClient();
+
+  const { data: log } = await supabase
+    .from('attendance_logs')
+    .select('member_name, punch_time')
+    .eq('id', id)
+    .single();
+
   const { error } = await supabase
     .from('attendance_logs')
     .delete()
@@ -171,4 +181,11 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
     console.error('Error in deleteAttendanceLog:', error);
     throw error;
   }
+
+  const punchTimeStr = log?.punch_time ? new Date(log.punch_time).toLocaleTimeString() : '';
+  await logAudit(
+    `Deleted attendance check-in for: ${log?.member_name || id} ${punchTimeStr ? `at ${punchTimeStr}` : ''}`,
+    'Attendance',
+    user.id
+  );
 }

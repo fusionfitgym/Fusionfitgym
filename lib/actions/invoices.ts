@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { Invoice, InvoiceFormValues } from '@/types';
 import { sendInvoiceSMS } from '@/lib/sms';
+import { validateRole } from './auth';
+import { logAudit } from './audit';
 
 export async function getInvoices(): Promise<Invoice[]> {
   const supabase = await createClient();
@@ -37,6 +39,7 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
 }
 
 export async function createInvoice(values: InvoiceFormValues): Promise<Invoice> {
+  const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('invoices')
@@ -44,6 +47,8 @@ export async function createInvoice(values: InvoiceFormValues): Promise<Invoice>
     .select()
     .single();
   if (error) throw error;
+
+  await logAudit(`Created invoice: ${data.invoice_number} (Amount: ₹${data.amount})`, 'Invoices', user.id);
 
   // Retrieve member details to send automated invoice SMS
   try {

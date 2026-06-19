@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import Sidebar from '@/components/layout/Sidebar';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -22,13 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body>
-        <div className="app-shell">
-          <Sidebar />
-          <main className="app-main">
-            <div className="app-content">{children}</div>
-          </main>
-        </div>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
 }
+

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { Member, MemberFormValues } from '@/types';
 import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
 import { getMembershipExpiry, formatDate } from '@/lib/utils';
+import { validateRole } from './auth';
+import { logAudit } from './audit';
 
 export async function getMembers(): Promise<Member[]> {
   const supabase = await createClient();
@@ -27,6 +29,7 @@ export async function getMemberById(id: string): Promise<Member | null> {
 }
 
 export async function createMember(values: MemberFormValues): Promise<Member> {
+  const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
@@ -34,6 +37,8 @@ export async function createMember(values: MemberFormValues): Promise<Member> {
     .select()
     .single();
   if (error) throw error;
+
+  await logAudit(`Created member: ${data.full_name}`, 'Members', user.id);
 
   // Dispatch welcome SMS to the new member
   try {
@@ -86,9 +91,19 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
 }
 
 export async function deleteMember(id: string): Promise<void> {
+  const { user } = await validateRole(['Super Admin', 'Admin']);
   const supabase = await createClient();
+
+  const { data: member } = await supabase
+    .from('members')
+    .select('full_name')
+    .eq('id', id)
+    .single();
+
   const { error } = await supabase.from('members').delete().eq('id', id);
   if (error) throw error;
+
+  await logAudit(`Deleted member: ${member?.full_name || id}`, 'Members', user.id);
 }
 
 export async function uploadProfilePhoto(file: File): Promise<string> {
