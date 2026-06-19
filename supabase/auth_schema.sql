@@ -183,81 +183,140 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ── 13. Seed Test Users in auth.users ────────────────────────
+-- ── 13. Seed Test Users in auth.users & auth.identities ───────
 
 -- We create seeded users using the pgcrypto extension to encrypt their passwords.
 -- Note: All seeded users will have the password 'password123'
--- In Supabase, auth.users has some non-null fields that need to be populated.
+-- To prevent 'Database error querying schema' during Supabase Auth (GoTrue) login,
+-- we must insert matching records in auth.identities table for email sign-ins.
 
+-- First delete the invalid seeded users if any
+DELETE FROM auth.users WHERE email IN ('superadmin@fusionfit.com', 'admin@fusionfit.com', 'receptionist@fusionfit.com', 'trainer@fusionfit.com');
+
+-- Seed Super Admin
 INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at,
-  is_sso_user
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_sso_user
 )
-VALUES
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '11111111-1111-1111-1111-111111111111',
-    'authenticated',
-    'authenticated',
-    'superadmin@fusionfit.com',
-    extensions.crypt('password123', extensions.gen_salt('bf')),
-    NOW(),
-    '{"provider":"email","providers":["email"]}',
-    '{"full_name":"Super Admin User","role":"Super Admin"}',
-    NOW(),
-    NOW(),
-    FALSE
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '22222222-2222-2222-2222-222222222222',
-    'authenticated',
-    'authenticated',
-    'admin@fusionfit.com',
-    extensions.crypt('password123', extensions.gen_salt('bf')),
-    NOW(),
-    '{"provider":"email","providers":["email"]}',
-    '{"full_name":"Admin User","role":"Admin"}',
-    NOW(),
-    NOW(),
-    FALSE
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '33333333-3333-3333-3333-333333333333',
-    'authenticated',
-    'authenticated',
-    'receptionist@fusionfit.com',
-    extensions.crypt('password123', extensions.gen_salt('bf')),
-    NOW(),
-    '{"provider":"email","providers":["email"]}',
-    '{"full_name":"Receptionist User","role":"Receptionist"}',
-    NOW(),
-    NOW(),
-    FALSE
-  ),
-  (
-    '00000000-0000-0000-0000-000000000000',
-    '44444444-4444-4444-4444-444444444444',
-    'authenticated',
-    'authenticated',
-    'trainer@fusionfit.com',
-    extensions.crypt('password123', extensions.gen_salt('bf')),
-    NOW(),
-    '{"provider":"email","providers":["email"]}',
-    '{"full_name":"Trainer User","role":"Trainer"}',
-    NOW(),
-    NOW(),
-    FALSE
-  )
-ON CONFLICT (id) DO NOTHING;
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  '11111111-1111-1111-1111-111111111111',
+  'authenticated',
+  'authenticated',
+  'superadmin@fusionfit.com',
+  extensions.crypt('password123', extensions.gen_salt('bf')),
+  NOW(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Super Admin User","role":"Super Admin"}',
+  NOW(),
+  NOW(),
+  FALSE
+);
+
+INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+VALUES (
+  '11111111-1111-1111-1111-111111111111',
+  '11111111-1111-1111-1111-111111111111',
+  '{"sub":"11111111-1111-1111-1111-111111111111","email":"superadmin@fusionfit.com"}',
+  'email',
+  'superadmin@fusionfit.com',
+  NOW(),
+  NOW(),
+  NOW()
+);
+
+-- Seed Admin
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_sso_user
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  '22222222-2222-2222-2222-222222222222',
+  'authenticated',
+  'authenticated',
+  'admin@fusionfit.com',
+  extensions.crypt('password123', extensions.gen_salt('bf')),
+  NOW(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Admin User","role":"Admin"}',
+  NOW(),
+  NOW(),
+  FALSE
+);
+
+INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+VALUES (
+  '22222222-2222-2222-2222-222222222222',
+  '22222222-2222-2222-2222-222222222222',
+  '{"sub":"22222222-2222-2222-2222-222222222222","email":"admin@fusionfit.com"}',
+  'email',
+  'admin@fusionfit.com',
+  NOW(),
+  NOW(),
+  NOW()
+);
+
+-- Seed Receptionist
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_sso_user
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  '33333333-3333-3333-3333-333333333333',
+  'authenticated',
+  'authenticated',
+  'receptionist@fusionfit.com',
+  extensions.crypt('password123', extensions.gen_salt('bf')),
+  NOW(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Receptionist User","role":"Receptionist"}',
+  NOW(),
+  NOW(),
+  FALSE
+);
+
+INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+VALUES (
+  '33333333-3333-3333-3333-333333333333',
+  '33333333-3333-3333-3333-333333333333',
+  '{"sub":"33333333-3333-3333-3333-333333333333","email":"receptionist@fusionfit.com"}',
+  'email',
+  'receptionist@fusionfit.com',
+  NOW(),
+  NOW(),
+  NOW()
+);
+
+-- Seed Trainer
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at, is_sso_user
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  '44444444-4444-4444-4444-444444444444',
+  'authenticated',
+  'authenticated',
+  'trainer@fusionfit.com',
+  extensions.crypt('password123', extensions.gen_salt('bf')),
+  NOW(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Trainer User","role":"Trainer"}',
+  NOW(),
+  NOW(),
+  FALSE
+);
+
+INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+VALUES (
+  '44444444-4444-4444-4444-444444444444',
+  '44444444-4444-4444-4444-444444444444',
+  '{"sub":"44444444-4444-4444-4444-444444444444","email":"trainer@fusionfit.com"}',
+  'email',
+  'trainer@fusionfit.com',
+  NOW(),
+  NOW(),
+  NOW()
+);
