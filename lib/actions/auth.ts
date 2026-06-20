@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { logAudit } from './audit';
+import { verifySession, signSession } from '@/lib/session-cache';
 
 export async function getCurrentUserProfile() {
   const supabase = await createClient();
@@ -15,16 +16,58 @@ export async function getCurrentUserProfile() {
 
   if (userError || !user) return null;
 
-  // Retrieve their user_profile role
+  // Retrieve cached user_profile details if present and valid
+  const cookieStore = await cookies();
+  const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
+  const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
+
+  if (cachedProfile) {
+    const profile = {
+      id: cachedProfile.id,
+      auth_user_id: user.id,
+      full_name: cachedProfile.fullName,
+      email: user.email || '',
+      role: cachedProfile.role,
+      disabled: cachedProfile.disabled,
+      created_at: '',
+    };
+    return { user, profile };
+  }
+
+  // Retrieve their user_profile role from the database
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
-    .select('*')
+    .select('id, role, disabled, full_name')
     .eq('auth_user_id', user.id)
     .single();
 
   if (profileError || !profile) return null;
 
-  return { user, profile };
+  // Set the cryptographic cache cookie for subsequent loads (valid for 5 mins)
+  const sessionVal = await signSession({
+    id: profile.id,
+    role: profile.role as any,
+    disabled: profile.disabled,
+    fullName: profile.full_name || '',
+    userId: user.id
+  });
+  
+  cookieStore.set('fusionfit-session', sessionVal, {
+    maxAge: 5 * 60,
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  });
+
+  const fullProfile = {
+    ...profile,
+    auth_user_id: user.id,
+    email: user.email || '',
+    created_at: '',
+  };
+
+  return { user, profile: fullProfile };
 }
 
 export interface SignInState {

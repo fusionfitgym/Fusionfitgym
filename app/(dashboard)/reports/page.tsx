@@ -9,9 +9,10 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
+import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceReport, getMemberReport, getRevenueReport } from '@/lib/actions/reports';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { TableSkeleton } from '@/components/ui/Skeleton';
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'attendance' | 'members' | 'revenue'>('attendance');
@@ -213,7 +214,7 @@ export default function ReportsPage() {
 
       {/* Results Content */}
       {loading ? (
-        <LoadingSpinner size={40} />
+        <TableSkeleton rows={8} cols={activeTab === 'attendance' ? 4 : 6} />
       ) : (
         <div className="card overflow-hidden">
           {activeTab === 'attendance' && (

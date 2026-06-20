@@ -1,7 +1,7 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import {
   Activity,
   ArrowRight,
@@ -15,92 +15,98 @@ import {
   Users,
   Send,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+
+import { createClient } from '@/lib/supabase/server';
+import { verifySession } from '@/lib/session-cache';
+import { Member } from '@/types';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentMembers } from '@/components/dashboard/RecentMembers';
-import { LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
-import { getMembers } from '@/lib/actions/members';
-import { getInvoices } from '@/lib/actions/invoices';
+import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceAnalytics } from '@/lib/actions/attendance';
 import { getSMSStats } from '@/lib/actions/sms';
-import { Invoice, Member } from '@/types';
 import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
-import { useAuth } from '@/components/auth/AuthProvider';
+import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
+import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
 
-const planColors: Record<string, string> = {
-  Monthly: '#f4c430',
-  Quarterly: '#f59e0b',
-  Biannual: '#64748b',
-  Annual: '#18181b',
-};
-
-export default function DashboardPage() {
-  const { profile } = useAuth();
+export default async function DashboardPage() {
+  const supabase = await createClient();
   
-  const [members, setMembers] = useState<Member[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [attendance, setAttendance] = useState<any>(null);
-  const [smsStats, setSmsStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // 1. Authenticate user session on the server
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Role permissions
+  if (!user) {
+    redirect('/login');
+  }
+
+  // 2. Fetch profile from cookie cache or database
+  const cookieStore = await cookies();
+  const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
+  const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
+
+  let profile = null;
+  if (cachedProfile) {
+    profile = {
+      role: cachedProfile.role,
+      full_name: cachedProfile.fullName
+    };
+  } else {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('role, full_name')
+      .eq('auth_user_id', user.id)
+      .single();
+    profile = data;
+  }
+
   const role = profile?.role || 'Trainer';
   const showRevenueAnalytics = ['Super Admin', 'Admin'].includes(role);
   const showAttendanceAnalytics = ['Super Admin', 'Admin', 'Receptionist'].includes(role);
   const showSMSAnalytics = ['Super Admin', 'Admin'].includes(role);
 
-  useEffect(() => {
-    if (!profile) return;
+  // 3. Optimized parallel fetching of data
+  const promises: any[] = [
+    supabase
+      .from('members')
+      .select('id, full_name, phone, join_date, status, membership_plan, profile_photo')
+      .order('created_at', { ascending: false })
+  ];
 
-    setLoading(true);
-    const promises: Promise<any>[] = [getMembers()];
+  if (showRevenueAnalytics) {
+    promises.push(
+      supabase
+        .from('invoices')
+        .select('amount, status, created_at')
+        .eq('status', 'Paid')
+    );
+  } else {
+    promises.push(Promise.resolve({ data: [] }));
+  }
 
-    // Add Invoices if permitted
-    if (showRevenueAnalytics || showAttendanceAnalytics) {
-      promises.push(getInvoices());
-    } else {
-      promises.push(Promise.resolve([]));
-    }
+  if (showAttendanceAnalytics) {
+    promises.push(getAttendanceAnalytics());
+  } else {
+    promises.push(Promise.resolve(null));
+  }
 
-    // Add Attendance if permitted
-    if (showAttendanceAnalytics) {
-      promises.push(getAttendanceAnalytics());
-    } else {
-      promises.push(Promise.resolve(null));
-    }
+  if (showSMSAnalytics) {
+    promises.push(getSMSStats());
+  } else {
+    promises.push(Promise.resolve(null));
+  }
 
-    // Add SMS stats if permitted
-    if (showSMSAnalytics) {
-      promises.push(getSMSStats());
-    } else {
-      promises.push(Promise.resolve(null));
-    }
+  const [
+    membersResult,
+    invoicesResult,
+    attendance,
+    smsStats
+  ] = await Promise.all(promises);
 
-    Promise.all(promises)
-      .then(([memberData, invoiceData, attendanceData, smsStatsData]) => {
-        setMembers(memberData || []);
-        setInvoices(invoiceData || []);
-        setAttendance(attendanceData);
-        setSmsStats(smsStatsData);
-      })
-      .catch((err) => console.error('Failed to load dashboard data:', err))
-      .finally(() => setLoading(false));
-  }, [profile, showRevenueAnalytics, showAttendanceAnalytics, showSMSAnalytics]);
+  const members = (membersResult?.data || []) as Member[];
+  const invoices = (invoicesResult?.data || []) as any[];
 
-  if (loading) return <LoadingSpinner size={40} />;
-
+  // 4. Client-side state operations computed on Server
   const total = members.length;
   const active = members.filter((member) => member.status === 'Active').length;
   const expiringSoon = members.filter(
@@ -115,6 +121,7 @@ export default function DashboardPage() {
     .filter((invoice) => invoice.status === 'Paid' && new Date(invoice.created_at) >= monthStart)
     .reduce((sum, invoice) => sum + Number(invoice.amount), 0);
 
+  // Chart data formatting
   const planCounts: Record<string, number> = {};
   members.forEach((member) => {
     planCounts[member.membership_plan] = (planCounts[member.membership_plan] ?? 0) + 1;
@@ -152,9 +159,9 @@ export default function DashboardPage() {
 
   const quickActions = [
     { href: '/members/add', label: 'Add member', description: 'Create a member profile', icon: UserPlus, roles: ['Super Admin', 'Admin', 'Receptionist', 'Trainer'] },
-    { href: '/invoices/new', label: 'Create invoice', description: 'Record a membership payment', icon: FileText, roles: ['Super Admin', 'Admin', 'Receptionist'] },
+    { href: '/invoices/new', label: 'Create invoice', description: 'Record a payment', icon: FileText, roles: ['Super Admin', 'Admin', 'Receptionist'] },
     { href: '/health/new', label: 'Health assessment', description: 'Capture fitness metrics', icon: Dumbbell, roles: ['Super Admin', 'Admin', 'Trainer'] },
-    { href: '/parq/new', label: 'New PAR-Q form', description: 'Run readiness screening', icon: ClipboardList, roles: ['Super Admin', 'Admin', 'Trainer'] },
+    { href: '/parq/new', label: 'New PAR-Q form', description: 'Readiness screening', icon: ClipboardList, roles: ['Super Admin', 'Admin', 'Trainer'] },
   ].filter((action) => action.roles.includes(role));
 
   const visibleCardsCount = 1 + (showAttendanceAnalytics ? 2 : 0) + (showRevenueAnalytics ? 1 : 0);
@@ -276,114 +283,14 @@ export default function DashboardPage() {
 
       {/* Dynamic Visualizations & Expiring Alerts */}
       {showRevenueAnalytics && (
-        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          {/* Revenue trend graph */}
-          <section className="card min-h-80 p-4 sm:p-6 xl:col-span-2">
-            <div className="mb-6">
-              <h2 className="section-title">Revenue trend</h2>
-              <p className="section-description">Paid invoice volume over the last six months</p>
-            </div>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e9edf2" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#8c94a3' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#8c94a3' }} />
-                  <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    formatter={(value) => [formatCurrency(Number(value ?? 0)), 'Revenue']}
-                    contentStyle={{
-                      borderRadius: 10,
-                      border: '1px solid #e2e5ea',
-                      boxShadow: '0 12px 28px rgba(15,23,42,0.08)',
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar dataKey="revenue" fill="#f4c430" radius={[6, 6, 0, 0]} maxBarSize={48} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-
-          {/* Membership mix */}
-          <section className="card min-h-80 p-4 sm:p-6">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="section-title">Membership mix</h2>
-                <p className="section-description">Distribution across available plans</p>
-              </div>
-            </div>
-            {pieData.length > 0 ? (
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="45%"
-                      innerRadius={52}
-                      outerRadius={82}
-                      dataKey="value"
-                      paddingAngle={3}
-                      stroke="none"
-                    >
-                      {pieData.map((entry) => (
-                        <Cell key={entry.name} fill={planColors[entry.name] ?? '#f4c430'} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 10,
-                        border: '1px solid #e2e5ea',
-                        boxShadow: '0 12px 28px rgba(15,23,42,0.08)',
-                        fontSize: 12,
-                      }}
-                    />
-                    <Legend iconSize={8} wrapperStyle={{ fontSize: 12, color: '#5e6573' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex h-64 items-center justify-center text-sm text-slate-400">No membership data yet</div>
-            )}
-          </section>
-        </div>
+        <DashboardChartsSection revenueData={revenueData} pieData={pieData} />
       )}
 
       {/* Attendance Trend Widget & Expiry warnings list */}
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Hourly distribution peak log */}
         {showAttendanceAnalytics && (
-          <section className="card p-4 sm:p-6 xl:col-span-2">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="section-title">Today's attendance peak times</h2>
-                <p className="section-description">Gate entry counts grouped per hour</p>
-              </div>
-              <Link href="/attendance" className="btn btn-ghost btn-sm">
-                View live logs <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attendance?.hourlyDistribution ?? []} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e9edf2" />
-                  <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#8c94a3' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#8c94a3' }} />
-                  <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{
-                      borderRadius: 10,
-                      border: '1px solid #e2e5ea',
-                      boxShadow: '0 12px 28px rgba(15,23,42,0.08)',
-                      fontSize: 12,
-                    }}
-                  />
-                  <Bar dataKey="count" name="Check-ins" fill="#f4c430" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
+          <AttendancePeakSection hourlyDistribution={attendance?.hourlyDistribution ?? []} />
         )}
 
         {/* Expiring memberships roster */}
@@ -419,7 +326,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6">
-        <RecentMembers members={members} />
+        <RecentMembers members={members as any} />
       </div>
     </div>
   );

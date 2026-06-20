@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { verifySession, signSession } from '@/lib/session-cache';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -65,27 +66,55 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 2. Fetch User Profile for Role Validation and Disabled Status
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('role, disabled')
-    .eq('auth_user_id', user.id)
-    .single();
+  // 2. Retrieve role and status (use cryptographically signed session cache if valid)
+  let role = '';
+  let disabled = false;
+  const cachedSessionVal = request.cookies.get('fusionfit-session')?.value;
+  const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
 
-  // If user profile is not found or is disabled: log them out and redirect to login page
-  if (!profile || profile.disabled) {
-    await supabase.auth.signOut();
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    url.searchParams.set('error', 'Your account has been disabled or does not exist.');
-    const response = NextResponse.redirect(url);
-    // Clear cookies
-    response.cookies.delete('sb-access-token');
-    response.cookies.delete('sb-refresh-token');
-    return response;
+  if (cachedProfile) {
+    role = cachedProfile.role;
+    disabled = cachedProfile.disabled;
+  } else {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id, role, disabled, full_name')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    // If user profile is not found or is disabled: log them out and redirect to login page
+    if (!profile || profile.disabled) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('error', 'Your account has been disabled or does not exist.');
+      const response = NextResponse.redirect(url);
+      // Clear cookies
+      response.cookies.delete('sb-access-token');
+      response.cookies.delete('sb-refresh-token');
+      response.cookies.delete('fusionfit-session');
+      return response;
+    }
+
+    role = profile.role;
+    disabled = profile.disabled;
+
+    // Cache the role and status in a signed cookie for subsequent loads (valid for 5 mins)
+    const sessionVal = await signSession({
+      id: profile.id,
+      role: profile.role as any,
+      disabled: profile.disabled,
+      fullName: profile.full_name || '',
+      userId: user.id
+    });
+    supabaseResponse.cookies.set('fusionfit-session', sessionVal, {
+      maxAge: 5 * 60,
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
   }
-
-  const role = profile.role;
 
   // 3. Route Protection (Role-Based Access Control)
   

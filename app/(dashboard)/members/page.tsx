@@ -5,43 +5,66 @@ import Link from 'next/link';
 import { Edit, Eye, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
+import { EmptyState } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { deleteMember, getMembers } from '@/lib/actions/members';
+import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
 import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
+import { TableSkeleton, MobileListSkeleton } from '@/components/ui/Skeleton';
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [planFilter, setPlanFilter] = useState('All');
+  const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  useEffect(() => {
-    getMembers()
-      .then(setMembers)
-      .finally(() => setLoading(false));
-  }, []);
+  const limit = 10;
+  const totalPages = Math.ceil(totalCount / limit);
 
-  const filtered = members.filter((member) => {
-    const query = search.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      member.full_name.toLowerCase().includes(query) ||
-      member.phone.toLowerCase().includes(query) ||
-      (member.email ?? '').toLowerCase().includes(query);
-    const matchesStatus = statusFilter === 'All' || member.status === statusFilter;
-    const matchesPlan = planFilter === 'All' || member.membership_plan === planFilter;
-    return matchesSearch && matchesStatus && matchesPlan;
-  });
+  // Debounce search input to avoid query spamming on every keystroke
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to page 1 on new search query
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, planFilter]);
+
+  // Fetch paginated members list
+  useEffect(() => {
+    setLoading(true);
+    getMembersPaginated({
+      page,
+      limit,
+      search: debouncedSearch,
+      status: statusFilter,
+      plan: planFilter
+    })
+      .then((data) => {
+        setMembers(data.members);
+        setTotalCount(data.totalCount);
+      })
+      .catch((err) => console.error('Failed to load paginated members:', err))
+      .finally(() => setLoading(false));
+  }, [page, debouncedSearch, statusFilter, planFilter]);
 
   async function handleDelete(id: string) {
     setDeleting(id);
     try {
       await deleteMember(id);
       setMembers((current) => current.filter((member) => member.id !== id));
+      setTotalCount((c) => Math.max(0, c - 1));
     } catch {
       window.alert('Failed to delete member.');
     } finally {
@@ -53,7 +76,7 @@ export default function MembersPage() {
     <div className="page page-enter">
       <PageHeader
         title="Members"
-        subtitle={`${members.length} registered member${members.length === 1 ? '' : 's'} across all plans.`}
+        subtitle={`${totalCount} registered member${totalCount === 1 ? '' : 's'} across all plans.`}
         action={
           <Link href="/members/add" className="btn btn-primary">
             <UserPlus className="h-4 w-4" /> Add member
@@ -96,18 +119,25 @@ export default function MembersPage() {
       </section>
 
       {loading ? (
-        <LoadingSpinner />
-      ) : filtered.length === 0 ? (
+        <div className="space-y-4">
+          <div className="hidden md:block">
+            <TableSkeleton rows={limit} cols={6} />
+          </div>
+          <div className="md:hidden">
+            <MobileListSkeleton count={3} />
+          </div>
+        </div>
+      ) : members.length === 0 ? (
         <EmptyState
           icon={<Users className="h-5 w-5" />}
           title="No members found"
-          description={members.length === 0 ? 'Add the first member to start building your workspace.' : 'Try a different search or filter combination.'}
+          description={debouncedSearch || statusFilter !== 'All' || planFilter !== 'All' ? 'Try a different search or filter combination.' : 'Add the first member to start building your workspace.'}
           action={
-            members.length === 0 ? (
+            debouncedSearch || statusFilter !== 'All' || planFilter !== 'All' ? undefined : (
               <Link href="/members/add" className="btn btn-primary">
                 <UserPlus className="h-4 w-4" /> Add first member
               </Link>
-            ) : undefined
+            )
           }
         />
       ) : (
@@ -125,7 +155,7 @@ export default function MembersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((member) => (
+                {members.map((member) => (
                   <tr key={member.id}>
                     <td>
                       <div className="flex min-w-0 items-center gap-3">
@@ -173,7 +203,7 @@ export default function MembersPage() {
           </div>
 
           <div className="data-cards">
-            {filtered.map((member) => (
+            {members.map((member) => (
               <article key={member.id} className="mobile-record">
                 <div className="mobile-record-header">
                   <div className="flex min-w-0 items-center gap-3">
@@ -213,11 +243,98 @@ export default function MembersPage() {
             ))}
           </div>
 
-          <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500 sm:px-6">
-            Showing {filtered.length} of {members.length} members
+          {/* Premium Pagination Footer */}
+          <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="btn btn-secondary btn-sm"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="btn btn-secondary btn-sm"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs text-slate-500">
+                  Showing <span className="font-semibold text-slate-900">{Math.min(totalCount, (page - 1) * limit + 1)}</span> to{' '}
+                  <span className="font-semibold text-slate-900">{Math.min(totalCount, page * limit)}</span> of{' '}
+                  <span className="font-semibold text-slate-900">{totalCount}</span> members
+                </p>
+              </div>
+              {totalPages > 1 && (
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-xl shadow-xs" aria-label="Pagination">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="relative inline-flex items-center rounded-l-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: totalPages }).map((_, i) => {
+                      const pageNum = i + 1;
+                      if (totalPages > 5 && Math.abs(pageNum - page) > 2 && pageNum !== 1 && pageNum !== totalPages) {
+                        if (pageNum === 2 || pageNum === totalPages - 1) {
+                          return <span key={pageNum} className="relative inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-400">...</span>;
+                        }
+                        return null;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setPage(pageNum)}
+                          aria-current={page === pageNum ? 'page' : undefined}
+                          className={cn(
+                            'relative inline-flex items-center border px-3 py-1.5 text-xs font-semibold focus:z-20 cursor-pointer',
+                            page === pageNum
+                              ? 'z-10 border-amber-300 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                          )}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="relative inline-flex items-center rounded-r-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50 focus:z-20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}
     </div>
+  );
+}
+
+interface PageHeaderProps {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}
+
+function PageHeader({ title, subtitle, action }: PageHeaderProps) {
+  return (
+    <header className="page-header">
+      <div className="page-header-copy">
+        <h1 className="page-title">{title}</h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
+      </div>
+      {action && <div className="page-actions">{action}</div>}
+    </header>
   );
 }

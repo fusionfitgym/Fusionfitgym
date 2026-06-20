@@ -28,42 +28,44 @@ export async function getSMSLogs(): Promise<SMSLog[]> {
 export async function getSMSStats() {
   const supabase = await createClient();
   
-  // Total Sent (status = 'Sent')
-  const { count: totalSent } = await supabase
-    .from('sms_logs')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'Sent');
-
-  // Total Failed (status = 'Failed')
-  const { count: failed } = await supabase
-    .from('sms_logs')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'Failed');
-
-  // Today's Sent
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const { count: todaySent } = await supabase
-    .from('sms_logs')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'Sent')
-    .gte('created_at', todayStart.toISOString());
 
-  // Today's Failed
-  const { count: todayFailed } = await supabase
-    .from('sms_logs')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'Failed')
-    .gte('created_at', todayStart.toISOString());
-
-  // Monthly Sent (from start of month)
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const { count: monthlySent } = await supabase
-    .from('sms_logs')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'Sent')
-    .gte('created_at', monthStart.toISOString());
+
+  // Execute all count queries in parallel using Promise.all
+  const [
+    { count: totalSent },
+    { count: failed },
+    { count: todaySent },
+    { count: todayFailed },
+    { count: monthlySent }
+  ] = await Promise.all([
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Sent'),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Failed'),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Sent')
+      .gte('created_at', todayStart.toISOString()),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Failed')
+      .gte('created_at', todayStart.toISOString()),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Sent')
+      .gte('created_at', monthStart.toISOString())
+  ]);
 
   // Calculate Success Rate: Sent / (Sent + Failed) over all attempts
   const sentCount = totalSent ?? 0;

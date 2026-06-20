@@ -120,11 +120,21 @@ export async function uploadProfilePhoto(file: File): Promise<string> {
 
 export async function getDashboardStats() {
   const supabase = await createClient();
-  const { data: members } = await supabase.from('members').select('status, membership_plan, join_date');
-  const { data: invoices } = await supabase
-    .from('invoices')
-    .select('amount, status, created_at')
-    .eq('status', 'Paid');
+  
+  // Run queries in parallel using Promise.all
+  const [
+    { data: members, error: membersError },
+    { data: invoices, error: invoicesError }
+  ] = await Promise.all([
+    supabase.from('members').select('status, membership_plan, join_date'),
+    supabase
+      .from('invoices')
+      .select('amount, status, created_at')
+      .eq('status', 'Paid')
+  ]);
+
+  if (membersError) throw membersError;
+  if (invoicesError) throw invoicesError;
 
   const total = members?.length ?? 0;
   const active = members?.filter(m => m.status === 'Active').length ?? 0;
@@ -136,4 +146,57 @@ export async function getDashboardStats() {
     .reduce((sum, i) => sum + Number(i.amount), 0) ?? 0;
 
   return { total, active, revenue };
+}
+
+export async function getMembersPaginated({
+  page = 1,
+  limit = 10,
+  search = '',
+  status = 'All',
+  plan = 'All'
+}: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  plan?: string;
+} = {}): Promise<{ members: Member[]; totalCount: number }> {
+  const supabase = await createClient();
+  const offset = (page - 1) * limit;
+
+  let query = supabase
+    .from('members')
+    .select('*', { count: 'exact' });
+
+  // Apply search filtering on name, phone, or email
+  const cleanSearch = search.trim();
+  if (cleanSearch) {
+    query = query.or(`full_name.ilike.%${cleanSearch}%,phone.ilike.%${cleanSearch}%,email.ilike.%${cleanSearch}%`);
+  }
+
+  // Apply status filter
+  if (status && status !== 'All') {
+    query = query.eq('status', status);
+  }
+
+  // Apply plan filter
+  if (plan && plan !== 'All') {
+    query = query.eq('membership_plan', plan);
+  }
+
+  // Sorting and pagination ranges
+  query = query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  const { data, count, error } = await query;
+  if (error) {
+    console.error('Error fetching paginated members:', error);
+    throw error;
+  }
+
+  return {
+    members: (data || []) as Member[],
+    totalCount: count || 0,
+  };
 }

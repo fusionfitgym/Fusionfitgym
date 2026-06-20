@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
-import { AttendanceLog } from '@/types';
+import { AttendanceLog, Member } from '@/types';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
 
@@ -62,11 +62,34 @@ export async function getAttendanceAnalytics() {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  // Fetch today's logs
-  const { data: todayLogs, error: todayError } = await supabase
-    .from('attendance_logs')
-    .select('member_id, punch_type, punch_time')
-    .gte('punch_time', startOfDay.toISOString());
+  const fourHoursAgo = new Date();
+  fourHoursAgo.setHours(fourHoursAgo.getHours() - 4);
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0,0,0,0);
+
+  // Fetch all attendance analytics queries in parallel to optimize DB load
+  const [
+    { data: todayLogs, error: todayError },
+    { data: recentLogs, error: recentError },
+    { data: trendLogs, error: trendError }
+  ] = await Promise.all([
+    supabase
+      .from('attendance_logs')
+      .select('member_id, punch_type, punch_time')
+      .gte('punch_time', startOfDay.toISOString()),
+    supabase
+      .from('attendance_logs')
+      .select('member_id, punch_type, punch_time')
+      .gte('punch_time', fourHoursAgo.toISOString())
+      .order('punch_time', { ascending: true }),
+    supabase
+      .from('attendance_logs')
+      .select('punch_time, punch_type')
+      .gte('punch_time', thirtyDaysAgo.toISOString())
+      .eq('punch_type', 'checkin')
+  ]);
 
   if (todayError) {
     console.error('Error fetching today logs for analytics:', todayError);
@@ -80,16 +103,6 @@ export async function getAttendanceAnalytics() {
     else if (log.punch_type === 'checkout') checkouts++;
   });
 
-  // Occupancy calculation: Members who checked-in within the last 4 hours and did not checkout subsequently
-  const fourHoursAgo = new Date();
-  fourHoursAgo.setHours(fourHoursAgo.getHours() - 4);
-
-  const { data: recentLogs, error: recentError } = await supabase
-    .from('attendance_logs')
-    .select('member_id, punch_type, punch_time')
-    .gte('punch_time', fourHoursAgo.toISOString())
-    .order('punch_time', { ascending: true });
-
   const activeMembers = new Set<string>();
   if (!recentError && recentLogs) {
     recentLogs.forEach((log) => {
@@ -102,16 +115,6 @@ export async function getAttendanceAnalytics() {
   }
   const occupancy = activeMembers.size;
 
-  // Monthly trends (past 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setHours(0,0,0,0);
-
-  const { data: trendLogs } = await supabase
-    .from('attendance_logs')
-    .select('punch_time, punch_type')
-    .gte('punch_time', thirtyDaysAgo.toISOString())
-    .eq('punch_type', 'checkin');
 
   const dailyCounts: Record<string, number> = {};
   for (let i = 29; i >= 0; i--) {
@@ -188,4 +191,45 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
     'Attendance',
     user.id
   );
+}
+
+// Fetch the 10 most recent logs of today, batch-enriching member data on the server
+export async function getTodayMonitorLogs() {
+  const supabase = await createClient();
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  // Fetch the 10 most recent logs of today in a single query
+  const { data: logs, error: logsError } = await supabase
+    .from('attendance_logs')
+    .select('id, member_id, member_name, device_user_id, punch_time, punch_type')
+    .gte('punch_time', startOfDay.toISOString())
+    .order('punch_time', { ascending: false })
+    .limit(10);
+
+  if (logsError) {
+    console.error('Error in getTodayMonitorLogs:', logsError);
+    throw logsError;
+  }
+
+  if (!logs || logs.length === 0) return [];
+
+  // Batch query all associated members to avoid N+1 query overhead in client
+  const memberIds = Array.from(new Set(logs.map(log => log.member_id)));
+  const { data: members, error: membersError } = await supabase
+    .from('members')
+    .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo')
+    .in('id', memberIds);
+
+  if (membersError) {
+    console.error('Error fetching batch members for monitor:', membersError);
+    throw membersError;
+  }
+
+  const memberMap = new Map((members || []).map(m => [m.id, m]));
+
+  return logs.map(log => ({
+    ...log,
+    member: memberMap.get(log.member_id) || null
+  }));
 }
