@@ -28,7 +28,7 @@ export async function getCurrentUserProfile() {
       full_name: cachedProfile.fullName,
       email: user.email || '',
       role: cachedProfile.role,
-      disabled: cachedProfile.disabled,
+      status: cachedProfile.status,
       created_at: '',
     };
     return { user, profile };
@@ -36,8 +36,8 @@ export async function getCurrentUserProfile() {
 
   // Retrieve their user_profile role from the database
   const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id, role, disabled, full_name')
+    .from('users_profiles')
+    .select('id, role, status, full_name')
     .eq('auth_user_id', user.id)
     .single();
 
@@ -47,7 +47,7 @@ export async function getCurrentUserProfile() {
   const sessionVal = await signSession({
     id: profile.id,
     role: profile.role as any,
-    disabled: profile.disabled,
+    status: profile.status as any,
     fullName: profile.full_name || '',
     userId: user.id
   });
@@ -117,9 +117,9 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
     return { error: error.message };
   }
 
-  // 4. Validate Account Status (Disabled Check)
+  // 4. Validate Account Status (Suspended Check)
   const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
+    .from('users_profiles')
     .select('*')
     .eq('auth_user_id', data.user.id)
     .single();
@@ -130,10 +130,10 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
     return { error: 'No profile associated with this account.' };
   }
 
-  if (profile.disabled) {
+  if (profile.status === 'Suspended') {
     await supabase.auth.signOut();
-    await logAudit(`Login Attempt on Disabled Account: ${email}`, 'Auth');
-    return { error: 'Your account has been disabled. Please contact the administrator.' };
+    await logAudit(`Login Attempt on Suspended Account: ${email}`, 'Auth');
+    return { error: 'Your account has been suspended. Please contact the administrator.' };
   }
 
   // 5. Audit Logging & Session confirmation
@@ -175,8 +175,8 @@ export async function validateRole(allowedRoles: string[]) {
   if (!result || !result.profile) {
     throw new Error('Unauthenticated. Please log in.');
   }
-  if (result.profile.disabled) {
-    throw new Error('Unauthorized. Your account has been disabled.');
+  if (result.profile.status === 'Suspended') {
+    throw new Error('Unauthorized. Your account has been suspended.');
   }
   if (!allowedRoles.includes(result.profile.role)) {
     throw new Error('Unauthorized. You do not have permission for this action.');

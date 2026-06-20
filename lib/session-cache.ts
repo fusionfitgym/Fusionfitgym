@@ -15,7 +15,7 @@ async function getCryptoKey(): Promise<CryptoKey> {
 export interface CachedProfile {
   id: string;
   role: 'Super Admin' | 'Admin' | 'Receptionist' | 'Trainer';
-  disabled: boolean;
+  status: 'Active' | 'Suspended';
   fullName: string;
 }
 
@@ -24,7 +24,7 @@ export async function signSession(payload: CachedProfile & { userId: string }): 
   const data = {
     id: payload.id,
     role: payload.role,
-    disabled: payload.disabled,
+    status: payload.status,
     userId: payload.userId,
     fullName: payload.fullName,
     expiry
@@ -75,7 +75,7 @@ export async function verifySession(cookieValue: string, userId: string): Promis
     return {
       id: data.id,
       role: data.role,
-      disabled: data.disabled,
+      status: data.status,
       fullName: data.fullName
     };
   } catch (e) {

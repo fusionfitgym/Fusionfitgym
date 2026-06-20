@@ -12,7 +12,7 @@ interface UserProfile {
   full_name: string;
   email: string;
   role: 'Super Admin' | 'Admin' | 'Receptionist' | 'Trainer';
-  disabled: boolean;
+  status: 'Active' | 'Suspended';
   created_at: string;
 }
 
@@ -39,11 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data) {
         setUser(data.user);
         setProfile(data.profile as UserProfile);
-        if (data.profile?.disabled) {
+        if (data.profile?.status === 'Suspended') {
           await signOutAction();
           setUser(null);
           setProfile(null);
-          router.push('/login?error=Your account has been disabled. Please contact the administrator.');
+          router.push('/login?error=Your account has been suspended. Please contact the administrator.');
         }
       } else {
         setUser(null);

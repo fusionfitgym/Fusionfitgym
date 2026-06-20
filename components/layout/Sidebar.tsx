@@ -33,6 +33,7 @@ const navItems = [
   { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
   { href: '/invoices', label: 'Invoices', icon: FileText },
   { href: '/sms', label: 'SMS Logs', icon: MessageSquare },
+  { href: '/users', label: 'User Management', icon: UserPlus },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -113,17 +114,7 @@ function NavContent({
     return false;
   });
 
-  // Inject User Management for Super Admins
-  const finalItems = [...filteredItems];
-  if (profile?.role === 'Super Admin') {
-    const settingsIndex = finalItems.findIndex((item) => item.href === '/settings');
-    const userMgmtItem = { href: '/settings/users', label: 'User Management', icon: UserPlus };
-    if (settingsIndex !== -1) {
-      finalItems.splice(settingsIndex, 0, userMgmtItem);
-    } else {
-      finalItems.push(userMgmtItem);
-    }
-  }
+  const finalItems = filteredItems;
 
   const getInitials = (name: string) => {
     if (!name) return 'U';

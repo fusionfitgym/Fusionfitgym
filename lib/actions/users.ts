@@ -29,7 +29,7 @@ async function enforceSuperAdmin() {
   if (!user) throw new Error('Unauthenticated');
 
   const { data: profile } = await supabase
-    .from('user_profiles')
+    .from('users_profiles')
     .select('role')
     .eq('auth_user_id', user.id)
     .single();
@@ -45,7 +45,7 @@ export async function listProfiles() {
   const supabase = await createServerClient();
 
   const { data, error } = await supabase
-    .from('user_profiles')
+    .from('users_profiles')
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -53,39 +53,137 @@ export async function listProfiles() {
   return data;
 }
 
-export async function adminCreateUser(values: { email: string; password?: string; fullName: string; role: string }) {
+export async function adminCreateUser(values: {
+  email: string;
+  password?: string;
+  fullName: string;
+  phone?: string;
+  role: string;
+  status: 'Active' | 'Suspended';
+  notes?: string;
+}) {
   const adminId = await enforceSuperAdmin();
   const admin = getAdminClient();
 
   // Create auth account
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email: values.email,
-    password: values.password || 'password123', // Default password if none provided
+    password: values.password || 'password123', // Default temporary password if none provided
     email_confirm: true,
     user_metadata: {
       full_name: values.fullName,
       role: values.role,
+      phone: values.phone || '',
+      status: values.status,
+      notes: values.notes || '',
     },
   });
 
   if (authError) throw authError;
 
+  // The database trigger 'on_auth_user_created' will auto-insert into 'users_profiles'.
+  // However, we explicitly update the profile to ensure all our custom fields are saved immediately.
+  const supabase = await createServerClient();
+  const { error: profileError } = await supabase
+    .from('users_profiles')
+    .update({
+      full_name: values.fullName,
+      phone: values.phone || '',
+      role: values.role,
+      status: values.status,
+      notes: values.notes || '',
+    })
+    .eq('auth_user_id', authData.user.id);
+
+  if (profileError) {
+    console.error('Error updating users_profiles on creation:', profileError);
+  }
+
   await logAudit(`Created user account: ${values.email} as ${values.role}`, 'Users', adminId);
   return authData.user;
+}
+
+export async function adminUpdateUser(values: {
+  id: string; // users_profiles.id
+  authUserId: string;
+  fullName: string;
+  phone?: string;
+  role: string;
+  status: 'Active' | 'Suspended';
+  notes?: string;
+  userEmail: string;
+}) {
+  const adminId = await enforceSuperAdmin();
+  
+  if (values.authUserId === adminId && values.status === 'Suspended') {
+    throw new Error('You cannot suspend your own administrator account.');
+  }
+
+  const supabase = await createServerClient();
+  
+  // 1. Update public profile
+  const { error: profileError } = await supabase
+    .from('users_profiles')
+    .update({
+      full_name: values.fullName,
+      phone: values.phone || '',
+      role: values.role,
+      status: values.status,
+      notes: values.notes || '',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', values.id);
+
+  if (profileError) throw profileError;
+
+  // 2. Update auth metadata via admin client to keep it in sync
+  try {
+    const admin = getAdminClient();
+    const { error: authError } = await admin.auth.admin.updateUserById(values.authUserId, {
+      user_metadata: {
+        full_name: values.fullName,
+        role: values.role,
+        phone: values.phone || '',
+        status: values.status,
+        notes: values.notes || '',
+      }
+    });
+
+    if (authError) {
+      console.error('Failed to update auth metadata for user:', authError);
+    }
+  } catch (err) {
+    console.error('Error contacting Admin API for metadata sync:', err);
+  }
+
+  await logAudit(`Updated user profile: ${values.userEmail}`, 'Users', adminId);
 }
 
 export async function adminToggleUserDisabled(profileId: string, disabled: boolean, userEmail: string) {
   const adminId = await enforceSuperAdmin();
   const supabase = await createServerClient();
 
+  const targetStatus = disabled ? 'Suspended' : 'Active';
+
+  // Find the auth user id for self-suspension protection
+  const { data: profile } = await supabase
+    .from('users_profiles')
+    .select('auth_user_id')
+    .eq('id', profileId)
+    .single();
+
+  if (profile && profile.auth_user_id === adminId && targetStatus === 'Suspended') {
+    throw new Error('You cannot suspend your own administrator account.');
+  }
+
   const { error } = await supabase
-    .from('user_profiles')
-    .update({ disabled })
+    .from('users_profiles')
+    .update({ status: targetStatus })
     .eq('id', profileId);
 
   if (error) throw error;
 
-  await logAudit(`${disabled ? 'Disabled' : 'Enabled'} user account: ${userEmail}`, 'Users', adminId);
+  await logAudit(`Changed account status to ${targetStatus} for user: ${userEmail}`, 'Users', adminId);
 }
 
 export async function adminResetUserPassword(authUserId: string, newPassword: string, userEmail: string) {
@@ -103,6 +201,9 @@ export async function adminResetUserPassword(authUserId: string, newPassword: st
 
 export async function adminDeleteUser(authUserId: string, userEmail: string) {
   const adminId = await enforceSuperAdmin();
+  if (authUserId === adminId) {
+    throw new Error('You cannot delete your own administrator account.');
+  }
   const admin = getAdminClient();
 
   // Deleting user in auth.users deletes user_profile because of ON DELETE CASCADE
@@ -125,12 +226,13 @@ export async function listAuditLogs() {
       module,
       created_at,
       user_id,
-      user_profiles!audit_logs_user_id_fkey(full_name, email)
+      users_profiles!audit_logs_user_id_fkey(full_name, email)
     `)
     .order('created_at', { ascending: false })
     .limit(100);
 
   if (error) {
+    console.warn('Direct join on audit_logs and users_profiles failed, returning fallback audit log data:', error.message);
     // Fallback if relation schema isn't set up yet or fails
     const { data: fallbackData, error: fallbackError } = await supabase
       .from('audit_logs')

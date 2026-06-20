@@ -68,26 +68,26 @@ export async function middleware(request: NextRequest) {
 
   // 2. Retrieve role and status (use cryptographically signed session cache if valid)
   let role = '';
-  let disabled = false;
+  let status = 'Active';
   const cachedSessionVal = request.cookies.get('fusionfit-session')?.value;
   const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
 
   if (cachedProfile) {
     role = cachedProfile.role;
-    disabled = cachedProfile.disabled;
+    status = cachedProfile.status;
   } else {
     const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('id, role, disabled, full_name')
+      .from('users_profiles')
+      .select('id, role, status, full_name')
       .eq('auth_user_id', user.id)
       .single();
 
-    // If user profile is not found or is disabled: log them out and redirect to login page
-    if (!profile || profile.disabled) {
+    // If user profile is not found or is suspended: log them out and redirect to login page
+    if (!profile || profile.status === 'Suspended') {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = '/login';
-      url.searchParams.set('error', 'Your account has been disabled or does not exist.');
+      url.searchParams.set('error', 'Your account has been suspended or does not exist.');
       const response = NextResponse.redirect(url);
       // Clear cookies
       response.cookies.delete('sb-access-token');
@@ -97,13 +97,13 @@ export async function middleware(request: NextRequest) {
     }
 
     role = profile.role;
-    disabled = profile.disabled;
+    status = profile.status;
 
     // Cache the role and status in a signed cookie for subsequent loads (valid for 5 mins)
     const sessionVal = await signSession({
       id: profile.id,
       role: profile.role as any,
-      disabled: profile.disabled,
+      status: profile.status as any,
       fullName: profile.full_name || '',
       userId: user.id
     });
@@ -123,8 +123,8 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // settings/users is only accessible by Super Admin
-  if (pathname.startsWith('/settings/users')) {
+  // /users is only accessible by Super Admin
+  if (pathname.startsWith('/users')) {
     const url = request.nextUrl.clone();
     url.pathname = '/unauthorized';
     return NextResponse.redirect(url);

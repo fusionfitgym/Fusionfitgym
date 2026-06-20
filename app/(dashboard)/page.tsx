@@ -53,7 +53,7 @@ export default async function DashboardPage() {
     };
   } else {
     const { data } = await supabase
-      .from('user_profiles')
+      .from('users_profiles')
       .select('role, full_name')
       .eq('auth_user_id', user.id)
       .single();
