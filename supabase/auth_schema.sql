@@ -89,9 +89,9 @@ CREATE POLICY "Allow Super Admins full access to profiles" ON public.user_profil
 
 -- ── 5. RLS Policies for audit_logs ───────────────────────────
 
-CREATE POLICY "Allow authenticated users to insert audit logs" ON public.audit_logs
-  FOR INSERT TO authenticated
-  WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Allow anyone to insert audit logs" ON public.audit_logs
+  FOR INSERT
+  WITH CHECK (true);
 
 CREATE POLICY "Allow Super Admins to view audit logs" ON public.audit_logs
   FOR SELECT TO authenticated
