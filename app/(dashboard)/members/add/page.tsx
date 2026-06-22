@@ -17,9 +17,14 @@ export default function AddMemberPage() {
     setError(null);
     try {
       let profilePhoto = data.profile_photo;
-      if (photoFile) profilePhoto = await uploadProfilePhoto(photoFile);
-      const member = await createMember({ ...data, profile_photo: profilePhoto });
-      router.push(`/members/${member.id}`);
+      if (photoFile) {
+        const uploadRes = await uploadProfilePhoto(photoFile);
+        if (uploadRes.error) throw new Error(uploadRes.error);
+        profilePhoto = uploadRes.url;
+      }
+      const res = await createMember({ ...data, profile_photo: profilePhoto });
+      if (res.error || !res.data) throw new Error(res.error || 'Failed to create member');
+      router.push(`/members/${res.data.id}`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Failed to create member.');
     } finally {

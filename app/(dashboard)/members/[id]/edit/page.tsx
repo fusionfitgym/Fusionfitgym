@@ -26,8 +26,13 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
     setError(null);
     try {
       let profilePhoto = member?.profile_photo ?? data.profile_photo;
-      if (photoFile) profilePhoto = await uploadProfilePhoto(photoFile);
-      await updateMember(id, { ...data, profile_photo: profilePhoto ?? '' });
+      if (photoFile) {
+        const uploadRes = await uploadProfilePhoto(photoFile);
+        if (uploadRes.error) throw new Error(uploadRes.error);
+        profilePhoto = uploadRes.url ?? '';
+      }
+      const res = await updateMember(id, { ...data, profile_photo: profilePhoto ?? '' });
+      if (res.error) throw new Error(res.error);
       router.push(`/members/${id}`);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Failed to update member.');

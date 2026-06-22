@@ -28,66 +28,74 @@ export async function getMemberById(id: string): Promise<Member | null> {
   return data as Member;
 }
 
-export async function createMember(values: MemberFormValues): Promise<Member> {
-  const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('members')
-    .insert([values])
-    .select()
-    .single();
-  if (error) throw error;
-
-  await logAudit(`Created member: ${data.full_name}`, 'Members', user.id);
-
-  // Dispatch welcome SMS to the new member
+export async function createMember(values: MemberFormValues): Promise<{ data?: Member; error?: string }> {
   try {
-    if (data.phone) {
-      await sendWelcomeSMS(data.id, data.full_name, data.phone);
-    }
-  } catch (smsErr) {
-    console.error('Failed to trigger welcome SMS:', smsErr);
-  }
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('members')
+      .insert([values])
+      .select()
+      .single();
+    if (error) return { error: error.message };
 
-  return data as Member;
+    await logAudit(`Created member: ${data.full_name}`, 'Members', user.id);
+
+    // Dispatch welcome SMS to the new member
+    try {
+      if (data.phone) {
+        await sendWelcomeSMS(data.id, data.full_name, data.phone);
+      }
+    } catch (smsErr) {
+      console.error('Failed to trigger welcome SMS:', smsErr);
+    }
+
+    return { data: data as Member };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
 }
 
-export async function updateMember(id: string, values: Partial<MemberFormValues>): Promise<Member> {
-  const supabase = await createClient();
+export async function updateMember(id: string, values: Partial<MemberFormValues>): Promise<{ data?: Member; error?: string }> {
+  try {
+    const supabase = await createClient();
 
-  // Retrieve current member record to check status/plan changes
-  const { data: oldMember } = await supabase
-    .from('members')
-    .select('full_name, phone, join_date, status, membership_plan')
-    .eq('id', id)
-    .single();
+    // Retrieve current member record to check status/plan changes
+    const { data: oldMember } = await supabase
+      .from('members')
+      .select('full_name, phone, join_date, status, membership_plan')
+      .eq('id', id)
+      .single();
 
-  const { data, error } = await supabase
-    .from('members')
-    .update(values)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
+    const { data, error } = await supabase
+      .from('members')
+      .update(values)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return { error: error.message };
 
-  // Trigger automated Renewal SMS if membership start shifted or reactivated to Active
-  if (oldMember && data && data.phone) {
-    const isPlanRenewed = values.join_date && values.join_date !== oldMember.join_date;
-    const isStatusActivated = (oldMember.status === 'Expired' || oldMember.status === 'Inactive') && data.status === 'Active';
+    // Trigger automated Renewal SMS if membership start shifted or reactivated to Active
+    if (oldMember && data && data.phone) {
+      const isPlanRenewed = values.join_date && values.join_date !== oldMember.join_date;
+      const isStatusActivated = (oldMember.status === 'Expired' || oldMember.status === 'Inactive') && data.status === 'Active';
 
-    if (isPlanRenewed || isStatusActivated) {
-      const newExpiry = getMembershipExpiry(data.join_date, data.membership_plan);
-      const formattedExpiry = formatDate(newExpiry);
-      
-      try {
-        await sendRenewalSMS(data.id, data.full_name, formattedExpiry, data.phone);
-      } catch (smsErr) {
-        console.error('Failed to trigger renewal SMS:', smsErr);
+      if (isPlanRenewed || isStatusActivated) {
+        const newExpiry = getMembershipExpiry(data.join_date, data.membership_plan);
+        const formattedExpiry = formatDate(newExpiry);
+        
+        try {
+          await sendRenewalSMS(data.id, data.full_name, formattedExpiry, data.phone);
+        } catch (smsErr) {
+          console.error('Failed to trigger renewal SMS:', smsErr);
+        }
       }
     }
-  }
 
-  return data as Member;
+    return { data: data as Member };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
 }
 
 export async function deleteMember(id: string): Promise<void> {
@@ -106,16 +114,20 @@ export async function deleteMember(id: string): Promise<void> {
   await logAudit(`Deleted member: ${member?.full_name || id}`, 'Members', user.id);
 }
 
-export async function uploadProfilePhoto(file: File): Promise<string> {
-  const supabase = await createClient();
-  const ext = file.name.split('.').pop();
-  const filename = `${Date.now()}.${ext}`;
-  const { error } = await supabase.storage
-    .from('profile-photos')
-    .upload(filename, file, { upsert: true });
-  if (error) throw error;
-  const { data } = supabase.storage.from('profile-photos').getPublicUrl(filename);
-  return data.publicUrl;
+export async function uploadProfilePhoto(file: File): Promise<{ url?: string; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const ext = file.name.split('.').pop();
+    const filename = `${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('profile-photos')
+      .upload(filename, file, { upsert: true });
+    if (error) return { error: error.message };
+    const { data } = supabase.storage.from('profile-photos').getPublicUrl(filename);
+    return { url: data.publicUrl };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
 }
 
 export async function getDashboardStats() {
