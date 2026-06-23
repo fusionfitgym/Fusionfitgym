@@ -173,7 +173,7 @@ export default function AboutPage() {
                 <h3 className="card-title text-base font-extrabold flex items-center gap-2">
                   <Server className="h-5 w-5 text-amber-500" /> System Status
                 </h3>
-                <p className="small-text mt-0.5">Live connectivity metrics to system backends.</p>
+                <p className="text-xs text-black dark:text-white mt-0.5">Live connectivity metrics to system backends.</p>
               </div>
               <button 
                 onClick={fetchStatus}
@@ -236,7 +236,7 @@ export default function AboutPage() {
             <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
               <Sparkles className="h-5 w-5 text-amber-500" /> Designed & Developed By
             </h3>
-            <p className="small-text mb-6">Designed exclusively for Fusion Fit Multi Gym.</p>
+            <p className="text-xs text-black dark:text-white mb-6">Designed exclusively for Fusion Fit Multi Gym.</p>
 
             {/* Developer Details */}
             <div className="space-y-4 mb-5">
@@ -275,20 +275,20 @@ export default function AboutPage() {
               </div>
             </div>
 
-            <div className="space-y-3.5 text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed">
+            <div className="space-y-3.5 text-xs text-black dark:text-white font-medium leading-relaxed">
               <p>
                 This application is designed and developed by <strong>Ihsan</strong> (specializing in ERP Systems, Websites, Web Applications, and Automation Solutions). You can view his work at <a href="https://ihsan-web-portfolio.vercel.app" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">ihsan-web-portfolio.vercel.app</a>.
               </p>
               <p>
                 Developed in partnership with <strong>Redix Media</strong> (<a href="https://redix.in" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">redix.in</a>), who is powering this app and engineering customized management portals to streamline client tracking, attendance registers, invoice generations, biometrics device synchronizations, and automated notifications.
               </p>
-              <p className="text-[11px] font-semibold text-slate-400 italic">
+              <p className="text-[11px] font-semibold text-black dark:text-white italic">
                 Made with Next.js, TypeScript, Supabase, Tailwind CSS
               </p>
             </div>
           </div>
 
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 text-[10px] text-slate-400 font-semibold flex items-center justify-between">
+          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 text-[10px] text-black dark:text-white font-semibold flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Copyright className="h-3.5 w-3.5" /> 
               <span>Developed exclusively for Fusion Fit Multi Gym</span>
@@ -306,7 +306,7 @@ export default function AboutPage() {
       </div>
 
       {/* Features Grid Overview */}
-      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500 dark:text-zinc-400 mb-4 px-1">
+      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-black dark:text-white mb-4 px-1">
         Primary ERP Modules
       </h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -328,7 +328,7 @@ export default function AboutPage() {
           <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
             <Mail className="h-5 w-5 text-amber-500" /> Technical Support
           </h3>
-          <p className="small-text mb-5">Technical operations and feature requests.</p>
+          <p className="text-xs text-black dark:text-white mb-5">Technical operations and feature requests.</p>
 
           <div className="space-y-4 text-xs font-semibold text-slate-800 dark:text-zinc-200">
             <div className="flex items-center gap-3">
@@ -365,9 +365,9 @@ export default function AboutPage() {
             <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
               <ShieldAlert className="h-5 w-5 text-amber-500" /> Licensing & Legal Disclaimer
             </h3>
-            <p className="small-text mb-4">Software usage rights and intellectual property statements.</p>
+            <p className="text-xs text-black dark:text-white mb-4">Software usage rights and intellectual property statements.</p>
 
-            <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium leading-relaxed space-y-3">
+            <div className="text-xs text-black dark:text-white font-medium leading-relaxed space-y-3">
               <p>
                 &copy; {new Date().getFullYear()} FusionFit Gym Management ERP. All Rights Reserved.
               </p>
@@ -397,7 +397,7 @@ export default function AboutPage() {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
               <Cpu className="h-5 w-5 text-amber-500" /> System Information
             </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mb-5">
+            <p className="text-xs text-black dark:text-white mb-5">
               Technical execution environment parameters and configuration contexts.
             </p>
 
@@ -408,10 +408,10 @@ export default function AboutPage() {
                   <Cloud className="h-4 w-4" /> Environment Config
                 </h4>
                 <div className="space-y-2 text-xs font-medium divide-y divide-slate-100 dark:divide-zinc-800/30">
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Node Environment</span><span className="text-slate-900 dark:text-zinc-200 font-bold">{process.env.NODE_ENV}</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Execution Stack</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Vercel Serverless Edge</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Supabase URL</span><span className="text-slate-900 dark:text-zinc-200 font-mono text-[10px]">{process.env.NEXT_PUBLIC_SUPABASE_URL || 'Configured'}</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Analytics Mode</span><span className="text-slate-900 dark:text-zinc-200 font-bold text-emerald-500">Vercel Analytics Enabled</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Node Environment</span><span className="text-slate-900 dark:text-zinc-200 font-bold">{process.env.NODE_ENV}</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Execution Stack</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Vercel Serverless Edge</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Supabase URL</span><span className="text-slate-900 dark:text-zinc-200 font-mono text-[10px]">{process.env.NEXT_PUBLIC_SUPABASE_URL || 'Configured'}</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Analytics Mode</span><span className="text-slate-900 dark:text-zinc-200 font-bold text-emerald-500">Vercel Analytics Enabled</span></div>
                 </div>
               </div>
 
@@ -421,10 +421,10 @@ export default function AboutPage() {
                   <Terminal className="h-4 w-4" /> Build Specifications
                 </h4>
                 <div className="space-y-2 text-xs font-medium divide-y divide-slate-100 dark:divide-zinc-800/30">
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Build Target</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Next.js 15 App Router</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Target Bundler</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Turbopack (Rust Compiler)</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">Compiler Options</span><span className="text-slate-900 dark:text-zinc-200 font-bold font-mono text-[11px]">Strict, ES2022</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-400">PWA Target</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Service Worker v1.0.0</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Build Target</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Next.js 15 App Router</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Target Bundler</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Turbopack (Rust Compiler)</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">Compiler Options</span><span className="text-slate-900 dark:text-zinc-200 font-bold font-mono text-[11px]">Strict, ES2022</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-black dark:text-white">PWA Target</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Service Worker v1.0.0</span></div>
                 </div>
               </div>
             </div>
@@ -456,11 +456,11 @@ export default function AboutPage() {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
               <FileText className="h-5 w-5 text-amber-500" /> Commercial Software License
             </h3>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mb-5">
+            <p className="text-xs text-black dark:text-white mb-5">
               Legal agreements, copyright notices, and software delivery parameters.
             </p>
 
-            <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 text-xs text-slate-600 dark:text-zinc-400 leading-relaxed font-medium">
+            <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 text-xs text-black dark:text-white leading-relaxed font-medium">
               <div className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4">
                 <p className="font-extrabold text-slate-900 dark:text-white mb-2">1. End-User License Agreement (EULA)</p>
                 <p className="mb-3">
@@ -520,7 +520,7 @@ function StatusRow({
     <div className="flex items-start justify-between gap-4 py-1.5 text-xs font-semibold">
       <div className="min-w-0">
         <p className="text-slate-800 dark:text-zinc-200 font-bold truncate">{label}</p>
-        {desc && <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{desc}</p>}
+        {desc && <p className="text-[10px] text-black dark:text-white font-medium truncate mt-0.5">{desc}</p>}
       </div>
       <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
         {status === 'checking' && (
@@ -580,7 +580,7 @@ function FeatureCard({
           <Icon className="h-4.5 w-4.5" />
         </span>
         <h4 className="mt-3 text-[13px] font-extrabold text-slate-900 dark:text-white truncate">{title}</h4>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-400 font-medium">{desc}</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-black dark:text-white font-medium">{desc}</p>
       </div>
     </div>
   );
