@@ -2,25 +2,25 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-pathname', request.nextUrl.pathname);
-
-  let supabaseResponse = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // Safety guard for missing environment variables
-  if (!url || !anonKey) {
-    console.warn('Supabase environment variables are missing in middleware.');
-    return supabaseResponse;
-  }
-
   try {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-pathname', request.nextUrl.pathname);
+
+    let supabaseResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    // Safety guard for missing environment variables
+    if (!url || !anonKey) {
+      console.warn('Supabase environment variables are missing in middleware.');
+      return supabaseResponse;
+    }
+
     const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
@@ -82,12 +82,13 @@ export async function middleware(request: NextRequest) {
       urlObj.pathname = '/';
       return NextResponse.redirect(urlObj);
     }
+
+    return supabaseResponse;
   } catch (error) {
     // Prevent unhandled errors from causing MIDDLEWARE_INVOCATION_FAILED (500)
     console.error('Middleware execution error caught:', error);
+    return NextResponse.next();
   }
-
-  return supabaseResponse;
 }
 
 export const config = {
