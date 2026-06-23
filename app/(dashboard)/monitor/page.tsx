@@ -54,7 +54,7 @@ export default function CheckinMonitorPage() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'attendance_logs' },
-        async (payload) => {
+        async (payload: any) => {
           const newLog = payload.new as any;
           try {
             const memberInfo = await getMemberById(newLog.member_id);
