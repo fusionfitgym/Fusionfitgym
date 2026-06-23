@@ -162,8 +162,8 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Main Grid: Status and Software Specs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      {/* Main Grid: Status and Developer Info */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         
         {/* Live System Status Panel */}
         <section className="card p-5 sm:p-6 overflow-hidden flex flex-col justify-between">
@@ -214,36 +214,13 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80">
+          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => setShowSysInfoModal(true)}
               className="btn btn-secondary w-full justify-center text-xs font-bold py-2 rounded-xl"
             >
               <Cpu className="h-4 w-4" /> System Information
             </button>
-          </div>
-        </section>
-
-        {/* Software Information Card */}
-        <section className="card p-5 sm:p-6 flex flex-col justify-between">
-          <div>
-            <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
-              <Globe className="h-5 w-5 text-amber-500" /> Software Stack
-            </h3>
-            <p className="small-text mb-5">Product frameworks and architectural integration details.</p>
-
-            <div className="divide-y divide-slate-100 dark:divide-zinc-800/60 text-xs font-medium">
-              <SpecRow label="Product Name" value="FusionFit Gym Management ERP" />
-              <SpecRow label="Framework" value="Next.js 15+ (React 19)" />
-              <SpecRow label="Database Engine" value="Supabase PostgreSQL" />
-              <SpecRow label="Authentication" value="Supabase JWT Auth" />
-              <SpecRow label="SMS Integration" value="MSG91 Custom API" />
-              <SpecRow label="Biometric Sync" value="eSSL / ZKTeco SDK" />
-              <SpecRow label="Hosting Node" value="Vercel Edge Network" />
-            </div>
-          </div>
-
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80">
             <button
               onClick={() => setShowLicenseModal(true)}
               className="btn btn-secondary w-full justify-center text-xs font-bold py-2 rounded-xl"
@@ -253,7 +230,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Developed For & Credits Card */}
+        {/* Designed & Developed By Card */}
         <section className="card p-5 sm:p-6 flex flex-col justify-between">
           <div>
             <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
@@ -262,29 +239,68 @@ export default function AboutPage() {
             <p className="small-text mb-6">Designed exclusively for Fusion Fit Multi Gym.</p>
 
             {/* Developer Details */}
-            <div className="flex items-center gap-4 bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4 mb-5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10 text-amber-500 font-black text-base shadow-sm">
-                I
+            <div className="space-y-4 mb-5">
+              <div className="flex items-center gap-4 bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10 text-amber-500 font-black text-base shadow-sm">
+                  I
+                </div>
+                <div className="min-w-0">
+                  <a 
+                    href="https://ihsan-web-portfolio.vercel.app" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm font-extrabold text-slate-900 dark:text-white hover:text-amber-500 transition-colors"
+                  >
+                    Ihsan
+                  </a>
+                  <p className="text-[10px] font-black uppercase text-amber-500 tracking-wider mt-0.5">Full Stack Developer</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-extrabold text-slate-900 dark:text-white">Ihsan</p>
-                <p className="text-[10px] font-black uppercase text-amber-500 tracking-wider mt-0.5">Full Stack Developer</p>
+
+              <div className="flex items-center gap-4 bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10 text-amber-500 font-black text-base shadow-sm">
+                  R
+                </div>
+                <div className="min-w-0">
+                  <a 
+                    href="https://redix.in" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm font-extrabold text-slate-900 dark:text-white hover:text-amber-500 transition-colors"
+                  >
+                    Redix Media
+                  </a>
+                  <p className="text-[10px] font-black uppercase text-amber-500 tracking-wider mt-0.5">Technology Partner</p>
+                </div>
               </div>
             </div>
 
             <div className="space-y-3.5 text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed">
               <p>
-                <strong>FusionFit Technologies</strong> has engineered this customized management portal for <strong>Fusion Fit Multi Gym</strong> to streamline client tracking, attendance registers, invoice generations, biometrics device synchronizations, and automated notifications.
+                This application is designed and developed by <strong>Ihsan</strong> (specializing in Gym ERP Systems, Web Applications, and Automation Solutions). You can view his work at <a href="https://ihsan-web-portfolio.vercel.app" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">ihsan-web-portfolio.vercel.app</a>.
+              </p>
+              <p>
+                Developed in partnership with <strong>Redix Media</strong> (<a href="https://redix.in" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">redix.in</a>), who is powering this app and engineering customized management portals to streamline client tracking, attendance registers, invoice generations, biometrics device synchronizations, and automated notifications.
               </p>
               <p className="text-[11px] font-semibold text-slate-400 italic">
-                Built using Next.js, React, TypeScript, Supabase PostgreSQL, and Tailwind CSS.
+                Made with Next.js, TypeScript, Supabase, Tailwind CSS
               </p>
             </div>
           </div>
 
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 text-[10px] text-slate-400 font-semibold flex items-center gap-1.5">
-            <Copyright className="h-3.5 w-3.5" /> 
-            <span>Developed exclusively for Fusion Fit Multi Gym</span>
+          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 text-[10px] text-slate-400 font-semibold flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Copyright className="h-3.5 w-3.5" /> 
+              <span>Developed exclusively for Fusion Fit Multi Gym</span>
+            </div>
+            <a 
+              href="https://redix.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-amber-500 hover:underline font-extrabold"
+            >
+              redix.in
+            </a>
           </div>
         </section>
       </div>
@@ -319,14 +335,14 @@ export default function AboutPage() {
               <Mail className="h-4.5 w-4.5 text-slate-400 shrink-0" />
               <div>
                 <p className="text-[10px] text-slate-400 uppercase tracking-wider">Email Address</p>
-                <a href="mailto:support@fusionfitgym.com" className="hover:text-amber-500 transition-colors">support@fusionfitgym.com</a>
+                <a href="mailto:ihsan.anas8281@gmail.com" className="hover:text-amber-500 transition-colors">ihsan.anas8281@gmail.com</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Phone className="h-4.5 w-4.5 text-slate-400 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Phone Number</p>
-                <a href="tel:+919876543210" className="hover:text-amber-500 transition-colors">+91 98765 43210</a>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Whatsapp number</p>
+                <a href="whatsapp://send?phone=+91949013275" className="hover:text-amber-500 transition-colors">+91 949013275</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
