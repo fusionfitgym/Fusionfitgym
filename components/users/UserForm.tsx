@@ -65,7 +65,7 @@ export function UserForm({ onSuccess, onError }: UserFormProps) {
 
     setSubmitting(true);
     try {
-      await adminCreateUser({
+      const res = await adminCreateUser({
         email: formData.email,
         password: formData.password || undefined,
         fullName: formData.fullName,
@@ -74,6 +74,9 @@ export function UserForm({ onSuccess, onError }: UserFormProps) {
         status: formData.status,
         notes: formData.notes || undefined,
       });
+      if (res?.error) {
+        throw new Error(res.error);
+      }
       onSuccess(`User account ${formData.email} created successfully.`);
     } catch (err: unknown) {
       const message =

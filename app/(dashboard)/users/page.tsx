@@ -101,10 +101,17 @@ export default function UserManagementPage() {
     setLoading(true);
     setError('');
     try {
-      const users = await listProfiles();
-      setProfiles(users || []);
-      const logs = await listAuditLogs();
-      setAuditLogs(logs || []);
+      const usersRes = await listProfiles();
+      if (usersRes?.error) {
+        throw new Error(usersRes.error);
+      }
+      setProfiles(usersRes.data || []);
+
+      const logsRes = await listAuditLogs();
+      if (logsRes?.error) {
+        throw new Error(logsRes.error);
+      }
+      setAuditLogs(logsRes.data || []);
     } catch (err: unknown) {
       console.error(err);
       setError(getErrorMessage(err, 'Failed to load user administration data. Ensure SUPABASE_SERVICE_ROLE_KEY is configured.'));
@@ -174,11 +181,17 @@ export default function UserManagementPage() {
           setLoading(false);
           return;
         }
-        await adminDeleteUser(user.auth_user_id, user.email);
+        const res = await adminDeleteUser(user.auth_user_id, user.email);
+        if (res?.error) {
+          throw new Error(res.error);
+        }
         setSuccess(`User ${user.email} has been permanently deleted.`);
       } else {
         const disableValue = type === 'suspend';
-        await adminToggleUserDisabled(user.id, disableValue, user.email);
+        const res = await adminToggleUserDisabled(user.id, disableValue, user.email);
+        if (res?.error) {
+          throw new Error(res.error);
+        }
         setSuccess(`Account ${user.email} has been ${disableValue ? 'suspended' : 'activated'}.`);
       }
       await loadData();
@@ -197,7 +210,10 @@ export default function UserManagementPage() {
     setSuccess('');
 
     try {
-      await adminResetUserPassword(selectedUser.auth_user_id, newPassword, selectedUser.email);
+      const res = await adminResetUserPassword(selectedUser.auth_user_id, newPassword, selectedUser.email);
+      if (res?.error) {
+        throw new Error(res.error);
+      }
       setSuccess(`Password for ${selectedUser.email} has been reset successfully.`);
       setShowResetModal(false);
       setNewPassword('');

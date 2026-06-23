@@ -129,7 +129,7 @@ export function UserModal({
     setSubmitting(true);
     try {
       if (mode === 'add') {
-        await adminCreateUser({
+        const res = await adminCreateUser({
           email: formData.email,
           password: formData.password || undefined,
           fullName: formData.fullName,
@@ -138,9 +138,12 @@ export function UserModal({
           status: formData.status,
           notes: formData.notes || undefined,
         });
+        if (res?.error) {
+          throw new Error(res.error);
+        }
         onSaveSuccess(`User account ${formData.email} created successfully.`);
       } else {
-        await adminUpdateUser({
+        const res = await adminUpdateUser({
           id: formData.id,
           authUserId: formData.authUserId,
           fullName: formData.fullName,
@@ -150,6 +153,9 @@ export function UserModal({
           notes: formData.notes || undefined,
           userEmail: formData.email,
         });
+        if (res?.error) {
+          throw new Error(res.error);
+        }
         onSaveSuccess(`User profile for ${formData.email} has been updated.`);
       }
       onClose();
