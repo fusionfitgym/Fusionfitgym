@@ -169,9 +169,17 @@ function LoginForm() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-zinc-600 mt-8">
-          &copy; {new Date().getFullYear()} FusionFit Gym ERP. All rights reserved.
-        </p>
+        <div className="text-center mt-8 space-y-3">
+          <Link
+            href="/pricing"
+            className="text-xs font-bold text-amber-300 hover:text-amber-400 hover:underline transition-all block"
+          >
+            Browse Gym Membership Pricing & Packages &rarr;
+          </Link>
+          <p className="text-xs text-zinc-600">
+            &copy; {new Date().getFullYear()} FusionFit Gym ERP. All rights reserved.
+          </p>
+        </div>
       </div>
     </div>
   );

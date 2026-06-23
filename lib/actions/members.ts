@@ -170,13 +170,13 @@ export async function getDashboardStats() {
   if (invoicesError) throw invoicesError;
 
   const total = members?.length ?? 0;
-  const active = members?.filter(m => m.status === 'Active').length ?? 0;
+  const active = members?.filter((m: any) => m.status === 'Active').length ?? 0;
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const revenue = invoices
-    ?.filter(i => new Date(i.created_at) >= monthStart)
-    .reduce((sum, i) => sum + Number(i.amount), 0) ?? 0;
+    ?.filter((i: any) => new Date(i.created_at) >= monthStart)
+    .reduce((sum: number, i: any) => sum + Number(i.amount), 0) ?? 0;
 
   return { total, active, revenue };
 }

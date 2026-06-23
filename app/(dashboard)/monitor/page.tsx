@@ -91,8 +91,9 @@ export default function CheckinMonitorPage() {
 
   // Calculate days remaining helper
   const getDaysInfo = (member?: Member | null) => {
-    if (!member) return null;
+    if (!member || !member.join_date || !member.membership_plan) return null;
     const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
+    if (isNaN(expiry.getTime())) return null;
     const now = new Date();
     const diff = expiry.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -159,81 +160,93 @@ export default function CheckinMonitorPage() {
           {/* Main Check-In Focal Card */}
           <div className="lg:col-span-2">
             {lastCheckin ? (
-              <div
-                className={`card flex flex-col items-center justify-center p-6 text-center border-2 transition-all duration-300 ${
-                  lastCheckin.member?.status === 'Active'
-                    ? 'border-emerald-500 bg-emerald-50/20'
-                    : 'border-rose-500 bg-rose-50/20'
-                }`}
-              >
-                <div className="relative">
-                  <Avatar
-                    src={lastCheckin.member?.profile_photo}
-                    name={lastCheckin.member_name}
-                    size="xl"
-                    className={`h-40 w-40 border-4 ${
-                      lastCheckin.member?.status === 'Active' ? 'border-emerald-500' : 'border-rose-500'
+              (() => {
+                const memberName =
+                  (lastCheckin?.member as any)?.name ||
+                  lastCheckin?.member?.full_name ||
+                  lastCheckin?.member_name ||
+                  "Unknown Member";
+                const isMemberActive = lastCheckin?.member?.status === 'Active';
+                const memberStatus = lastCheckin?.member?.status || 'Expired';
+
+                return (
+                  <div
+                    className={`card flex flex-col items-center justify-center p-6 text-center border-2 transition-all duration-300 ${
+                      isMemberActive
+                        ? 'border-emerald-500 bg-emerald-50/20'
+                        : 'border-rose-500 bg-rose-50/20'
                     }`}
-                  />
-                  <div className="absolute -bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-amber-300 shadow">
-                    <Fingerprint className="h-5 w-5" />
-                  </div>
-                </div>
-
-                <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-950">
-                  {lastCheckin.member_name}
-                </h2>
-                <p className="mt-1 font-mono text-sm text-slate-500">
-                  Device user ID: {lastCheckin.device_user_id}
-                </p>
-
-                {/* Status Alert Area */}
-                <div className="mt-6 flex flex-col items-center">
-                  {lastCheckin.member?.status === 'Active' ? (
-                    <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-5 py-2 text-sm font-bold text-emerald-800">
-                      <ShieldCheck className="h-5 w-5" /> MEMBER ACTIVE
+                  >
+                    <div className="relative">
+                      <Avatar
+                        src={lastCheckin?.member?.profile_photo}
+                        name={memberName}
+                        size="xl"
+                        className={`h-40 w-40 border-4 ${
+                          isMemberActive ? 'border-emerald-500' : 'border-rose-500'
+                        }`}
+                      />
+                      <div className="absolute -bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-amber-300 shadow">
+                        <Fingerprint className="h-5 w-5" />
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 rounded-full bg-rose-100 px-5 py-2 text-sm font-bold text-rose-800">
-                      <ShieldAlert className="h-5 w-5" /> DANGER: MEMBER {lastCheckin.member?.status?.toUpperCase() || 'EXPIRED'}
-                    </div>
-                  )}
 
-                  <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-200/80 pt-4 text-left min-w-[280px]">
-                    <div>
-                      <p className="metric-label">Membership plan</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">
-                        {lastCheckin.member?.membership_plan || '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="metric-label">Check-in time</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">
-                        {new Date(lastCheckin.punch_time).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </p>
-                    </div>
-                  </div>
+                    <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-950">
+                      {memberName}
+                    </h2>
+                    <p className="mt-1 font-mono text-sm text-slate-500">
+                      Device user ID: {lastCheckin?.device_user_id || "—"}
+                    </p>
 
-                  {/* Expiry Details */}
-                  {focusDaysInfo && (
-                    <div className="mt-4 rounded-xl bg-white/60 border border-slate-100 p-3 text-center w-full">
-                      {focusDaysInfo.isExpired ? (
-                        <p className="text-xs font-semibold text-rose-700">
-                          Expired by {focusDaysInfo.days} day(s) on {formatDate(focusDaysInfo.expiryDate)}
-                        </p>
+                    {/* Status Alert Area */}
+                    <div className="mt-6 flex flex-col items-center">
+                      {isMemberActive ? (
+                        <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-5 py-2 text-sm font-bold text-emerald-800">
+                          <ShieldCheck className="h-5 w-5" /> MEMBER ACTIVE
+                        </div>
                       ) : (
-                        <p className="text-xs font-semibold text-slate-700">
-                          {focusDaysInfo.days} day(s) remaining (Expires {formatDate(focusDaysInfo.expiryDate)})
-                        </p>
+                        <div className="flex items-center gap-2 rounded-full bg-rose-100 px-5 py-2 text-sm font-bold text-rose-800">
+                          <ShieldAlert className="h-5 w-5" /> DANGER: MEMBER {(memberStatus || 'EXPIRED').toUpperCase()}
+                        </div>
+                      )}
+
+                      <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-200/80 pt-4 text-left min-w-[280px]">
+                        <div>
+                          <p className="metric-label">Membership plan</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">
+                            {lastCheckin?.member?.membership_plan || '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="metric-label">Check-in time</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">
+                            {lastCheckin?.punch_time ? new Date(lastCheckin.punch_time).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            }) : '—'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Expiry Details */}
+                      {focusDaysInfo && (
+                        <div className="mt-4 rounded-xl bg-white/60 border border-slate-100 p-3 text-center w-full">
+                          {focusDaysInfo.isExpired ? (
+                            <p className="text-xs font-semibold text-rose-700">
+                              Expired by {focusDaysInfo.days} day(s) on {formatDate(focusDaysInfo.expiryDate)}
+                            </p>
+                          ) : (
+                            <p className="text-xs font-semibold text-slate-700">
+                              {focusDaysInfo.days} day(s) remaining (Expires {formatDate(focusDaysInfo.expiryDate)})
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                );
+              })()
             ) : (
               <div className="card flex flex-col items-center justify-center p-20 text-center text-slate-400">
                 <Dumbbell className="h-12 w-12 text-slate-300 animate-bounce mb-4" />
@@ -251,40 +264,50 @@ export default function CheckinMonitorPage() {
             </div>
 
             <div className="page-stack max-h-[500px] overflow-y-auto pr-1">
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  onClick={() => setLastCheckin(log)}
-                  className={`card p-4 flex items-center justify-between gap-3 cursor-pointer transition-colors duration-150 hover:bg-slate-50 ${
-                    lastCheckin?.id === log.id ? 'border-amber-300 bg-amber-50/10' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar src={log.member?.profile_photo} name={log.member_name} size="md" />
+              {(logs || []).map((log) => {
+                const memberName =
+                  (log?.member as any)?.name ||
+                  log?.member?.full_name ||
+                  log?.member_name ||
+                  "Unknown Member";
+                const isMemberActive = log?.member?.status === 'Active';
+                const memberStatus = log?.member?.status || 'Expired';
+                
+                return (
+                  <div
+                    key={log?.id || Math.random().toString()}
+                    onClick={() => setLastCheckin(log)}
+                    className={`card p-4 flex items-center justify-between gap-3 cursor-pointer transition-colors duration-150 hover:bg-slate-50 ${
+                      lastCheckin?.id === log?.id ? 'border-amber-300 bg-amber-50/10' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar src={log?.member?.profile_photo} name={memberName} size="md" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900 leading-tight">
+                          {memberName}
+                        </h4>
+                        <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                          <Clock className="h-3.5 w-3.5" />
+                          {log?.punch_time ? new Date(log.punch_time).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }) : '—'}
+                        </span>
+                      </div>
+                    </div>
                     <div>
-                      <h4 className="text-sm font-semibold text-slate-900 leading-tight">
-                        {log.member_name}
-                      </h4>
-                      <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                        <Clock className="h-3 w-3" />
-                        {new Date(log.punch_time).toLocaleTimeString('en-IN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <span
+                        className={`badge text-[10px] ${
+                          isMemberActive ? 'badge-active' : 'badge-inactive'
+                        }`}
+                      >
+                        {memberStatus}
                       </span>
                     </div>
                   </div>
-                  <div>
-                    <span
-                      className={`badge text-[10px] ${
-                        log.member?.status === 'Active' ? 'badge-active' : 'badge-inactive'
-                      }`}
-                    >
-                      {log.member?.status || 'Expired'}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {logs.length === 0 && (
                 <div className="card p-8 text-center text-xs text-slate-400">

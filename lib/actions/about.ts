@@ -67,8 +67,8 @@ export async function checkSystemStatus(): Promise<SystemStatus> {
         .in('key', ['sms_enabled', 'sms_api_key']);
       
       if (!smsError && smsSettings) {
-        const isEnabled = smsSettings.find(s => s.key === 'sms_enabled')?.value === 'true';
-        const hasKey = !!smsSettings.find(s => s.key === 'sms_api_key')?.value;
+        const isEnabled = smsSettings.find((s: any) => s.key === 'sms_enabled')?.value === 'true';
+        const hasKey = !!smsSettings.find((s: any) => s.key === 'sms_api_key')?.value;
         if (isEnabled) {
           status.sms = hasKey ? 'Operational' : 'Error';
         } else {

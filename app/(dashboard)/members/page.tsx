@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit, Eye, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Edit, Eye, Search, Trash2, UserPlus, Users, Tag } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/Primitives';
@@ -11,6 +11,7 @@ import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
 import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
 import { TableSkeleton, MobileListSkeleton } from '@/components/ui/Skeleton';
+import { PricingModal } from '@/components/members/PricingModal';
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -22,6 +23,7 @@ export default function MembersPage() {
   const [planFilter, setPlanFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
 
   const limit = 10;
   const totalPages = Math.ceil(totalCount / limit);
@@ -78,9 +80,18 @@ export default function MembersPage() {
         title="Members"
         subtitle={`${totalCount} registered member${totalCount === 1 ? '' : 's'} across all plans.`}
         action={
-          <Link href="/members/add" className="btn btn-primary">
-            <UserPlus className="h-4 w-4" /> Add member
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPricingModalOpen(true)}
+              className="btn btn-secondary"
+            >
+              <Tag className="h-4 w-4" /> View Packages
+            </button>
+            <Link href="/members/add" className="btn btn-primary">
+              <UserPlus className="h-4 w-4" /> Add member
+            </Link>
+          </div>
         }
       />
 
@@ -317,6 +328,10 @@ export default function MembersPage() {
           </div>
         </section>
       )}
+      <PricingModal
+        isOpen={pricingModalOpen}
+        onClose={() => setPricingModalOpen(false)}
+      />
     </div>
   );
 }

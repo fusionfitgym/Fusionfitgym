@@ -67,14 +67,20 @@ export default function SMSLogsPage() {
   };
 
   // Filter logic
-  const filtered = logs.filter((log) => {
-    const nameMatch = log.member?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
-    const phoneMatch = log.phone.includes(searchQuery);
-    const msgMatch = log.message.toLowerCase().includes(searchQuery.toLowerCase());
+  const searchText = (searchQuery || "").toLowerCase();
+
+  const filtered = (logs || []).filter((log) => {
+    const memberName =
+      (log?.member as any)?.name ||
+      log?.member?.full_name ||
+      "";
+    const nameMatch = (memberName || "").toLowerCase().includes(searchText);
+    const phoneMatch = (log?.phone || "").includes(searchQuery || "");
+    const msgMatch = (log?.message || "").toLowerCase().includes(searchText);
     const matchesSearch = searchQuery === '' || nameMatch || phoneMatch || msgMatch;
 
-    const matchesType = typeFilter === 'All' || log.sms_type === typeFilter;
-    const matchesStatus = statusFilter === 'All' || log.status === statusFilter;
+    const matchesType = typeFilter === 'All' || log?.sms_type === typeFilter;
+    const matchesStatus = statusFilter === 'All' || log?.status === statusFilter;
 
     return matchesSearch && matchesType && matchesStatus;
   });
@@ -220,32 +226,36 @@ export default function SMSLogsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((log) => {
-                  const isExpanded = expandedLogId === log.id;
-                  const formattedStatus = log.status === 'Sent' ? 'Paid' : log.status === 'Failed' ? 'Overdue' : 'Pending'; // Match status badge variants
+                {(filtered || []).map((log) => {
+                  const isExpanded = expandedLogId === log?.id;
+                  const formattedStatus = log?.status === 'Sent' ? 'Paid' : log?.status === 'Failed' ? 'Overdue' : 'Pending'; // Match status badge variants
+                  const memberName = (log?.member as any)?.name || log?.member?.full_name || "—";
+                  const phone = log?.phone || "—";
+                  const smsType = log?.sms_type || "—";
+                  
                   return (
-                    <tr key={log.id} className="cursor-pointer hover:bg-slate-50/50" onClick={() => toggleExpandLog(log.id)}>
+                    <tr key={log?.id || Math.random().toString()} className="cursor-pointer hover:bg-slate-50/50" onClick={() => log?.id && toggleExpandLog(log.id)}>
                       <td className="font-medium text-slate-700 text-xs">
-                        {formatDate(log.created_at)}
+                        {log?.created_at ? formatDate(log.created_at) : '—'}
                         <span className="block text-[10px] text-slate-400 mt-0.5">
-                          {new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                          {log?.created_at ? new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </span>
                       </td>
                       <td>
-                        <p className="table-primary">{log.member?.full_name ?? '—'}</p>
-                        {log.member_id && <span className="text-[10px] text-slate-400 font-mono block mt-0.5">ID: {log.member_id.substring(0, 8)}...</span>}
+                        <p className="table-primary">{memberName}</p>
+                        {log?.member_id && <span className="text-[10px] text-slate-400 font-mono block mt-0.5">ID: {log.member_id.substring(0, 8)}...</span>}
                       </td>
-                      <td className="font-mono text-xs text-slate-600">{log.phone}</td>
+                      <td className="font-mono text-xs text-slate-600">{phone}</td>
                       <td>
                         <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
-                          {log.sms_type}
+                          {smsType}
                         </span>
                       </td>
                       <td>
                         {/* Map logs status to available StatusBadge styles */}
-                        {log.status === 'Sent' && <span className="badge badge-active">Sent</span>}
-                        {log.status === 'Failed' && <span className="badge badge-inactive">Failed</span>}
-                        {log.status === 'Skipped' && <span className="badge badge-expired">Skipped</span>}
+                        {log?.status === 'Sent' && <span className="badge badge-active">Sent</span>}
+                        {log?.status === 'Failed' && <span className="badge badge-inactive">Failed</span>}
+                        {log?.status === 'Skipped' && <span className="badge badge-expired">Skipped</span>}
                       </td>
                       <td className="text-right">
                         <button
@@ -253,7 +263,7 @@ export default function SMSLogsPage() {
                           className="btn btn-ghost btn-sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleExpandLog(log.id);
+                            log?.id && toggleExpandLog(log.id);
                           }}
                         >
                           {isExpanded ? 'Hide' : 'Details'}
@@ -304,47 +314,55 @@ export default function SMSLogsPage() {
 
           {/* Mobile view card representation */}
           <div className="data-cards">
-            {filtered.map((log) => (
-              <article key={log.id} className="mobile-record" onClick={() => toggleExpandLog(log.id)}>
-                <div className="mobile-record-header">
-                  <div>
-                    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800 mb-1">
-                      {log.sms_type}
-                    </span>
-                    <p className="font-semibold text-slate-900 text-sm">{log.member?.full_name ?? '—'}</p>
-                    <p className="font-mono text-xs text-slate-500 mt-0.5">{log.phone}</p>
-                  </div>
-                  <div>
-                    {log.status === 'Sent' && <span className="badge badge-active">Sent</span>}
-                    {log.status === 'Failed' && <span className="badge badge-inactive">Failed</span>}
-                    {log.status === 'Skipped' && <span className="badge badge-expired">Skipped</span>}
-                  </div>
-                </div>
-                <div className="mobile-record-meta text-xs">
-                  <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px]">Timestamp</span>
-                    <span className="font-semibold text-slate-700">{formatDate(log.created_at)} at {new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                </div>
-                
-                {expandedLogId === log.id && (
-                  <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col gap-3">
+            {(filtered || []).map((log) => {
+              const memberName = (log?.member as any)?.name || log?.member?.full_name || "—";
+              const phone = log?.phone || "—";
+              const smsType = log?.sms_type || "—";
+
+              return (
+                <article key={log?.id || Math.random().toString()} className="mobile-record" onClick={() => log?.id && toggleExpandLog(log.id)}>
+                  <div className="mobile-record-header">
                     <div>
-                      <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-1">Message</span>
-                      <p className="bg-slate-50 rounded-lg p-3 text-xs border border-slate-200 whitespace-pre-line text-slate-800 leading-relaxed">
-                        {log.message}
-                      </p>
+                      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800 mb-1">
+                        {smsType}
+                      </span>
+                      <p className="font-semibold text-slate-900 text-sm">{memberName}</p>
+                      <p className="font-mono text-xs text-slate-500 mt-0.5">{phone}</p>
                     </div>
                     <div>
-                      <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-1">Gateway Log</span>
-                      <p className="bg-zinc-900 text-zinc-100 rounded-lg p-3 font-mono text-[10px] break-all leading-normal max-h-24 overflow-y-auto">
-                        {log.provider_response || '—'}
-                      </p>
+                      {log?.status === 'Sent' && <span className="badge badge-active">Sent</span>}
+                      {log?.status === 'Failed' && <span className="badge badge-inactive">Failed</span>}
+                      {log?.status === 'Skipped' && <span className="badge badge-expired">Skipped</span>}
                     </div>
                   </div>
-                )}
-              </article>
-            ))}
+                  <div className="mobile-record-meta text-xs">
+                    <div>
+                      <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px]">Timestamp</span>
+                      <span className="font-semibold text-slate-700">
+                        {log?.created_at ? `${formatDate(log.created_at)} at ${new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {expandedLogId === log?.id && (
+                    <div className="mt-3 border-t border-slate-100 pt-3 flex flex-col gap-3">
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-1">Message</span>
+                        <p className="bg-slate-50 rounded-lg p-3 text-xs border border-slate-200 whitespace-pre-line text-slate-800 leading-relaxed">
+                          {log?.message || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider block text-[9px] mb-1">Gateway Log</span>
+                        <p className="bg-zinc-900 text-zinc-100 rounded-lg p-3 font-mono text-[10px] break-all leading-normal max-h-24 overflow-y-auto">
+                          {log?.provider_response || '—'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
       )}

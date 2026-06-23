@@ -98,18 +98,20 @@ export async function getAttendanceAnalytics() {
 
   let checkins = 0;
   let checkouts = 0;
-  todayLogs?.forEach((log) => {
-    if (log.punch_type === 'checkin') checkins++;
-    else if (log.punch_type === 'checkout') checkouts++;
+  todayLogs?.forEach((log: any) => {
+    if (log?.punch_type === 'checkin') checkins++;
+    else if (log?.punch_type === 'checkout') checkouts++;
   });
 
   const activeMembers = new Set<string>();
   if (!recentError && recentLogs) {
-    recentLogs.forEach((log) => {
-      if (log.punch_type === 'checkin') {
-        activeMembers.add(log.member_id);
-      } else if (log.punch_type === 'checkout') {
-        activeMembers.delete(log.member_id);
+    recentLogs.forEach((log: any) => {
+      if (log?.member_id) {
+        if (log.punch_type === 'checkin') {
+          activeMembers.add(log.member_id);
+        } else if (log.punch_type === 'checkout') {
+          activeMembers.delete(log.member_id);
+        }
       }
     });
   }
@@ -124,7 +126,7 @@ export async function getAttendanceAnalytics() {
     dailyCounts[dateStr] = 0;
   }
 
-  trendLogs?.forEach((log) => {
+  trendLogs?.forEach((log: any) => {
     const dateStr = new Date(log.punch_time).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
     if (dailyCounts[dateStr] !== undefined) {
       dailyCounts[dateStr]++;
@@ -140,11 +142,14 @@ export async function getAttendanceAnalytics() {
     hourlyCounts[i] = 0;
   }
 
-  todayLogs?.forEach((log) => {
-    if (log.punch_type === 'checkin') {
-      const hour = new Date(log.punch_time).getHours();
-      if (hourlyCounts[hour] !== undefined) {
-        hourlyCounts[hour]++;
+  todayLogs?.forEach((log: any) => {
+    if (log?.punch_type === 'checkin' && log?.punch_time) {
+      const pDate = new Date(log.punch_time);
+      if (!isNaN(pDate.getTime())) {
+        const hour = pDate.getHours();
+        if (hourlyCounts[hour] !== undefined) {
+          hourlyCounts[hour]++;
+        }
       }
     }
   });
@@ -215,7 +220,7 @@ export async function getTodayMonitorLogs() {
   if (!logs || logs.length === 0) return [];
 
   // Batch query all associated members to avoid N+1 query overhead in client
-  const memberIds = Array.from(new Set(logs.map(log => log.member_id)));
+  const memberIds = Array.from(new Set(logs.map((log: any) => log?.member_id).filter(Boolean)));
   const { data: members, error: membersError } = await supabase
     .from('members')
     .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo')
@@ -226,10 +231,10 @@ export async function getTodayMonitorLogs() {
     throw membersError;
   }
 
-  const memberMap = new Map((members || []).map(m => [m.id, m]));
+  const memberMap = new Map((members || []).map((m: any) => [m.id, m]));
 
-  return logs.map(log => ({
+  return logs.map((log: any) => ({
     ...log,
-    member: memberMap.get(log.member_id) || null
+    member: log?.member_id ? memberMap.get(log.member_id) || null : null
   }));
 }

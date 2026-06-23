@@ -11,7 +11,7 @@ export async function getSettings(): Promise<GymSettings> {
   if (error) throw error;
 
   const map: Record<string, string> = {};
-  data?.forEach(row => { map[row.key] = row.value; });
+  data?.forEach((row: any) => { map[row.key] = row.value; });
 
   return {
     gym_name:      map.gym_name      ?? 'FusionFit Gym',

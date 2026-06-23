@@ -46,8 +46,10 @@ export function getBMICategory(bmi: number): { label: string; color: string } {
   return                  { label: 'Obese',        color: '#f87171' };
 }
 
-export function getMembershipExpiry(joinDate: string, plan: string): Date {
+export function getMembershipExpiry(joinDate: string | null | undefined, plan: string | null | undefined): Date {
+  if (!joinDate) return new Date();
   const d = new Date(joinDate);
+  if (isNaN(d.getTime())) return new Date();
   switch (plan) {
     case 'Monthly':    d.setMonth(d.getMonth() + 1);  break;
     case 'Quarterly':  d.setMonth(d.getMonth() + 3);  break;
@@ -57,8 +59,10 @@ export function getMembershipExpiry(joinDate: string, plan: string): Date {
   return d;
 }
 
-export function isExpiringSoon(joinDate: string, plan: string, days = 7): boolean {
+export function isExpiringSoon(joinDate: string | null | undefined, plan: string | null | undefined, days = 7): boolean {
+  if (!joinDate || !plan) return false;
   const expiry = getMembershipExpiry(joinDate, plan);
+  if (isNaN(expiry.getTime())) return false;
   const now = new Date();
   const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= days;

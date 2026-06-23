@@ -84,7 +84,8 @@ export async function middleware(request: NextRequest) {
     const isAuthPage = pathname.startsWith('/login') ||
       pathname.startsWith('/forgot-password') ||
       pathname.startsWith('/reset-password') ||
-      pathname.startsWith('/auth/callback');
+      pathname.startsWith('/auth/callback') ||
+      pathname.startsWith('/pricing');
 
     // 4. Perform redirects
     if (!user) {

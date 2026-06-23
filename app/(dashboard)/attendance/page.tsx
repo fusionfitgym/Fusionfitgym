@@ -62,10 +62,21 @@ export default function AttendancePage() {
     }
   };
 
-  const filteredLogs = logs.filter((log) =>
-    log.member_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.device_user_id.includes(searchQuery)
-  );
+  const searchText = (searchQuery || "").toLowerCase();
+
+  const filteredLogs = (logs || []).filter((log) => {
+    const memberName =
+      (log?.member as any)?.name ||
+      log?.member?.full_name ||
+      log?.member_name ||
+      "Unknown Member";
+    const deviceUserId = log?.device_user_id || "";
+    
+    return (
+      (memberName || "").toLowerCase().includes(searchText) ||
+      (deviceUserId || "").includes(searchQuery || "")
+    );
+  });
 
   return (
     <div className="page page-enter">
@@ -165,61 +176,71 @@ export default function AttendancePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLogs.map((log) => (
-                        <tr key={log.id}>
-                          <td>
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
-                                <Fingerprint className="h-4 w-4" />
+                      {filteredLogs.map((log) => {
+                        const memberName =
+                          (log?.member as any)?.name ||
+                          log?.member?.full_name ||
+                          log?.member_name ||
+                          "Unknown Member";
+                        const deviceUserId = log?.device_user_id || "—";
+                        const punchType = log?.punch_type || "checkin";
+                        
+                        return (
+                          <tr key={log?.id || Math.random().toString()}>
+                            <td>
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
+                                  <Fingerprint className="h-4 w-4" />
+                                </div>
+                                <span className="table-primary">{memberName}</span>
                               </div>
-                              <span className="table-primary">{log.member_name}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="font-mono text-xs text-slate-600">{log.device_user_id}</span>
-                          </td>
-                          <td>
-                            <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                              <Clock className="h-3.5 w-3.5 text-slate-400" />
-                              {new Date(log.punch_time).toLocaleTimeString('en-IN', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                              })}
-                            </div>
-                          </td>
-                          <td>
-                            <span
-                              className={`badge ${
-                                log.punch_type === 'checkin' ? 'badge-active' : 'badge-frozen'
-                              }`}
-                            >
-                              {log.punch_type === 'checkin' ? 'Check-in' : 'Check-out'}
-                            </span>
-                          </td>
-                          <td className="text-right">
-                            <div className="flex justify-end items-center gap-2">
-                              <Link href={`/members/${log.member_id}`} className="btn btn-ghost btn-sm">
-                                Profile <ArrowRight className="h-3 w-3" />
-                              </Link>
-                              <ConfirmDialog
-                                title="Delete log?"
-                                description="This will permanently delete this check-in record."
-                                onConfirm={() => void handleDelete(log.id)}
-                                trigger={
-                                  <button
-                                    type="button"
-                                    className="table-action table-action-danger flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 hover:bg-rose-50 hover:border-rose-100"
-                                    title="Delete log"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                }
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td>
+                              <span className="font-mono text-xs text-slate-600">{deviceUserId}</span>
+                            </td>
+                            <td>
+                              <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                                <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                {log?.punch_time ? new Date(log.punch_time).toLocaleTimeString('en-IN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                }) : '—'}
+                              </div>
+                            </td>
+                            <td>
+                              <span
+                                className={`badge ${
+                                  punchType === 'checkin' ? 'badge-active' : 'badge-frozen'
+                                }`}
+                              >
+                                {punchType === 'checkin' ? 'Check-in' : 'Check-out'}
+                              </span>
+                            </td>
+                            <td className="text-right">
+                              <div className="flex justify-end items-center gap-2">
+                                <Link href={`/members/${log?.member_id || ''}`} className="btn btn-ghost btn-sm">
+                                  Profile <ArrowRight className="h-3.5 w-3.5" />
+                                </Link>
+                                <ConfirmDialog
+                                  title="Delete log?"
+                                  description="This will permanently delete this check-in record."
+                                  onConfirm={() => log?.id && void handleDelete(log.id)}
+                                  trigger={
+                                    <button
+                                      type="button"
+                                      className="table-action table-action-danger flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 hover:bg-rose-50 hover:border-rose-100"
+                                      title="Delete log"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  }
+                                />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

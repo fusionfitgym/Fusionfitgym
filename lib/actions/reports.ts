@@ -39,26 +39,26 @@ export async function getMemberReport(type: 'active' | 'expired') {
     throw error;
   }
 
-  const processed = members.map((member) => {
+  const processed = (members || []).map((member: any) => {
     const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
     const now = new Date();
-    const isExpired = expiry < now;
+    const isExpired = isNaN(expiry.getTime()) ? true : expiry < now;
     const resolvedStatus = isExpired ? 'Expired' : member.status;
-    const diffTime = expiry.getTime() - now.getTime();
-    const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffTime = isNaN(expiry.getTime()) ? 0 : expiry.getTime() - now.getTime();
+    const daysRemaining = isNaN(expiry.getTime()) ? 0 : Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     return {
       ...member,
       status: resolvedStatus,
-      expiry_date: expiry.toISOString().split('T')[0],
+      expiry_date: isNaN(expiry.getTime()) ? '' : expiry.toISOString().split('T')[0],
       days_remaining: daysRemaining,
     };
   });
 
   if (type === 'active') {
-    return processed.filter((m) => m.status === 'Active');
+    return processed.filter((m: any) => m.status === 'Active');
   } else {
-    return processed.filter((m) => m.status === 'Expired');
+    return processed.filter((m: any) => m.status === 'Expired');
   }
 }
 
