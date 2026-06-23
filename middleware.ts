@@ -5,31 +5,33 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   console.log(`[Middleware] Start invocation for: ${pathname}`);
 
-  // Set the custom path header directly on request headers to preserve request structure
-  request.headers.set('x-pathname', pathname);
-
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // 1. Safety check for missing environment variables
-  if (!url || !anonKey) {
-    console.warn('[Middleware] Warning: Supabase environment variables are missing.');
-    return supabaseResponse;
-  }
-
-  // 2. Safety check for valid URL format to prevent createServerClient from throwing
   try {
-    new URL(url);
-  } catch (err) {
-    console.error('[Middleware] Error: Invalid NEXT_PUBLIC_SUPABASE_URL:', url, err);
-    return supabaseResponse;
-  }
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-pathname', pathname);
 
-  try {
+    let supabaseResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    // 1. Safety check for missing environment variables
+    if (!url || !anonKey) {
+      console.warn('[Middleware] Warning: Supabase environment variables are missing.');
+      return supabaseResponse;
+    }
+
+    // 2. Safety check for valid URL format to prevent createServerClient from throwing
+    try {
+      new URL(url);
+    } catch (err) {
+      console.error('[Middleware] Error: Invalid NEXT_PUBLIC_SUPABASE_URL:', url, err);
+      return supabaseResponse;
+    }
+
     console.log('[Middleware] Initializing createServerClient...');
     const supabase = createServerClient(url, anonKey, {
       cookies: {
@@ -42,11 +44,14 @@ export async function middleware(request: NextRequest) {
           
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           
-          // Maintain x-pathname custom header on request headers
-          request.headers.set('x-pathname', pathname);
+          // Clone the request.headers AFTER cookies are updated on the request object to preserve them
+          const currentHeaders = new Headers(request.headers);
+          currentHeaders.set('x-pathname', pathname);
           
           supabaseResponse = NextResponse.next({
-            request,
+            request: {
+              headers: currentHeaders,
+            },
           });
           
           cookiesToSet.forEach(({ name, value, options }) => {
@@ -104,7 +109,19 @@ export async function middleware(request: NextRequest) {
   } catch (error) {
     // 5. Catch-all defensive error handling to prevent 500 MIDDLEWARE_INVOCATION_FAILED
     console.error('[Middleware] Runtime execution exception caught:', error);
-    return NextResponse.next();
+    
+    // In case of error, still try to forward the custom header safely
+    try {
+      const fallbackHeaders = new Headers(request.headers);
+      fallbackHeaders.set('x-pathname', pathname);
+      return NextResponse.next({
+        request: {
+          headers: fallbackHeaders,
+        },
+      });
+    } catch {
+      return NextResponse.next();
+    }
   }
 }
 
