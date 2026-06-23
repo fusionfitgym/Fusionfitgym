@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Member, MemberFormValues } from '@/types';
 import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
 import { getMembershipExpiry, formatDate } from '@/lib/utils';
@@ -116,14 +117,34 @@ export async function deleteMember(id: string): Promise<void> {
 
 export async function uploadProfilePhoto(file: File): Promise<{ url?: string; error?: string }> {
   try {
-    const supabase = await createClient();
+    const adminSupabase = createAdminClient();
+
+    // Ensure the bucket exists by checking the list of buckets and creating it if missing
+    const { data: buckets, error: listError } = await adminSupabase.storage.listBuckets();
+    if (listError) {
+      console.error('Failed to list buckets:', listError.message);
+    }
+    
+    const bucketExists = buckets?.some(b => b.id === 'profile-photos');
+    if (!bucketExists) {
+      const { error: createError } = await adminSupabase.storage.createBucket('profile-photos', {
+        public: true,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+        fileSizeLimit: 5242880 // 5MB
+      });
+      if (createError) {
+        return { error: `Failed to create storage bucket: ${createError.message}` };
+      }
+    }
+
     const ext = file.name.split('.').pop();
     const filename = `${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
+    const { error } = await adminSupabase.storage
       .from('profile-photos')
       .upload(filename, file, { upsert: true });
     if (error) return { error: error.message };
-    const { data } = supabase.storage.from('profile-photos').getPublicUrl(filename);
+
+    const { data } = adminSupabase.storage.from('profile-photos').getPublicUrl(filename);
     return { url: data.publicUrl };
   } catch (err: any) {
     return { error: err.message || 'An unexpected error occurred.' };
