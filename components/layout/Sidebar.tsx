@@ -18,6 +18,7 @@ import {
   X,
   MessageSquare,
   LogOut,
+  Info,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ const navItems = [
   { href: '/sms', label: 'SMS Logs', icon: MessageSquare },
   { href: '/users', label: 'User Management', icon: UserPlus },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/about', label: 'About', icon: Info },
 ];
 
 function isRouteActive(pathname: string, href: string) {
@@ -98,6 +100,7 @@ function NavContent({
 
   // Role-based route filtering
   const filteredItems = navItems.filter((item) => {
+    if (item.href === '/about') return true;
     if (!profile) return false;
     const role = profile.role;
     
