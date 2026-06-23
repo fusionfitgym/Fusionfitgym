@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import {
@@ -28,36 +27,53 @@ import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } f
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
-  const supabase = await createClient();
+  let user = null;
   
-  // 1. Authenticate user session on the server
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+  } catch (error: any) {
+    if (error?.digest === 'DYNAMIC_SERVER_USAGE') {
+      throw error;
+    }
+    console.error("Authentication failed during Dashboard load:", error);
+    user = null;
+  }
 
   if (!user) {
     redirect('/login');
   }
 
   // 2. Fetch profile from cookie cache or database
-  const cookieStore = await cookies();
-  const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
-  const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
-
   let profile = null;
-  if (cachedProfile) {
-    profile = {
-      role: cachedProfile.role,
-      full_name: cachedProfile.fullName
-    };
-  } else {
-    const { data } = await supabase
-      .from('users_profiles')
-      .select('role, full_name')
-      .eq('auth_user_id', user.id)
-      .single();
-    profile = data;
+  try {
+    const cookieStore = await cookies();
+    const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
+    const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
+
+    if (cachedProfile) {
+      profile = {
+        role: cachedProfile.role,
+        full_name: cachedProfile.fullName
+      };
+    } else {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from('users_profiles')
+        .select('role, full_name')
+        .eq('auth_user_id', user.id)
+        .single();
+      profile = data;
+    }
+  } catch (error: any) {
+    if (error?.digest === 'DYNAMIC_SERVER_USAGE') {
+      throw error;
+    }
+    console.error("Failed to load user profile:", error);
   }
 
   const role = profile?.role || 'Trainer';
@@ -65,66 +81,97 @@ export default async function DashboardPage() {
   const showAttendanceAnalytics = ['Super Admin', 'Admin', 'Receptionist'].includes(role);
   const showSMSAnalytics = ['Super Admin', 'Admin'].includes(role);
 
-  // 3. Optimized parallel fetching of data
-  const promises: any[] = [
-    supabase
-      .from('members')
-      .select('id, full_name, phone, join_date, status, membership_plan, profile_photo')
-      .order('created_at', { ascending: false })
-  ];
+  let members: Member[] = [];
+  let invoices: any[] = [];
+  let attendance: any = null;
+  let smsStats: any = null;
 
-  if (showRevenueAnalytics) {
-    promises.push(
+  // 3. Optimized parallel fetching of data with safety boundaries
+  try {
+    const supabase = await createClient();
+    const promises: any[] = [
       supabase
-        .from('invoices')
-        .select('amount, status, created_at')
-        .eq('status', 'Paid')
-    );
-  } else {
-    promises.push(Promise.resolve({ data: [] }));
+        .from('members')
+        .select('id, full_name, phone, join_date, status, membership_plan, profile_photo')
+        .order('created_at', { ascending: false })
+        .catch((err: any) => {
+          console.error("Error fetching members:", err);
+          return { data: null };
+        })
+    ];
+
+    if (showRevenueAnalytics) {
+      promises.push(
+        supabase
+          .from('invoices')
+          .select('amount, status, created_at')
+          .eq('status', 'Paid')
+          .catch((err: any) => {
+            console.error("Error fetching invoices:", err);
+            return { data: null };
+          })
+      );
+    } else {
+      promises.push(Promise.resolve({ data: [] }));
+    }
+
+    if (showAttendanceAnalytics) {
+      promises.push(getAttendanceAnalytics().catch((err: any) => {
+        console.error("Error fetching attendance analytics:", err);
+        return null;
+      }));
+    } else {
+      promises.push(Promise.resolve(null));
+    }
+
+    if (showSMSAnalytics) {
+      promises.push(getSMSStats().catch((err: any) => {
+        console.error("Error fetching SMS stats:", err);
+        return null;
+      }));
+    } else {
+      promises.push(Promise.resolve(null));
+    }
+
+    const [
+      membersResult,
+      invoicesResult,
+      attendanceResult,
+      smsStatsResult
+    ] = await Promise.all(promises);
+
+    members = membersResult?.data || [];
+    invoices = invoicesResult?.data || [];
+    attendance = attendanceResult;
+    smsStats = smsStatsResult;
+  } catch (error) {
+    console.error("Failed executing parallel data fetching:", error);
   }
 
-  if (showAttendanceAnalytics) {
-    promises.push(getAttendanceAnalytics());
-  } else {
-    promises.push(Promise.resolve(null));
-  }
-
-  if (showSMSAnalytics) {
-    promises.push(getSMSStats());
-  } else {
-    promises.push(Promise.resolve(null));
-  }
-
-  const [
-    membersResult,
-    invoicesResult,
-    attendance,
-    smsStats
-  ] = await Promise.all(promises);
-
-  const members = (membersResult?.data || []) as Member[];
-  const invoices = (invoicesResult?.data || []) as any[];
-
-  // 4. Client-side state operations computed on Server
+  // 4. Client-side state operations computed on Server (safely guarded)
   const total = members.length;
-  const active = members.filter((member) => member.status === 'Active').length;
+  const active = members.filter((member) => member && member.status === 'Active').length;
   const expiringSoon = members.filter(
     (member) =>
+      member &&
       member.status === 'Active' &&
+      member.join_date &&
+      member.membership_plan &&
       isExpiringSoon(member.join_date, member.membership_plan),
   ).length;
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthlyRevenue = invoices
-    .filter((invoice) => invoice.status === 'Paid' && new Date(invoice.created_at) >= monthStart)
-    .reduce((sum, invoice) => sum + Number(invoice.amount), 0);
+    .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= monthStart)
+    .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
 
   // Chart data formatting
   const planCounts: Record<string, number> = {};
   members.forEach((member) => {
-    planCounts[member.membership_plan] = (planCounts[member.membership_plan] ?? 0) + 1;
+    if (member && member.membership_plan) {
+      planCounts[member.membership_plan] = (planCounts[member.membership_plan] ?? 0) + 1;
+    }
   });
   const pieData = Object.entries(planCounts).map(([name, value]) => ({ name, value }));
 
@@ -135,10 +182,11 @@ export default async function DashboardPage() {
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
     const revenue = invoices
       .filter((invoice) => {
+        if (!invoice || !invoice.created_at) return false;
         const createdAt = new Date(invoice.created_at);
         return invoice.status === 'Paid' && createdAt >= start && createdAt <= end;
       })
-      .reduce((sum, invoice) => sum + Number(invoice.amount), 0);
+      .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
 
     return {
       month: date.toLocaleString('en-IN', { month: 'short' }),
@@ -147,14 +195,14 @@ export default async function DashboardPage() {
   });
 
   const expiringMembersList = members
-    .filter((m) => m.status === 'Active' && isExpiringSoon(m.join_date, m.membership_plan))
+    .filter((m) => m && m.status === 'Active' && m.join_date && m.membership_plan && isExpiringSoon(m.join_date, m.membership_plan))
     .map((m) => {
       const expiry = getMembershipExpiry(m.join_date, m.membership_plan);
       const diff = expiry.getTime() - new Date().getTime();
       const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-      return { ...m, daysRemaining: days, expiryDate: expiry };
+      return { ...m, daysRemaining: isNaN(days) ? 0 : days, expiryDate: expiry };
     })
-    .sort((a, b) => a.daysRemaining - b.daysRemaining)
+    .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
     .slice(0, 5);
 
   const quickActions = [
