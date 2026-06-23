@@ -277,7 +277,7 @@ export default function AboutPage() {
 
             <div className="space-y-3.5 text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed">
               <p>
-                This application is designed and developed by <strong>Ihsan</strong> (specializing in Gym ERP Systems, Web Applications, and Automation Solutions). You can view his work at <a href="https://ihsan-web-portfolio.vercel.app" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">ihsan-web-portfolio.vercel.app</a>.
+                This application is designed and developed by <strong>Ihsan</strong> (specializing in ERP Systems, Websites, Web Applications, and Automation Solutions). You can view his work at <a href="https://ihsan-web-portfolio.vercel.app" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">ihsan-web-portfolio.vercel.app</a>.
               </p>
               <p>
                 Developed in partnership with <strong>Redix Media</strong> (<a href="https://redix.in" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">redix.in</a>), who is powering this app and engineering customized management portals to streamline client tracking, attendance registers, invoice generations, biometrics device synchronizations, and automated notifications.
@@ -334,27 +334,27 @@ export default function AboutPage() {
             <div className="flex items-center gap-3">
               <Mail className="h-4.5 w-4.5 text-slate-400 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Email Address</p>
-                <a href="mailto:ihsan.anas8281@gmail.com" className="hover:text-amber-500 transition-colors">ihsan.anas8281@gmail.com</a>
+                <p className="text-[10px] text-black dark:text-white uppercase tracking-wider">Email Address</p>
+                <a href="mailto:ihsan.anas8281@gmail.com" className="text-[10px] text-black dark:text-white uppercase tracking-wider">ihsan.anas8281@gmail.com</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Phone className="h-4.5 w-4.5 text-slate-400 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Whatsapp number</p>
-                <a href="whatsapp://send?phone=+91949013275" className="hover:text-amber-500 transition-colors">+91 949013275</a>
+                <p className="text-[10px] text-black dark:text-white uppercase tracking-wider">Whatsapp number</p>
+                <a href="whatsapp://send?phone=+91949013275" className="text-black dark:text-white uppercase tracking-wider">+91 949013275</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Clock className="h-4.5 w-4.5 text-slate-400 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Business Hours</p>
-                <p className="text-slate-800 dark:text-zinc-300">Monday - Saturday (09:00 AM - 06:00 PM IST)</p>
+                <p className="text-[10px] text-black dark:text-white uppercase tracking-wider">Business Hours</p>
+                <p className="text-[10px] text-black dark:text-white uppercase tracking-wider">Monday - Saturday (09:00 AM - 06:00 PM IST)</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl bg-amber-500/5 border border-amber-500/10 p-3 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400 font-semibold">
+          <div className="mt-5 rounded-xl border border-black/10 dark:border-white/10 p-3 text-[11px] leading-relaxed text-black dark:text-white uppercase tracking-wider">
             For technical issues, software bugs, custom feature requests, or device integration support, please contact the developer directly.
           </div>
         </section>
