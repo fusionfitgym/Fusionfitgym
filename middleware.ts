@@ -1,10 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { verifySession, signSession } from '@/lib/session-cache';
 
 export async function middleware(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', request.nextUrl.pathname);
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: {
+      headers: requestHeaders,
+    },
   });
 
   const supabase = createServerClient(
@@ -19,7 +23,9 @@ export async function middleware(request: NextRequest) {
           const rememberMe = request.cookies.get('remember_me')?.value !== 'false';
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
-            request,
+            request: {
+              headers: requestHeaders,
+            },
           });
           cookiesToSet.forEach(({ name, value, options }) => {
             const opt = { ...options };
@@ -64,115 +70,6 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);
-  }
-
-  // 2. Retrieve role and status (use cryptographically signed session cache if valid)
-  let role = '';
-  let status = 'Active';
-  const cachedSessionVal = request.cookies.get('fusionfit-session')?.value;
-  const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
-
-  if (cachedProfile) {
-    role = cachedProfile.role;
-    status = cachedProfile.status;
-  } else {
-    const { data: profile } = await supabase
-      .from('users_profiles')
-      .select('id, role, status, full_name')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    // If user profile is not found or is suspended: log them out and redirect to login page
-    if (!profile || profile.status === 'Suspended') {
-      await supabase.auth.signOut();
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      url.searchParams.set('error', 'Your account has been suspended or does not exist.');
-      const response = NextResponse.redirect(url);
-      // Clear cookies
-      response.cookies.delete('sb-access-token');
-      response.cookies.delete('sb-refresh-token');
-      response.cookies.delete('fusionfit-session');
-      return response;
-    }
-
-    role = profile.role;
-    status = profile.status;
-
-    // Cache the role and status in a signed cookie for subsequent loads (valid for 5 mins)
-    const sessionVal = await signSession({
-      id: profile.id,
-      role: profile.role as any,
-      status: profile.status as any,
-      fullName: profile.full_name || '',
-      userId: user.id
-    });
-    supabaseResponse.cookies.set('fusionfit-session', sessionVal, {
-      maxAge: 5 * 60,
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    });
-  }
-
-  // 3. Route Protection (Role-Based Access Control)
-  
-  // Super Admin: Full Access to all routes
-  if (role === 'Super Admin') {
-    return supabaseResponse;
-  }
-
-  // /users is only accessible by Super Admin
-  if (pathname.startsWith('/users')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/unauthorized';
-    return NextResponse.redirect(url);
-  }
-
-  // Admin access validation
-  if (role === 'Admin') {
-    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/invoices', '/reports', '/sms', '/settings'];
-    const isAllowed = allowedPrefixes.some(prefix => {
-      if (prefix === '/') return pathname === '/';
-      return pathname.startsWith(prefix);
-    });
-    if (!isAllowed) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/unauthorized';
-      return NextResponse.redirect(url);
-    }
-    return supabaseResponse;
-  }
-
-  // Receptionist access validation
-  if (role === 'Receptionist') {
-    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/invoices'];
-    const isAllowed = allowedPrefixes.some(prefix => {
-      if (prefix === '/') return pathname === '/';
-      return pathname.startsWith(prefix);
-    });
-    if (!isAllowed) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/unauthorized';
-      return NextResponse.redirect(url);
-    }
-    return supabaseResponse;
-  }
-
-  // Trainer access validation
-  if (role === 'Trainer') {
-    const allowedPrefixes = ['/', '/members', '/health', '/parq'];
-    const isAllowed = allowedPrefixes.some(prefix => {
-      if (prefix === '/') return pathname === '/';
-      return pathname.startsWith(prefix);
-    });
-    if (!isAllowed) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/unauthorized';
-      return NextResponse.redirect(url);
-    }
-    return supabaseResponse;
   }
 
   return supabaseResponse;
