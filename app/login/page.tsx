@@ -1,10 +1,12 @@
 'use client';
 
+import type { Metadata } from 'next';
 import { useActionState, useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Dumbbell, Mail, Lock, Eye, EyeOff, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { signInAction, SignInState } from '@/lib/actions/auth';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 const initialState: SignInState = {
   error: '',
@@ -22,12 +24,16 @@ function LoginForm() {
   const urlError = searchParams.get('error');
   const urlMessage = searchParams.get('message');
 
+  const { refreshProfile } = useAuth();
+
   useEffect(() => {
     if (state?.success) {
-      router.push('/');
-      router.refresh();
+      refreshProfile().then(() => {
+        router.push('/');
+        router.refresh();
+      });
     }
-  }, [state?.success, router]);
+  }, [state?.success, router, refreshProfile]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0b0d12] text-white px-4 relative overflow-hidden select-none">
