@@ -52,13 +52,18 @@ export async function getCurrentUserProfile() {
     userId: user.id
   });
   
-  cookieStore.set('fusionfit-session', sessionVal, {
-    maxAge: 5 * 60,
-    path: '/',
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  });
+  try {
+    cookieStore.set('fusionfit-session', sessionVal, {
+      maxAge: 5 * 60,
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+  } catch (cookieError) {
+    // Safely ignore when called during rendering (where writing cookies is not allowed)
+    console.warn("Could not set session cache cookie during layout/page render:", cookieError);
+  }
 
   const fullProfile = {
     ...profile,

@@ -201,7 +201,7 @@ function NavContent({
             )}
           </div>
 
-          {!collapsed && user?.last_sign_in_at && (
+          {!collapsed && user?.last_sign_in_at && !isNaN(new Date(user.last_sign_in_at).getTime()) && (
             <div className="text-[10px] text-zinc-500 font-medium leading-tight">
               Last login: <br />
               <span className="text-zinc-400 font-semibold mt-0.5 inline-block">

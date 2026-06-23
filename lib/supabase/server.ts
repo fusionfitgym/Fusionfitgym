@@ -22,6 +22,8 @@ function createSafeStub(error: Error) {
         if (prop === 'auth') {
           return {
             getUser: async () => ({ data: { user: null }, error }),
+            getSession: async () => ({ data: { session: null }, error: null }),
+            exchangeCodeForSession: async (code: string) => ({ data: { session: null, user: null }, error: null }),
             onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
             signOut: async () => ({ error: null }),
             resetPasswordForEmail: async () => ({ error }),
