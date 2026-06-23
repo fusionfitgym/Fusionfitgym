@@ -115,7 +115,7 @@ export default function AboutPage() {
                   Stable
                 </span>
               </h2>
-              <p className="text-zinc-300 text-xs sm:text-sm mt-1.5 font-medium leading-relaxed">
+              <p className="text-zinc-300 text-sm sm:text-base mt-1.5 font-medium leading-relaxed">
                 Modern enterprise administration, membership billing, automated notifications, and biometric tracking platform.
               </p>
             </div>
@@ -124,7 +124,7 @@ export default function AboutPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleCopyVersion}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] px-3.5 text-xs font-semibold text-zinc-100 transition-all cursor-pointer"
+              className="inline-flex h-9 items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] px-3.5 text-sm font-semibold text-zinc-100 transition-all cursor-pointer"
             >
               {copied ? <Check className="h-3.5 w-3.5 text-amber-300 animate-pulse" /> : <Copy className="h-3.5 w-3.5 text-zinc-300" />}
               <span>{PRODUCT_VERSION}</span>
@@ -135,21 +135,21 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="mt-8 pt-5 border-t border-white/[0.07] grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold text-zinc-300">
+        <div className="mt-8 pt-5 border-t border-white/[0.07] grid grid-cols-2 md:grid-cols-4 gap-4 text-sm font-semibold text-zinc-300">
           <div>
-            <p className="uppercase text-xs tracking-widest text-zinc-300">Last updated</p>
+            <p className="text-sm text-zinc-300">Last updated</p>
             <p className="mt-1.5 text-zinc-100 font-bold">{RELEASE_DATE}</p>
           </div>
           <div>
-            <p className="uppercase text-xs tracking-widest text-zinc-300">License type</p>
+            <p className="text-sm text-zinc-300">License type</p>
             <p className="mt-1.5 text-zinc-100 font-bold">Commercial (Single Site)</p>
           </div>
           <div>
-            <p className="uppercase text-xs tracking-widest text-zinc-300">Build context</p>
+            <p className="text-sm text-zinc-300">Build context</p>
             <p className="mt-1.5 text-zinc-100 font-bold">{BUILD_TYPE}</p>
           </div>
           <div>
-            <p className="uppercase text-xs tracking-widest text-zinc-300">Updates</p>
+            <p className="text-sm text-zinc-300">Updates</p>
             <button 
               onClick={handleCheckUpdates}
               disabled={checkingUpdates}
@@ -173,7 +173,7 @@ export default function AboutPage() {
                 <h3 className="card-title text-base font-extrabold flex items-center gap-2">
                   <Server className="h-5 w-5 text-amber-500" /> System Status
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-zinc-300 mt-0.5">Live connectivity metrics to system backends.</p>
+                <p className="text-sm text-slate-600 dark:text-zinc-300 mt-0.5">Live connectivity metrics to system backends.</p>
               </div>
               <button 
                 onClick={fetchStatus}
@@ -217,13 +217,13 @@ export default function AboutPage() {
           <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => setShowSysInfoModal(true)}
-              className="btn btn-secondary w-full justify-center text-xs font-bold py-2 rounded-xl"
+              className="btn btn-secondary w-full justify-center text-sm font-bold py-2 rounded-xl"
             >
               <Cpu className="h-4 w-4" /> System Information
             </button>
             <button
               onClick={() => setShowLicenseModal(true)}
-              className="btn btn-secondary w-full justify-center text-xs font-bold py-2 rounded-xl"
+              className="btn btn-secondary w-full justify-center text-sm font-bold py-2 rounded-xl"
             >
               <FileText className="h-4 w-4" /> View License Information
             </button>
@@ -236,7 +236,7 @@ export default function AboutPage() {
             <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
               <Sparkles className="h-5 w-5 text-amber-500" /> Designed & Developed By
             </h3>
-            <p className="text-xs text-slate-600 dark:text-zinc-300 mb-6">Designed exclusively for Fusion Fit Multi Gym.</p>
+            <p className="text-sm text-slate-600 dark:text-zinc-300 mb-6">Designed exclusively for Fusion Fit Multi Gym.</p>
 
             {/* Developer Details */}
             <div className="space-y-4 mb-5">
@@ -253,7 +253,7 @@ export default function AboutPage() {
                   >
                     Ihsan
                   </a>
-                  <p className="text-xs font-black uppercase text-amber-500 tracking-wider mt-0.5">Full Stack Developer</p>
+                  <p className="text-sm font-semibold text-amber-600 mt-0.5">Full Stack Developer</p>
                 </div>
               </div>
 
@@ -270,25 +270,25 @@ export default function AboutPage() {
                   >
                     Redix Media
                   </a>
-                  <p className="text-xs font-black uppercase text-amber-500 tracking-wider mt-0.5">Technology Partner</p>
+                  <p className="text-sm font-semibold text-amber-600 mt-0.5">Technology Partner</p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3.5 text-xs text-slate-700 dark:text-zinc-200 font-medium leading-relaxed">
+            <div className="space-y-3.5 text-base text-slate-700 dark:text-zinc-200 leading-relaxed">
               <p>
-                This application is designed and developed by <strong>Ihsan</strong> (specializing in ERP Systems, Websites, Web Applications, and Automation Solutions). You can view his work at <a href="https://ihsan-web-portfolio.vercel.app" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">ihsan-web-portfolio.vercel.app</a>.
+                This application is designed and developed by <strong>Ihsan</strong> (specializing in ERP Systems, Websites, Web Applications, and Automation Solutions). You can view his work at <a href="https://ihsan-web-portfolio.vercel.app" target="_blank" rel="noopener noreferrer" className="font-semibold text-amber-600 hover:underline">ihsan-web-portfolio.vercel.app</a>.
               </p>
               <p>
-                Developed in partnership with <strong>Redix Media</strong> (<a href="https://redix.in" target="_blank" rel="noopener noreferrer" className="text-amber-500 hover:underline">redix.in</a>), who is powering this app and engineering customized management portals to streamline client tracking, attendance registers, invoice generations, biometrics device synchronizations, and automated notifications.
+                Developed in partnership with <strong>Redix Media</strong> (<a href="https://redix.in" target="_blank" rel="noopener noreferrer" className="font-semibold text-amber-600 hover:underline">redix.in</a>), who is powering this app and engineering customized management portals to streamline client tracking, attendance registers, invoice generations, biometrics device synchronizations, and automated notifications.
               </p>
-              <p className="text-sm font-semibold text-slate-600 dark:text-zinc-300 italic">
+              <p className="text-sm font-medium text-slate-700 dark:text-zinc-300 italic">
                 Made with Next.js, TypeScript, Supabase, Tailwind CSS
               </p>
             </div>
           </div>
 
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 text-xs text-slate-700 dark:text-zinc-200 font-semibold flex items-center justify-between">
+          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-zinc-800/80 text-sm text-slate-700 dark:text-zinc-200 font-semibold flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Copyright className="h-3.5 w-3.5" /> 
               <span>Developed exclusively for Fusion Fit Multi Gym</span>
@@ -297,7 +297,7 @@ export default function AboutPage() {
               href="https://redix.in" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-amber-500 hover:underline font-extrabold"
+              className="font-semibold text-amber-600 hover:underline"
             >
               redix.in
             </a>
@@ -306,8 +306,8 @@ export default function AboutPage() {
       </div>
 
       {/* Features Grid Overview */}
-      <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-900 dark:text-white mb-4 px-1">
-        Primary ERP Modules
+      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 px-1">
+        Primary ERP modules
       </h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <FeatureCard title="Member Management" icon={Users} desc="Comprehensive registration profiles, status tracking, and plan assignments." />
@@ -326,35 +326,35 @@ export default function AboutPage() {
         {/* Support & Contact Section */}
         <section className="card p-5 sm:p-6">
           <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
-            <Mail className="h-5 w-5 text-amber-500" /> Technical Support
+            <Mail className="h-5 w-5 text-amber-500" /> Technical support
           </h3>
-          <p className="text-xs text-slate-600 dark:text-zinc-300 mb-5">Technical operations and feature requests.</p>
+          <p className="text-sm text-slate-600 dark:text-zinc-300 mb-5">Technical operations and feature requests.</p>
 
-          <div className="space-y-4 text-xs font-semibold text-slate-800 dark:text-zinc-200">
+          <div className="space-y-4 text-sm">
             <div className="flex items-center gap-3">
-              <Mail className="h-4.5 w-4.5 text-slate-600 dark:text-zinc-300 shrink-0" />
+              <Mail className="h-4.5 w-4.5 text-amber-500 shrink-0" />
               <div>
-                <p className="text-xs text-slate-700 dark:text-zinc-200 uppercase tracking-wider">Email Address</p>
-                <a href="mailto:ihsan.anas8281@gmail.com" className="text-xs text-slate-700 dark:text-zinc-200 uppercase tracking-wider">ihsan.anas8281@gmail.com</a>
+                <p className="font-semibold text-slate-800 dark:text-zinc-100">Email address</p>
+                <a href="mailto:ihsan.anas8281@gmail.com" className="text-slate-700 dark:text-zinc-200 hover:text-amber-600 transition-colors">ihsan.anas8281@gmail.com</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Phone className="h-4.5 w-4.5 text-slate-600 dark:text-zinc-300 shrink-0" />
+              <Phone className="h-4.5 w-4.5 text-amber-500 shrink-0" />
               <div>
-                <p className="text-xs text-slate-700 dark:text-zinc-200 uppercase tracking-wider">Whatsapp number</p>
-                <a href="whatsapp://send?phone=+91949013275" className="text-xs text-slate-700 dark:text-zinc-200 uppercase tracking-wider">+91 949013275</a>
+                <p className="font-semibold text-slate-800 dark:text-zinc-100">WhatsApp number</p>
+                <a href="whatsapp://send?phone=+91949013275" className="text-slate-700 dark:text-zinc-200 hover:text-amber-600 transition-colors">+91 949013275</a>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Clock className="h-4.5 w-4.5 text-slate-600 dark:text-zinc-300 shrink-0" />
               <div>
-                <p className="text-xs text-slate-700 dark:text-zinc-200 uppercase tracking-wider">Business Hours</p>
-                <p className="text-xs text-slate-700 dark:text-zinc-200 uppercase tracking-wider">Monday - Saturday (09:00 AM - 06:00 PM IST)</p>
+                <p className="font-semibold text-slate-800 dark:text-zinc-100">Business hours</p>
+                <p className="text-slate-700 dark:text-zinc-200">Monday - Saturday (09:00 AM - 06:00 PM IST)</p>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 rounded-xl border border-black/10 dark:border-white/10 p-3 text-sm leading-relaxed text-slate-700 dark:text-zinc-200 uppercase tracking-wider">
+          <div className="mt-5 rounded-xl border border-amber-400 p-3 text-sm leading-relaxed text-slate-700 dark:text-zinc-200 font-medium">
             For technical issues, software bugs, custom feature requests, or device integration support, please contact the developer directly.
           </div>
         </section>
@@ -363,11 +363,11 @@ export default function AboutPage() {
         <section className="card p-5 sm:p-6 flex flex-col justify-between">
           <div>
             <h3 className="card-title text-base font-extrabold flex items-center gap-2 mb-1.5">
-              <ShieldAlert className="h-5 w-5 text-amber-500" /> Licensing & Legal Disclaimer
+              <ShieldAlert className="h-5 w-5 text-amber-500" /> Licensing & legal disclaimer
             </h3>
-            <p className="text-xs text-slate-600 dark:text-zinc-300 mb-4">Software usage rights and intellectual property statements.</p>
+            <p className="text-sm text-slate-600 dark:text-zinc-300 mb-4">Software usage rights and intellectual property statements.</p>
 
-            <div className="text-xs text-slate-700 dark:text-zinc-200 font-medium leading-relaxed space-y-3">
+            <div className="text-sm text-slate-700 dark:text-zinc-200 leading-relaxed space-y-3">
               <p>
                 &copy; {new Date().getFullYear()} FusionFit Gym Management ERP. All Rights Reserved.
               </p>
@@ -377,7 +377,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="mt-5 text-xs font-black uppercase text-amber-500 tracking-wider">
+          <div className="mt-5 text-sm font-bold text-amber-600">
             Protected under intellectual property laws.
           </div>
         </section>
@@ -389,7 +389,7 @@ export default function AboutPage() {
           <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative">
             <button
               onClick={() => setShowSysInfoModal(false)}
-              className="absolute right-4 top-4 text-zinc-600 dark:text-zinc-300 hover:text-zinc-800 dark:hover:text-white transition-all cursor-pointer"
+              className="absolute right-4 top-4 text-amber-400 hover:text-amber-500 transition-all cursor-pointer"
             >
               <XCircle className="h-5 w-5" />
             </button>
@@ -397,30 +397,30 @@ export default function AboutPage() {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
               <Cpu className="h-5 w-5 text-amber-500" /> System Information
             </h3>
-            <p className="text-xs text-slate-600 dark:text-zinc-300 mb-5">
+            <p className="text-sm text-slate-600 dark:text-zinc-300 mb-5">
               Technical execution environment parameters and configuration contexts.
             </p>
 
             <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
               {/* Build Environment */}
               <div className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4">
-                <h4 className="text-xs font-black uppercase text-amber-500 tracking-wider mb-2 flex items-center gap-1.5">
-                  <Cloud className="h-4 w-4" /> Environment Config
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-zinc-100 mb-2 flex items-center gap-1.5">
+                  <Cloud className="h-4 w-4" /> Environment config
                 </h4>
-                <div className="space-y-2 text-xs font-medium divide-y divide-slate-100 dark:divide-zinc-800/30">
+                <div className="space-y-2 text-sm font-medium divide-y divide-slate-100 dark:divide-zinc-800/30">
                   <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Node Environment</span><span className="text-slate-900 dark:text-zinc-200 font-bold">{process.env.NODE_ENV}</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Execution Stack</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Vercel Serverless Edge</span></div>
-                  <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Supabase URL</span><span className="text-slate-900 dark:text-zinc-200 font-mono text-xs">{process.env.NEXT_PUBLIC_SUPABASE_URL || 'Configured'}</span></div>
+                  <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Supabase URL</span><span className="text-slate-900 dark:text-zinc-200 font-mono text-sm">{process.env.NEXT_PUBLIC_SUPABASE_URL || 'Configured'}</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Analytics Mode</span><span className="text-slate-900 dark:text-zinc-200 font-bold text-emerald-500">Vercel Analytics Enabled</span></div>
                 </div>
               </div>
 
               {/* Build Info */}
               <div className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4">
-                <h4 className="text-xs font-black uppercase text-amber-500 tracking-wider mb-2 flex items-center gap-1.5">
-                  <Terminal className="h-4 w-4" /> Build Specifications
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-zinc-100 mb-2 flex items-center gap-1.5">
+                  <Terminal className="h-4 w-4" /> Build specifications
                 </h4>
-                <div className="space-y-2 text-xs font-medium divide-y divide-slate-100 dark:divide-zinc-800/30">
+                <div className="space-y-2 text-sm font-medium divide-y divide-slate-100 dark:divide-zinc-800/30">
                   <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Build Target</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Next.js 15 App Router</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Target Bundler</span><span className="text-slate-900 dark:text-zinc-200 font-bold">Turbopack (Rust Compiler)</span></div>
                   <div className="flex justify-between py-1.5"><span className="text-slate-700 dark:text-zinc-200">Compiler Options</span><span className="text-slate-900 dark:text-zinc-200 font-bold font-mono text-sm">Strict, ES2022</span></div>
@@ -456,11 +456,11 @@ export default function AboutPage() {
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
               <FileText className="h-5 w-5 text-amber-500" /> Commercial Software License
             </h3>
-            <p className="text-xs text-slate-600 dark:text-zinc-300 mb-5">
+            <p className="text-sm text-slate-600 dark:text-zinc-300 mb-5">
               Legal agreements, copyright notices, and software delivery parameters.
             </p>
 
-            <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 text-xs text-slate-700 dark:text-zinc-200 leading-relaxed font-medium">
+            <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 text-sm text-slate-700 dark:text-zinc-200 leading-relaxed font-medium">
               <div className="bg-slate-50 dark:bg-zinc-900/60 border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-4">
                 <p className="font-extrabold text-slate-900 dark:text-white mb-2">1. End-User License Agreement (EULA)</p>
                 <p className="mb-3">
@@ -517,10 +517,10 @@ function StatusRow({
   desc?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-1.5 text-xs font-semibold">
+    <div className="flex items-start justify-between gap-4 py-1.5 text-sm font-semibold">
       <div className="min-w-0">
-        <p className="text-slate-800 dark:text-zinc-200 font-bold truncate">{label}</p>
-        {desc && <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium truncate mt-0.5">{desc}</p>}
+        <p className="text-slate-800 dark:text-zinc-100 font-semibold truncate">{label}</p>
+        {desc && <p className="text-sm text-slate-600 dark:text-zinc-300 font-medium truncate mt-0.5">{desc}</p>}
       </div>
       <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
         {status === 'checking' && (
@@ -579,8 +579,8 @@ function FeatureCard({
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-600 group-hover:bg-amber-300 group-hover:text-zinc-950 group-hover:border-amber-400/40 transition-colors shadow-xs dark:bg-zinc-900/60 dark:border-zinc-800/60 dark:text-zinc-300">
           <Icon className="h-4.5 w-4.5" />
         </span>
-        <h4 className="mt-3 text-[13px] font-extrabold text-slate-900 dark:text-white truncate">{title}</h4>
-        <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-zinc-300 font-medium">{desc}</p>
+        <h4 className="mt-3 text-sm font-bold text-slate-900 dark:text-white truncate">{title}</h4>
+        <p className="mt-2.5 text-sm leading-relaxed text-slate-700 dark:text-zinc-200">{desc}</p>
       </div>
     </div>
   );
