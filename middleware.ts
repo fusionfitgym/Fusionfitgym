@@ -11,10 +11,17 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Safety guard for missing environment variables
+  if (!url || !anonKey) {
+    console.warn('Supabase environment variables are missing in middleware.');
+    return supabaseResponse;
+  }
+
+  try {
+    const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -22,11 +29,17 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           const rememberMe = request.cookies.get('remember_me')?.value !== 'false';
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          
+          // Ensure we clone current headers containing updated cookies
+          const currentHeaders = new Headers(request.headers);
+          currentHeaders.set('x-pathname', request.nextUrl.pathname);
+          
           supabaseResponse = NextResponse.next({
             request: {
-              headers: requestHeaders,
+              headers: currentHeaders,
             },
           });
+          
           cookiesToSet.forEach(({ name, value, options }) => {
             const opt = { ...options };
             if (!rememberMe) {
@@ -37,39 +50,41 @@ export async function middleware(request: NextRequest) {
           });
         },
       },
+    });
+
+    // Retrieve user session state with a fallback
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const pathname = request.nextUrl.pathname;
+
+    // Define public paths that do not require authentication
+    const isAuthPage = pathname.startsWith('/login') || 
+                       pathname.startsWith('/forgot-password') || 
+                       pathname.startsWith('/reset-password') ||
+                       pathname.startsWith('/auth/callback');
+
+    // If unauthenticated: redirect protected pages to /login
+    if (!user) {
+      if (!isAuthPage) {
+        const urlObj = request.nextUrl.clone();
+        urlObj.pathname = '/login';
+        return NextResponse.redirect(urlObj);
+      }
+      return supabaseResponse;
     }
-  );
 
-  // Retrieve user session state
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  // Define public paths that do not require authentication
-  const isAuthPage = pathname.startsWith('/login') || 
-                     pathname.startsWith('/forgot-password') || 
-                     pathname.startsWith('/reset-password') ||
-                     pathname.startsWith('/auth/callback');
-
-  // If unauthenticated: redirect protected pages to /login
-  if (!user) {
-    if (!isAuthPage) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      return NextResponse.redirect(url);
+    // If authenticated:
+    // Redirect login/auth pages back to Dashboard /
+    if (isAuthPage && !pathname.startsWith('/auth/callback')) {
+      const urlObj = request.nextUrl.clone();
+      urlObj.pathname = '/';
+      return NextResponse.redirect(urlObj);
     }
-    return supabaseResponse;
-  }
-
-  // If authenticated:
-  
-  // 1. Redirect login pages back to Dashboard /
-  if (isAuthPage && !pathname.startsWith('/auth/callback')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
+  } catch (error) {
+    // Prevent unhandled errors from causing MIDDLEWARE_INVOCATION_FAILED (500)
+    console.error('Middleware execution error caught:', error);
   }
 
   return supabaseResponse;
