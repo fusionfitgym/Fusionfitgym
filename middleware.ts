@@ -2,42 +2,51 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  console.log(`[Middleware] Start invocation for: ${pathname}`);
+
+  // Set the custom path header directly on request headers to preserve request structure
+  request.headers.set('x-pathname', pathname);
+
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // 1. Safety check for missing environment variables
+  if (!url || !anonKey) {
+    console.warn('[Middleware] Warning: Supabase environment variables are missing.');
+    return supabaseResponse;
+  }
+
+  // 2. Safety check for valid URL format to prevent createServerClient from throwing
   try {
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-pathname', request.nextUrl.pathname);
+    new URL(url);
+  } catch (err) {
+    console.error('[Middleware] Error: Invalid NEXT_PUBLIC_SUPABASE_URL:', url, err);
+    return supabaseResponse;
+  }
 
-    let supabaseResponse = NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
-
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    // Safety guard for missing environment variables
-    if (!url || !anonKey) {
-      console.warn('Supabase environment variables are missing in middleware.');
-      return supabaseResponse;
-    }
-
+  try {
+    console.log('[Middleware] Initializing createServerClient...');
     const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          console.log('[Middleware] setAll cookies trigger:', cookiesToSet.map(c => c.name));
           const rememberMe = request.cookies.get('remember_me')?.value !== 'false';
+          
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           
-          // Ensure we clone current headers containing updated cookies
-          const currentHeaders = new Headers(request.headers);
-          currentHeaders.set('x-pathname', request.nextUrl.pathname);
+          // Maintain x-pathname custom header on request headers
+          request.headers.set('x-pathname', pathname);
           
           supabaseResponse = NextResponse.next({
-            request: {
-              headers: currentHeaders,
-            },
+            request,
           });
           
           cookiesToSet.forEach(({ name, value, options }) => {
@@ -51,13 +60,20 @@ export async function middleware(request: NextRequest) {
         },
       },
     });
+    console.log('[Middleware] createServerClient initialized successfully.');
 
-    // Retrieve user session state with a fallback
+    // 3. Retrieve authenticated user state
+    console.log('[Middleware] Fetching authenticated user (getUser)...');
     const {
       data: { user },
+      error,
     } = await supabase.auth.getUser();
 
-    const pathname = request.nextUrl.pathname;
+    if (error) {
+      console.warn('[Middleware] getUser returned auth error:', error.message);
+    } else {
+      console.log('[Middleware] getUser completed. User authenticated:', !!user);
+    }
 
     // Define public paths that do not require authentication
     const isAuthPage = pathname.startsWith('/login') || 
@@ -65,9 +81,10 @@ export async function middleware(request: NextRequest) {
                        pathname.startsWith('/reset-password') ||
                        pathname.startsWith('/auth/callback');
 
-    // If unauthenticated: redirect protected pages to /login
+    // 4. Perform redirects
     if (!user) {
       if (!isAuthPage) {
+        console.log(`[Middleware] Unauthenticated access to protected page ${pathname}. Redirecting to /login`);
         const urlObj = request.nextUrl.clone();
         urlObj.pathname = '/login';
         return NextResponse.redirect(urlObj);
@@ -75,9 +92,9 @@ export async function middleware(request: NextRequest) {
       return supabaseResponse;
     }
 
-    // If authenticated:
-    // Redirect login/auth pages back to Dashboard /
+    // Redirect authenticated users away from login/forgot/reset pages
     if (isAuthPage && !pathname.startsWith('/auth/callback')) {
+      console.log(`[Middleware] Authenticated user on auth page ${pathname}. Redirecting to dashboard root (/)`);
       const urlObj = request.nextUrl.clone();
       urlObj.pathname = '/';
       return NextResponse.redirect(urlObj);
@@ -85,8 +102,8 @@ export async function middleware(request: NextRequest) {
 
     return supabaseResponse;
   } catch (error) {
-    // Prevent unhandled errors from causing MIDDLEWARE_INVOCATION_FAILED (500)
-    console.error('Middleware execution error caught:', error);
+    // 5. Catch-all defensive error handling to prevent 500 MIDDLEWARE_INVOCATION_FAILED
+    console.error('[Middleware] Runtime execution exception caught:', error);
     return NextResponse.next();
   }
 }
