@@ -206,7 +206,12 @@ export function MemberForm({
                 </div>
               </FormField>
 
-              <FormField label="Date of birth" htmlFor="dob" error={errors.dob?.message}>
+              <FormField
+                label="Date of birth"
+                htmlFor="dob"
+                required
+                error={errors.dob?.message}
+              >
                 <div className="input-with-icon">
                   <Calendar />
                   <input

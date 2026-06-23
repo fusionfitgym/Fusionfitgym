@@ -27,7 +27,7 @@ export const memberSchema = z.object({
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   address: z.string().optional().or(z.literal('')),
   emergency_contact: z.string().optional().or(z.literal('')),
-  dob: z.string().optional().or(z.literal('')),
+  dob: z.string().min(1, 'Date of birth is required'),
   membership_plan: z.enum(['Monthly', 'Quarterly', 'Biannual', 'Annual']),
   join_date: z.string().min(1, 'Join date is required'),
   status: z.enum(['Active', 'Inactive', 'Expired', 'Frozen']),
