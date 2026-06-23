@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -36,6 +37,7 @@ export default function RootLayout({
           {children}
         </AuthProvider>
         <PwaRegister />
+        <Analytics />
       </body>
     </html>
   );
