@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -38,6 +39,7 @@ export default function RootLayout({
         </AuthProvider>
         <PwaRegister />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
