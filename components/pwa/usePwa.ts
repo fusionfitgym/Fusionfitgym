@@ -92,7 +92,7 @@ export function usePwa() {
   };
 
   return {
-    isInstallable: isInstallable && !isStandalone,
+    isInstallable: (isInstallable && !isStandalone) || (isIOS && !isStandalone),
     isStandalone,
     isIOS,
     showIOSPrompt,

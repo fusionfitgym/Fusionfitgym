@@ -80,16 +80,21 @@ export async function middleware(request: NextRequest) {
       console.log('[Middleware] getUser completed. User authenticated:', !!user);
     }
 
-    // Define public paths that do not require authentication
     const isAuthPage = pathname.startsWith('/login') ||
       pathname.startsWith('/forgot-password') ||
       pathname.startsWith('/reset-password') ||
-      pathname.startsWith('/auth/callback') ||
-      pathname.startsWith('/pricing');
+      pathname.startsWith('/auth/callback');
+
+    // Define public paths that do not require authentication
+    const isPublicPath = isAuthPage ||
+      pathname.startsWith('/pricing') ||
+      pathname === '/sw.js' ||
+      pathname === '/manifest.json' ||
+      pathname === '/offline';
 
     // 4. Perform redirects
     if (!user) {
-      if (!isAuthPage) {
+      if (!isPublicPath) {
         console.log(`[Middleware] Unauthenticated access to protected page ${pathname}. Redirecting to /login`);
         const urlObj = request.nextUrl.clone();
         urlObj.pathname = '/login';
@@ -133,8 +138,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - sw.js (PWA service worker)
+     * - manifest.json (PWA manifest)
      * - *.svg, *.png, *.jpg, etc.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
