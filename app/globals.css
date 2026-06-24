@@ -432,6 +432,55 @@ textarea:focus-visible,
   color: var(--color-text);
 }
 
+/* ── SMS button ─────────────────────────────────────────────── */
+.btn-sms {
+  display: inline-flex;
+  min-height: var(--control-height);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  border: 1px solid #16a34a;
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-md);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  background: #f0fdf4;
+  color: #15803d;
+  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.08);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    box-shadow 160ms ease, transform 160ms ease;
+}
+
+.btn-sms:hover {
+  background: #dcfce7;
+  border-color: #15803d;
+  color: #166534;
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.16);
+  transform: translateY(-1px);
+}
+
+.btn-sms:active {
+  transform: translateY(0);
+}
+
+.btn-sms:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* small variant */
+.btn-sms.btn-sm {
+  min-height: 36px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
 .btn-sm {
   min-height: 36px;
   padding-inline: 12px;

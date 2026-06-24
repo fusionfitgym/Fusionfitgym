@@ -28,6 +28,7 @@ import {
   SectionCard,
 } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SmsSendButton } from '@/components/ui/SmsSendButton';
 import { deleteMember, getMemberById } from '@/lib/actions/members';
 import { getHealthByMember } from '@/lib/actions/health';
 import { getParqByMember } from '@/lib/actions/parq';
@@ -39,6 +40,7 @@ import {
   formatDate,
   getMembershipExpiry,
 } from '@/lib/utils';
+import { buildExpiryReminderMessage } from '@/lib/native-sms';
 
 export default function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -98,6 +100,15 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         subtitle={`Member since ${formatDate(start)}`}
         action={
           <>
+            <SmsSendButton
+              phone={member.phone}
+              message={buildExpiryReminderMessage(
+                member.full_name,
+                formatDate(expiry),
+              )}
+              variant="sms"
+              label="Send SMS"
+            />
             <Link href={`/members/${id}/edit`} className="btn btn-primary">
               <Edit className="h-4 w-4" /> Edit member
             </Link>

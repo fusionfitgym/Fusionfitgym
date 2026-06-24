@@ -17,11 +17,13 @@ import {
   SectionCard,
 } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SmsSendButton } from '@/components/ui/SmsSendButton';
 import { getInvoiceById, updateInvoiceStatus } from '@/lib/actions/invoices';
 import { getSettings } from '@/lib/actions/settings';
 import { GymSettings, Invoice, INVOICE_STATUSES } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { buildInvoiceMessage } from '@/lib/native-sms';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -102,6 +104,16 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Link href="/invoices" className="btn btn-secondary">
               <ArrowLeft className="h-4 w-4" /> Back
             </Link>
+            <SmsSendButton
+              phone={member?.phone}
+              message={buildInvoiceMessage(
+                member?.full_name ?? 'Member',
+                invoice.invoice_number,
+                formatCurrency(invoice.amount),
+              )}
+              variant="sms"
+              label="Send Invoice SMS"
+            />
             <button
               type="button"
               onClick={handleDownloadPDF}

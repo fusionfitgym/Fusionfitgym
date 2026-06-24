@@ -6,7 +6,6 @@ import {
   Activity,
   ArrowRight,
   ClipboardList,
-  Clock,
   Dumbbell,
   FileText,
   TrendingUp,
@@ -21,6 +20,7 @@ import { verifySession } from '@/lib/session-cache';
 import { Member } from '@/types';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentMembers } from '@/components/dashboard/RecentMembers';
+import { ExpiringMembersList } from '@/components/dashboard/ExpiringMembersList';
 import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceAnalytics } from '@/lib/actions/attendance';
 import { getSMSStats } from '@/lib/actions/sms';
@@ -351,35 +351,11 @@ export default async function DashboardPage() {
         )}
 
         {/* Expiring memberships roster */}
-        <section className={cn('card p-4 sm:p-6', !showAttendanceAnalytics && 'xl:col-span-3')}>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="section-title font-bold text-slate-900">Expiring memberships</h2>
-              <p className="section-description">Expiring in the next 7 days</p>
-            </div>
-            <span className="badge badge-inactive font-bold">{expiringSoon}</span>
-          </div>
-
-          <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto pr-1">
-            {expiringMembersList.map((m) => (
-              <div key={m.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                <div>
-                  <p className="text-sm font-semibold text-slate-950">{m.full_name}</p>
-                  <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                    <Clock className="h-3 w-3" /> Expires {formatDate(m.expiryDate)}
-                  </span>
-                </div>
-                <div>
-                  <span className="badge badge-expired text-[10px] font-bold">{m.daysRemaining} day(s) left</span>
-                </div>
-              </div>
-            ))}
-
-            {expiringMembersList.length === 0 && (
-              <div className="p-8 text-center text-xs text-slate-400">No memberships expiring soon.</div>
-            )}
-          </div>
-        </section>
+        <ExpiringMembersList
+          members={expiringMembersList}
+          expiringSoon={expiringSoon}
+          showAttendanceAnalytics={showAttendanceAnalytics}
+        />
       </div>
 
       <div className="mt-6">
