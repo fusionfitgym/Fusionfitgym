@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // 3. Match member by device_user_id
     const { data: member, error: fetchError } = await supabase
       .from('members')
-      .select('id, full_name, join_date, membership_plan, status')
+      .select('id, full_name, package_start_date, package_end_date, status')
       .eq('device_user_id', String(device_user_id))
       .maybeSingle();
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Determine membership status based on expiration
-    const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
+    const expiry = new Date(member.package_end_date);
     const now = new Date();
     const isExpired = expiry < now;
     

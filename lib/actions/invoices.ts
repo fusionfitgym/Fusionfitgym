@@ -11,7 +11,7 @@ export async function getInvoices(): Promise<Invoice[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, member:members(full_name, phone, email, address, membership_plan)')
+    .select('*, member:members(full_name, phone, email, address, package_name, package_duration, package_price, package_start_date, package_end_date)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data as Invoice[];
@@ -32,7 +32,7 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, member:members(full_name, phone, email, address, membership_plan)')
+    .select('*, member:members(full_name, phone, email, address, package_name, package_duration, package_price, package_start_date, package_end_date)')
     .eq('id', id)
     .single();
   if (error) return null;
@@ -55,7 +55,7 @@ export async function createInvoice(values: InvoiceFormValues): Promise<Invoice>
   try {
     const { data: member } = await supabase
       .from('members')
-      .select('phone, membership_plan')
+      .select('phone, package_name')
       .eq('id', values.member_id)
       .single();
 
@@ -63,7 +63,7 @@ export async function createInvoice(values: InvoiceFormValues): Promise<Invoice>
       await sendInvoiceSMS(
         data.member_id,
         data.invoice_number,
-        member.membership_plan,
+        member.package_name,
         data.amount,
         member.phone
       );

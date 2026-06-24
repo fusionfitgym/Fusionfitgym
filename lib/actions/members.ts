@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Member, MemberFormValues } from '@/types';
 import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
-import { getMembershipExpiry, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
 
@@ -55,8 +55,9 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
     revalidatePath('/');
     revalidatePath('/members');
     return { data: data as Member };
-  } catch (err: any) {
-    return { error: err.message || 'An unexpected error occurred.' };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+    return { error: errorMsg };
   }
 }
 
@@ -67,7 +68,7 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
     // Retrieve current member record to check status/plan changes
     const { data: oldMember } = await supabase
       .from('members')
-      .select('full_name, phone, join_date, status, membership_plan')
+      .select('full_name, phone, package_start_date, package_end_date, status, package_name')
       .eq('id', id)
       .single();
 
@@ -81,12 +82,11 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
 
     // Trigger automated Renewal SMS if membership start shifted or reactivated to Active
     if (oldMember && data && data.phone) {
-      const isPlanRenewed = values.join_date && values.join_date !== oldMember.join_date;
+      const isPlanRenewed = (values.package_start_date && values.package_start_date !== oldMember.package_start_date) || (values.package_end_date && values.package_end_date !== oldMember.package_end_date);
       const isStatusActivated = (oldMember.status === 'Expired' || oldMember.status === 'Inactive') && data.status === 'Active';
 
       if (isPlanRenewed || isStatusActivated) {
-        const newExpiry = getMembershipExpiry(data.join_date, data.membership_plan);
-        const formattedExpiry = formatDate(newExpiry);
+        const formattedExpiry = formatDate(data.package_end_date);
         
         try {
           await sendRenewalSMS(data.id, data.full_name, formattedExpiry, data.phone);
@@ -99,8 +99,9 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
     revalidatePath('/');
     revalidatePath('/members');
     return { data: data as Member };
-  } catch (err: any) {
-    return { error: err.message || 'An unexpected error occurred.' };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+    return { error: errorMsg };
   }
 }
 
@@ -153,8 +154,9 @@ export async function uploadProfilePhoto(file: File): Promise<{ url?: string; er
 
     const { data } = adminSupabase.storage.from('profile-photos').getPublicUrl(filename);
     return { url: data.publicUrl };
-  } catch (err: any) {
-    return { error: err.message || 'An unexpected error occurred.' };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+    return { error: errorMsg };
   }
 }
 
@@ -166,7 +168,7 @@ export async function getDashboardStats() {
     { data: members, error: membersError },
     { data: invoices, error: invoicesError }
   ] = await Promise.all([
-    supabase.from('members').select('status, membership_plan, join_date'),
+    supabase.from('members').select('status, package_name, package_start_date, package_end_date'),
     supabase
       .from('invoices')
       .select('amount, status, created_at')
@@ -177,13 +179,13 @@ export async function getDashboardStats() {
   if (invoicesError) throw invoicesError;
 
   const total = members?.length ?? 0;
-  const active = members?.filter((m: any) => m.status === 'Active').length ?? 0;
+  const active = members?.filter((m: { status: string }) => m.status === 'Active').length ?? 0;
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const revenue = invoices
-    ?.filter((i: any) => new Date(i.created_at) >= monthStart)
-    .reduce((sum: number, i: any) => sum + Number(i.amount), 0) ?? 0;
+    ?.filter((i: { created_at: string }) => new Date(i.created_at) >= monthStart)
+    .reduce((sum: number, i: { amount: number | string }) => sum + Number(i.amount), 0) ?? 0;
 
   return { total, active, revenue };
 }
@@ -221,7 +223,7 @@ export async function getMembersPaginated({
 
   // Apply plan filter
   if (plan && plan !== 'All') {
-    query = query.eq('membership_plan', plan);
+    query = query.ilike('package_name', `%${plan}%`);
   }
 
   // Sorting and pagination ranges

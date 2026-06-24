@@ -1,7 +1,7 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Invoice, GymSettings } from '@/types';
-import { formatCurrency, formatDate, getMembershipExpiry } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { robotoRegular, robotoBold } from './robotoFonts';
 
 // Helper to load image asynchronously in browser environment
@@ -32,7 +32,11 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
     phone?: string;
     email?: string;
     address?: string;
-    membership_plan?: string;
+    package_name?: string;
+    package_duration?: string;
+    package_price?: number;
+    package_start_date?: string;
+    package_end_date?: string;
   } | undefined;
 
   const PW = 210;
@@ -106,8 +110,13 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   // Draw Logo or Fallback Dumbbell Icon
   const logoSize = logoImg ? 20 : 12;
   if (logoImg) {
-    // Sharp image rendering for premium branding
-    doc.addImage(logoImg, 'JPEG', M, y, logoSize, logoSize);
+    try {
+      // Sharp image rendering for premium branding
+      doc.addImage(logoImg, 'JPEG', M, y, logoSize, logoSize);
+    } catch (err) {
+      console.warn('Failed to add custom logo to jsPDF, falling back to vector logo:', err);
+      drawGymLogo(M, y, 12);
+    }
   } else {
     drawGymLogo(M, y, logoSize);
   }
@@ -237,7 +246,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
     ['Invoice No', invoice.invoice_number],
     ['Invoice Date', formatDate(invoice.created_at)],
     ['Due Date', formatDate(invoice.due_date)],
-    ['Membership Plan', member?.membership_plan ?? '—']
+    ['Package Name', member?.package_name ?? '—']
   ];
 
   cy = y + 11.5;
@@ -282,31 +291,15 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.text('MEMBERSHIP SUMMARY', M + 4, y + 4.5);
 
   // Compute duration and package type
-  const plan = member?.membership_plan;
-  let duration = '—';
-  let packageType = 'Gym Membership';
+  const duration = member?.package_duration ?? '—';
+  const packageType = member?.package_name ?? 'Gym Membership';
   
-  if (plan === 'Monthly') {
-    duration = '1 Month';
-    packageType = 'Standard Monthly Package';
-  } else if (plan === 'Quarterly') {
-    duration = '3 Months';
-    packageType = 'Pro Quarterly Package';
-  } else if (plan === 'Biannual') {
-    duration = '6 Months';
-    packageType = 'Elite Biannual Package';
-  } else if (plan === 'Annual') {
-    duration = '1 Year';
-    packageType = 'VIP Gold Annual Package';
-  }
-
-  const startDate = formatDate(invoice.created_at);
-  const expiryDateObj = getMembershipExpiry(invoice.created_at, plan);
-  const expiryDate = formatDate(expiryDateObj);
+  const startDate = formatDate(member?.package_start_date ?? invoice.created_at);
+  const expiryDate = formatDate(member?.package_end_date);
 
   const colW = summaryW / 5;
   const summaryCols = [
-    { label: 'PLAN', value: plan ?? '—' },
+    { label: 'PLAN', value: member?.package_name ?? '—' },
     { label: 'DURATION', value: duration },
     { label: 'PACKAGE TYPE', value: packageType },
     { label: 'START DATE', value: startDate },
@@ -342,7 +335,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
     head: [['Description', 'Qty', 'Unit Price', 'Amount']],
     body: [
       [
-        `Membership Fee — ${member?.membership_plan ?? 'Monthly'} Plan\nGym Membership & Cardio Access`,
+        `Membership Fee — ${member?.package_name ?? 'Gym'} Package\nGym Membership & Cardio Access`,
         '1',
         formatCurrency(invoice.amount),
         formatCurrency(invoice.amount)

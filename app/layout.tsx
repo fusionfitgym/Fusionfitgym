@@ -3,7 +3,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
-import { Analytics } from '@vercel/analytics/next';
+import OfflineNotification from '@/components/pwa/OfflineNotification';
+import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const inter = Inter({
@@ -38,6 +39,7 @@ export default function RootLayout({
           {children}
         </AuthProvider>
         <PwaRegister />
+        <OfflineNotification />
         <Analytics />
         <SpeedInsights />
       </body>

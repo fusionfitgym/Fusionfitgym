@@ -1,7 +1,8 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
-import { getMembershipExpiry } from '@/lib/utils';
+import { Member } from '@/types';
+
 
 export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'monthly') {
   const supabase = await createClient();
@@ -31,16 +32,16 @@ export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'month
 export async function getMemberReport(type: 'active' | 'expired') {
   const supabase = await createClient();
   const { data: members, error } = await supabase
-    .from('members')
-    .select('id, full_name, phone, email, membership_plan, join_date, status');
+      .from('members')
+      .select('id, full_name, phone, email, package_name, package_duration, package_price, package_start_date, package_end_date, status');
 
   if (error) {
     console.error('Error fetching member report:', error);
     throw error;
   }
 
-  const processed = (members || []).map((member: any) => {
-    const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
+  const processed = (members || []).map((member: Member) => {
+    const expiry = new Date(member.package_end_date || '');
     const now = new Date();
     const isExpired = isNaN(expiry.getTime()) ? true : expiry < now;
     const resolvedStatus = isExpired ? 'Expired' : member.status;
@@ -56,9 +57,9 @@ export async function getMemberReport(type: 'active' | 'expired') {
   });
 
   if (type === 'active') {
-    return processed.filter((m: any) => m.status === 'Active');
+    return processed.filter((m: { status: string }) => m.status === 'Active');
   } else {
-    return processed.filter((m: any) => m.status === 'Expired');
+    return processed.filter((m: { status: string }) => m.status === 'Expired');
   }
 }
 
@@ -66,7 +67,7 @@ export async function getRevenueReport() {
   const supabase = await createClient();
   const { data: invoices, error } = await supabase
     .from('invoices')
-    .select('id, invoice_number, amount, due_date, status, created_at, members(full_name, membership_plan)');
+    .select('id, invoice_number, amount, due_date, status, created_at, members(full_name, package_name)');
 
   if (error) {
     console.error('Error fetching revenue report:', error);
@@ -77,7 +78,14 @@ export async function getRevenueReport() {
   let pendingRevenue = 0;
   let overdueRevenue = 0;
 
-  const list = invoices.map((inv: any) => {
+  const list = (invoices || []).map((inv: {
+    invoice_number: string;
+    amount: number | string;
+    due_date: string;
+    status: string;
+    created_at: string;
+    members: { full_name: string; package_name: string } | { full_name: string; package_name: string }[] | null;
+  }) => {
     const amount = Number(inv.amount);
     if (inv.status === 'Paid') {
       totalRevenue += amount;
@@ -87,10 +95,12 @@ export async function getRevenueReport() {
       overdueRevenue += amount;
     }
 
+    const memberData = Array.isArray(inv.members) ? inv.members[0] : inv.members;
+
     return {
       invoice_number: inv.invoice_number,
-      member_name: inv.members?.full_name ?? 'Unknown',
-      plan: inv.members?.membership_plan ?? '—',
+      member_name: memberData?.full_name ?? 'Unknown',
+      plan: memberData?.package_name ?? '—',
       amount,
       due_date: inv.due_date,
       status: inv.status,

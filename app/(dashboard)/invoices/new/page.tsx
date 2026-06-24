@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileText, Loader2, ReceiptText, Save, UserRound, Tag } from 'lucide-react';
+import { FileText, Loader2, ReceiptText, Save, UserRound } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -28,7 +28,6 @@ import {
   MEMBERSHIP_PLANS,
 } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { PricingModal } from '@/components/members/PricingModal';
 
 const defaultDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   .toISOString()
@@ -42,7 +41,6 @@ function NewInvoiceForm() {
   const [settings, setSettings] = useState<GymSettings | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pricingModalOpen, setPricingModalOpen] = useState(false);
 
   const {
     register,
@@ -127,33 +125,36 @@ function NewInvoiceForm() {
             </select>
           </FormField>
 
-          {selectedMember && settings && (
+          {selectedMember && (
             <div className="mt-4 border-t border-slate-200 pt-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-slate-500">Quick fill by membership plan</p>
+                <p className="text-xs font-semibold text-slate-500">Quick fill by member's package</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setPricingModalOpen(true)}
-                  className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 transition-colors"
+                  onClick={() => setValue('amount', selectedMember.package_price, { shouldDirty: true, shouldValidate: true })}
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-left transition-colors hover:bg-amber-100"
                 >
-                  <Tag className="h-3.5 w-3.5" /> View Package Reference
+                  <span className="block text-xs font-bold text-amber-900">{selectedMember.package_name}</span>
+                  <span className="mt-1 block text-[11px] text-amber-700">
+                    Price: {formatCurrency(selectedMember.package_price)} | Duration: {selectedMember.package_duration}
+                  </span>
                 </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {MEMBERSHIP_PLANS.map((plan) => {
-                  const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
-                  return (
-                    <button
-                      type="button"
-                      key={plan}
-                      onClick={() => applyPlanPrice(plan)}
-                      className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-left transition-colors hover:bg-amber-100"
-                    >
-                      <span className="block text-xs font-semibold text-amber-900">{plan}</span>
-                      <span className="mt-1 block text-[11px] text-amber-700">{formatCurrency(Number(settings[key]))}</span>
-                    </button>
-                  );
-                })}
+                {settings && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Try to match standard plan price from settings if needed
+                      const fallbackKey = `plan_monthly` as keyof GymSettings;
+                      setValue('amount', Number(settings[fallbackKey]), { shouldDirty: true, shouldValidate: true });
+                    }}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
+                  >
+                    <span className="block text-xs font-semibold text-slate-800">Standard Monthly Rate</span>
+                    <span className="mt-1 block text-[11px] text-slate-600">{formatCurrency(Number(settings.plan_monthly))}</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -229,10 +230,6 @@ function NewInvoiceForm() {
           </button>
         </FormActions>
       </form>
-      <PricingModal
-        isOpen={pricingModalOpen}
-        onClose={() => setPricingModalOpen(false)}
-      />
     </div>
   );
 }

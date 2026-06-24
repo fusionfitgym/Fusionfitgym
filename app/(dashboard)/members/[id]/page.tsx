@@ -81,7 +81,8 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   if (!member) return <div className="empty-state"><p className="card-title">Member not found</p></div>;
 
   const age = calculateAge(member.dob);
-  const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
+  const start = member.package_start_date;
+  const expiry = member.package_end_date;
   const latestAssessment = assessments[0];
 
   return (
@@ -94,7 +95,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
       />
       <PageHeader
         title={member.full_name}
-        subtitle={`Member since ${formatDate(member.join_date)}`}
+        subtitle={`Member since ${formatDate(start)}`}
         action={
           <>
             <Link href={`/members/${id}/edit`} className="btn btn-primary">
@@ -150,8 +151,9 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
           </Card>
 
           <div className="rounded-2xl border border-amber-300 bg-amber-300 p-5 text-zinc-950 shadow-[0_12px_30px_rgba(196,145,2,0.16)]">
-            <p className="text-xs font-semibold text-black/55">Membership plan</p>
-            <p className="mt-1 text-2xl font-bold tracking-tight">{member.membership_plan}</p>
+            <p className="text-xs font-semibold text-black/55">Package Plan</p>
+            <p className="mt-1 text-xl font-bold tracking-tight">{member.package_name}</p>
+            <p className="mt-1 text-sm font-semibold text-black/75">{formatCurrency(member.package_price)} / {member.package_duration}</p>
             <div className="mt-4 flex items-center gap-2 border-t border-black/10 pt-3">
               <Calendar className="h-4 w-4 text-black/55" />
               <p className="text-xs font-medium text-black/65">Expires {formatDate(expiry)}</p>

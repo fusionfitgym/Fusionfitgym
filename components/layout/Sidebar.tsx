@@ -19,10 +19,13 @@ import {
   MessageSquare,
   LogOut,
   Info,
+  Download,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePwa } from '@/components/pwa/usePwa';
+import IOSInstallPrompt from '@/components/pwa/IOSInstallPrompt';
 
 interface ServerProfile {
   id: string;
@@ -106,6 +109,8 @@ function NavContent({
   onClose,
   serverProfile,
   serverUser,
+  isInstallable,
+  onInstall,
 }: {
   pathname: string;
   collapsed?: boolean;
@@ -113,6 +118,8 @@ function NavContent({
   onClose?: () => void;
   serverProfile?: ServerProfile;
   serverUser?: ServerUser;
+  isInstallable: boolean;
+  onInstall: () => void;
 }) {
   const { profile: authProfile, user: authUser, signOut } = useAuth();
 
@@ -237,6 +244,22 @@ function NavContent({
             </div>
           )}
 
+          {isInstallable && (
+            <button
+              onClick={onInstall}
+              title="Install Web App"
+              className={cn(
+                'flex items-center justify-center text-zinc-950 bg-amber-300 hover:bg-amber-400 rounded-xl transition-all duration-150 cursor-pointer font-bold',
+                collapsed
+                  ? 'h-10 w-10 shadow-[0_4px_12px_rgba(244,196,48,0.2)]'
+                  : 'w-full gap-2 px-3 py-2 text-xs shadow-[0_4px_12px_rgba(244,196,48,0.15)]',
+              )}
+            >
+              <Download className="h-4 w-4 shrink-0" />
+              {!collapsed && <span>Install App</span>}
+            </button>
+          )}
+
           <button
             onClick={signOut}
             title="Sign out of system"
@@ -265,6 +288,7 @@ export default function Sidebar({
 } = {}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isInstallable, installApp, showIOSPrompt, closeIOSPrompt } = usePwa();
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
@@ -288,10 +312,23 @@ export default function Sidebar({
     <>
       <aside className="sticky top-0 z-40 hidden h-screen flex-col overflow-hidden border-r border-white/[0.07] bg-[#0b0d12] md:flex">
         <div className="hidden h-full w-full flex-col lg:flex">
-          <NavContent pathname={pathname} serverProfile={serverProfile} serverUser={serverUser} />
+          <NavContent
+            pathname={pathname}
+            serverProfile={serverProfile}
+            serverUser={serverUser}
+            isInstallable={isInstallable}
+            onInstall={installApp}
+          />
         </div>
         <div className="flex h-full w-full flex-col lg:hidden">
-          <NavContent pathname={pathname} collapsed serverProfile={serverProfile} serverUser={serverUser} />
+          <NavContent
+            pathname={pathname}
+            collapsed
+            serverProfile={serverProfile}
+            serverUser={serverUser}
+            isInstallable={isInstallable}
+            onInstall={installApp}
+          />
         </div>
       </aside>
 
@@ -305,15 +342,27 @@ export default function Sidebar({
             <p className="text-[10px] font-medium text-slate-500">Gym management</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-          aria-label="Open navigation"
-          aria-expanded={mobileOpen}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {isInstallable && (
+            <button
+              type="button"
+              onClick={installApp}
+              title="Install App"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-300 text-zinc-950 shadow-[0_4px_12px_rgba(244,196,48,0.2)] transition-transform active:scale-95 cursor-pointer"
+            >
+              <Download className="h-5 w-5 animate-bounce-slow" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+            aria-label="Open navigation"
+            aria-expanded={mobileOpen}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       {mobileOpen && (
@@ -328,10 +377,20 @@ export default function Sidebar({
             className="relative z-10 flex h-full w-[min(288px,86vw)] flex-col bg-[#0b0d12] shadow-2xl"
             style={{ animation: 'slide-in 180ms ease-out both' }}
           >
-            <NavContent pathname={pathname} onNavigate={closeMobile} onClose={closeMobile} serverProfile={serverProfile} serverUser={serverUser} />
+            <NavContent
+              pathname={pathname}
+              onNavigate={closeMobile}
+              onClose={closeMobile}
+              serverProfile={serverProfile}
+              serverUser={serverUser}
+              isInstallable={isInstallable}
+              onInstall={installApp}
+            />
           </aside>
         </div>
       )}
+
+      <IOSInstallPrompt isOpen={showIOSPrompt} onClose={closeIOSPrompt} />
     </>
   );
 }

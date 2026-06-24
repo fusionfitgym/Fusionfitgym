@@ -91,8 +91,8 @@ export default function CheckinMonitorPage() {
 
   // Calculate days remaining helper
   const getDaysInfo = (member?: Member | null) => {
-    if (!member || !member.join_date || !member.membership_plan) return null;
-    const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
+    if (!member || !member.package_end_date) return null;
+    const expiry = new Date(member.package_end_date);
     if (isNaN(expiry.getTime())) return null;
     const now = new Date();
     const diff = expiry.getTime() - now.getTime();
@@ -212,9 +212,9 @@ export default function CheckinMonitorPage() {
 
                       <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-200/80 pt-4 text-left min-w-[280px]">
                         <div>
-                          <p className="metric-label">Membership plan</p>
+                          <p className="metric-label">Package</p>
                           <p className="mt-1 text-sm font-semibold text-slate-900">
-                            {lastCheckin?.member?.membership_plan || '—'}
+                            {lastCheckin?.member?.package_name || '—'}
                           </p>
                         </div>
                         <div>

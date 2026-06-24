@@ -269,8 +269,8 @@ export default function ReportsPage() {
                     <tr>
                       <th>Full name</th>
                       <th>Phone</th>
-                      <th>Plan</th>
-                      <th>Join date</th>
+                      <th>Package</th>
+                      <th>Start date</th>
                       <th>Expiry date</th>
                       <th>Days remaining</th>
                     </tr>
@@ -280,8 +280,8 @@ export default function ReportsPage() {
                       <tr key={row.id}>
                         <td><p className="table-primary">{row.full_name}</p></td>
                         <td><span className="text-sm text-slate-600">{row.phone}</span></td>
-                        <td><span className="text-sm text-slate-900 font-semibold">{row.membership_plan}</span></td>
-                        <td><span className="text-xs text-slate-500">{formatDate(row.join_date)}</span></td>
+                        <td><span className="text-sm text-slate-900 font-semibold">{row.package_name} ({row.package_duration})</span></td>
+                        <td><span className="text-xs text-slate-500">{formatDate(row.package_start_date)}</span></td>
                         <td><span className="text-xs text-slate-500">{formatDate(row.expiry_date)}</span></td>
                         <td>
                           {row.status === 'Expired' ? (

@@ -2,6 +2,7 @@ const CACHE_NAME = 'fusionfit-cache-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/login',
+  '/offline',
   '/manifest.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
@@ -37,6 +38,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Message Listener for skipping waiting
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Fetch Event
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
@@ -62,7 +70,8 @@ self.addEventListener('fetch', (event) => {
             contentType.includes('image/') ||
             contentType.includes('font/') ||
             url.pathname === '/' ||
-            url.pathname === '/login'
+            url.pathname === '/login' ||
+            url.pathname === '/offline'
           ) {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -76,6 +85,10 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
+          }
+          // If connection fails and it's a page navigation, return the cached offline page
+          if (event.request.mode === 'navigate') {
+            return caches.match('/offline');
           }
         });
       })

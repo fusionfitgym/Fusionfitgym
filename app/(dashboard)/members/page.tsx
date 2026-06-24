@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit, Eye, Search, Trash2, UserPlus, Users, Tag } from 'lucide-react';
+import { Edit, Eye, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/Primitives';
@@ -11,7 +11,6 @@ import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
 import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
 import { TableSkeleton, MobileListSkeleton } from '@/components/ui/Skeleton';
-import { PricingModal } from '@/components/members/PricingModal';
 
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -23,7 +22,6 @@ export default function MembersPage() {
   const [planFilter, setPlanFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [pricingModalOpen, setPricingModalOpen] = useState(false);
 
   const limit = 10;
   const totalPages = Math.ceil(totalCount / limit);
@@ -81,13 +79,6 @@ export default function MembersPage() {
         subtitle={`${totalCount} registered member${totalCount === 1 ? '' : 's'} across all plans.`}
         action={
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setPricingModalOpen(true)}
-              className="btn btn-secondary"
-            >
-              <Tag className="h-4 w-4" /> View Packages
-            </button>
             <Link href="/members/add" className="btn btn-primary">
               <UserPlus className="h-4 w-4" /> Add member
             </Link>
@@ -159,7 +150,7 @@ export default function MembersPage() {
                 <tr>
                   <th>Member</th>
                   <th className="hidden md:table-cell">Phone</th>
-                  <th className="hidden lg:table-cell">Plan</th>
+                  <th className="hidden lg:table-cell">Package</th>
                   <th className="hidden lg:table-cell">Join date</th>
                   <th>Status</th>
                   <th className="text-right">Actions</th>
@@ -178,8 +169,8 @@ export default function MembersPage() {
                       </div>
                     </td>
                     <td className="hidden md:table-cell">{member.phone}</td>
-                    <td className="hidden lg:table-cell">{member.membership_plan}</td>
-                    <td className="hidden lg:table-cell">{formatDate(member.join_date)}</td>
+                    <td className="hidden lg:table-cell">{member.package_name}</td>
+                    <td className="hidden lg:table-cell">{formatDate(member.package_start_date)}</td>
                     <td><StatusBadge variant={member.status} /></td>
                     <td>
                       <div className="table-actions">
@@ -228,12 +219,12 @@ export default function MembersPage() {
                 </div>
                 <div className="mobile-record-meta">
                   <div>
-                    <p className="metric-label">Plan</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{member.membership_plan}</p>
+                    <p className="metric-label">Package</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{member.package_name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="metric-label">Join date</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(member.join_date)}</p>
+                    <p className="metric-label">Start date</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(member.package_start_date)}</p>
                   </div>
                 </div>
                 <div className="mobile-record-actions">
@@ -328,10 +319,6 @@ export default function MembersPage() {
           </div>
         </section>
       )}
-      <PricingModal
-        isOpen={pricingModalOpen}
-        onClose={() => setPricingModalOpen(false)}
-      />
     </div>
   );
 }

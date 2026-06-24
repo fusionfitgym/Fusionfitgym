@@ -26,10 +26,11 @@ import {
 import {
   memberSchema,
   MemberFormValues,
-  MEMBERSHIP_PLANS,
   MEMBER_STATUSES,
 } from '@/types';
 import { cn } from '@/lib/utils';
+import { getSettings } from '@/lib/actions/settings';
+import { GymSettings } from '@/types';
 
 const defaultValues: MemberFormValues = {
   full_name: '',
@@ -38,8 +39,11 @@ const defaultValues: MemberFormValues = {
   address: '',
   emergency_contact: '',
   dob: '',
-  membership_plan: 'Monthly',
-  join_date: new Date().toISOString().split('T')[0],
+  package_name: 'Standard Monthly Package',
+  package_duration: '1 Month',
+  package_price: 1500,
+  package_start_date: new Date().toISOString().split('T')[0],
+  package_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   status: 'Active',
   profile_photo: '',
 };
@@ -61,19 +65,116 @@ export function MemberForm({
   cancelHref,
   onSubmit,
 }: MemberFormProps) {
+  const [gymSettings, setGymSettings] = useState<GymSettings | null>(null);
+
+  useEffect(() => {
+    getSettings().then(setGymSettings).catch(console.error);
+  }, []);
+
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState(initialValues?.profile_photo || '');
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  const legacyInitial = initialValues as any;
+  const parsedInitialValues = {
+    ...initialValues,
+    package_name: initialValues?.package_name || (legacyInitial?.membership_plan ? `${legacyInitial.membership_plan} Plan` : 'Standard Monthly Package'),
+    package_duration: initialValues?.package_duration || (legacyInitial?.membership_plan ? (
+      legacyInitial.membership_plan === 'Monthly' ? '1 Month' :
+      legacyInitial.membership_plan === 'Quarterly' ? '3 Months' :
+      legacyInitial.membership_plan === 'Biannual' ? '6 Months' : '1 Year'
+    ) : '1 Month'),
+    package_price: initialValues?.package_price ?? (legacyInitial?.membership_plan ? (
+      legacyInitial.membership_plan === 'Monthly' ? 1500 :
+      legacyInitial.membership_plan === 'Quarterly' ? 4000 :
+      legacyInitial.membership_plan === 'Biannual' ? 7500 : 14000
+    ) : 1500),
+    package_start_date: initialValues?.package_start_date || legacyInitial?.join_date || new Date().toISOString().split('T')[0],
+    package_end_date: initialValues?.package_end_date || (legacyInitial?.join_date ? new Date(new Date(legacyInitial.join_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+  };
+
+  const initialDuration = parsedInitialValues.package_duration;
+  const isStandardDuration = ['1 Month', '3 Months', '6 Months', '1 Year'].includes(initialDuration);
+  const [durationSelect, setDurationSelect] = useState<string>(
+    initialDuration ? (isStandardDuration ? initialDuration : 'Custom') : '1 Month'
+  );
+
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<MemberFormValues>({
-    resolver: zodResolver(memberSchema),
-    defaultValues: { ...defaultValues, ...initialValues },
+    resolver: zodResolver(memberSchema) as any,
+    defaultValues: { ...defaultValues, ...parsedInitialValues },
   });
+
+  const duration = watch('package_duration');
+  const startDate = watch('package_start_date');
+
+  // Auto-calculate end date
+  useEffect(() => {
+    if (!startDate || !duration) return;
+    const start = new Date(startDate);
+    if (isNaN(start.getTime())) return;
+    
+    const durStr = duration.toLowerCase().trim();
+    if (durStr.includes('year') || durStr.includes('yr')) {
+      const match = durStr.match(/\d+/);
+      const num = match ? parseInt(match[0], 10) : 1;
+      start.setFullYear(start.getFullYear() + num);
+    } else if (durStr.includes('month') || durStr.includes('mo')) {
+      const match = durStr.match(/\d+/);
+      const num = match ? parseInt(match[0], 10) : 1;
+      start.setMonth(start.getMonth() + num);
+    } else if (durStr.includes('week') || durStr.includes('wk')) {
+      const match = durStr.match(/\d+/);
+      const num = match ? parseInt(match[0], 10) : 1;
+      start.setDate(start.getDate() + num * 7);
+    } else if (durStr.includes('day') || durStr.includes('dy')) {
+      const match = durStr.match(/\d+/);
+      const num = match ? parseInt(match[0], 10) : 30;
+      start.setDate(start.getDate() + num);
+    } else {
+      const num = parseInt(durStr, 10);
+      if (!isNaN(num)) {
+        start.setMonth(start.getMonth() + num);
+      } else {
+        start.setMonth(start.getMonth() + 1);
+      }
+    }
+    
+    setValue('package_end_date', start.toISOString().split('T')[0]);
+  }, [startDate, duration, setValue]);
+
+  // Auto-set standard price and standard package name
+  useEffect(() => {
+    if (!gymSettings) return;
+    const durStr = (duration || '').toLowerCase().trim();
+    let price = 0;
+    let name = '';
+    
+    if (durStr === '1 month') {
+      price = Number(gymSettings.plan_monthly);
+      name = 'Standard Monthly Package';
+    } else if (durStr === '3 months') {
+      price = Number(gymSettings.plan_quarterly);
+      name = 'Pro Quarterly Package';
+    } else if (durStr === '6 months') {
+      price = Number(gymSettings.plan_biannual);
+      name = 'Elite Biannual Package';
+    } else if (durStr === '1 year' || durStr === '12 months') {
+      price = Number(gymSettings.plan_annual);
+      name = 'VIP Gold Annual Package';
+    } else {
+      return; // Custom duration
+    }
+    
+    setValue('package_price', price);
+    setValue('package_name', name);
+  }, [duration, gymSettings, setValue]);
 
   useEffect(() => {
     return () => {
@@ -265,49 +366,135 @@ export function MemberForm({
               </FormField>
             </div>
           </SectionCard>
+
+          <SectionCard
+            title="Pricing & Package Details"
+            description="Enter package subscription name, duration, price, and validity dates."
+            icon={<ShieldCheck className="h-5 w-5" />}
+          >
+            <div className="field-grid field-grid-2">
+              <FormField
+                label="Package Name"
+                htmlFor="package_name"
+                required
+                error={errors.package_name?.message}
+              >
+                <input
+                  id="package_name"
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. Standard Monthly Package"
+                  aria-invalid={Boolean(errors.package_name)}
+                  {...register('package_name')}
+                />
+              </FormField>
+
+              <FormField
+                label="Duration"
+                htmlFor="package_duration_select"
+                required
+              >
+                <select
+                  id="package_duration_select"
+                  className="select-field"
+                  value={durationSelect}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setDurationSelect(val);
+                    if (val !== 'Custom') {
+                      setValue('package_duration', val, { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                >
+                  <option value="1 Month">1 Month</option>
+                  <option value="3 Months">3 Months</option>
+                  <option value="6 Months">6 Months</option>
+                  <option value="1 Year">1 Year</option>
+                  <option value="Custom">Custom Duration...</option>
+                </select>
+              </FormField>
+
+              {durationSelect === 'Custom' && (
+                <FormField
+                  label="Custom Duration"
+                  htmlFor="package_duration"
+                  required
+                  error={errors.package_duration?.message}
+                >
+                  <input
+                    id="package_duration"
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. 45 Days, 2 Months"
+                    aria-invalid={Boolean(errors.package_duration)}
+                    {...register('package_duration')}
+                  />
+                </FormField>
+              )}
+
+              <FormField
+                label="Package Price (INR)"
+                htmlFor="package_price"
+                required
+                error={errors.package_price?.message}
+              >
+                <input
+                  id="package_price"
+                  type="number"
+                  min="0"
+                  className="input-field"
+                  placeholder="1500"
+                  aria-invalid={Boolean(errors.package_price)}
+                  {...register('package_price')}
+                />
+              </FormField>
+
+              <FormField
+                label="Start Date"
+                htmlFor="package_start_date"
+                required
+                error={errors.package_start_date?.message}
+              >
+                <div className="input-with-icon">
+                  <Calendar />
+                  <input
+                    id="package_start_date"
+                    type="date"
+                    className="input-field"
+                    aria-invalid={Boolean(errors.package_start_date)}
+                    {...register('package_start_date')}
+                  />
+                </div>
+              </FormField>
+
+              <FormField
+                label="End Date"
+                htmlFor="package_end_date"
+                required
+                error={errors.package_end_date?.message}
+              >
+                <div className="input-with-icon">
+                  <Calendar />
+                  <input
+                    id="package_end_date"
+                    type="date"
+                    className="input-field"
+                    aria-invalid={Boolean(errors.package_end_date)}
+                    {...register('package_end_date')}
+                  />
+                </div>
+              </FormField>
+            </div>
+          </SectionCard>
         </div>
 
         <SectionCard
-          title="Membership & Biometrics"
-          description="Plan, start date, and biometric hardware mapping."
+          title="Status & Biometrics"
+          description="Status and biometric hardware mapping."
           icon={<ShieldCheck className="h-5 w-5" />}
           className="self-start"
         >
           <div className="field-grid">
-            <FormField
-              label="Membership plan"
-              htmlFor="membership_plan"
-              required
-              error={errors.membership_plan?.message}
-            >
-              <select
-                id="membership_plan"
-                className="select-field"
-                aria-invalid={Boolean(errors.membership_plan)}
-                {...register('membership_plan')}
-              >
-                {MEMBERSHIP_PLANS.map((plan) => <option key={plan}>{plan}</option>)}
-              </select>
-            </FormField>
-
-            <FormField
-              label="Join date"
-              htmlFor="join_date"
-              required
-              error={errors.join_date?.message}
-            >
-              <div className="input-with-icon">
-                <Calendar />
-                <input
-                  id="join_date"
-                  type="date"
-                  className="input-field"
-                  aria-invalid={Boolean(errors.join_date)}
-                  {...register('join_date')}
-                />
-              </div>
-            </FormField>
-
             <FormField
               label="Status"
               htmlFor="status"

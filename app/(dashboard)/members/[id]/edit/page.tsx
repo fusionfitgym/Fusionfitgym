@@ -65,13 +65,19 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
           address: member.address ?? '',
           emergency_contact: member.emergency_contact ?? '',
           dob: member.dob ?? '',
+          package_name: member.package_name,
+          package_duration: member.package_duration,
+          package_price: member.package_price,
+          package_start_date: member.package_start_date,
+          package_end_date: member.package_end_date,
           membership_plan: member.membership_plan,
           join_date: member.join_date,
           status: member.status,
           profile_photo: member.profile_photo ?? '',
           biometric_id: member.biometric_id ?? '',
           device_user_id: member.device_user_id ?? '',
-        }}
+        
+        } as any}
         submitting={submitting}
         error={error}
         submitLabel="Save changes"

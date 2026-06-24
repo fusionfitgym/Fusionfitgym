@@ -9,8 +9,14 @@ export interface Member {
   address?: string | null;
   emergency_contact?: string | null;
   dob?: string | null;
-  membership_plan: 'Monthly' | 'Quarterly' | 'Biannual' | 'Annual';
-  join_date: string;
+  package_name: string;
+  package_duration: string;
+  package_price: number;
+  package_start_date: string;
+  package_end_date: string;
+  // Legacy fields
+  membership_plan?: 'Monthly' | 'Quarterly' | 'Biannual' | 'Annual' | null;
+  join_date?: string | null;
   status: 'Active' | 'Inactive' | 'Expired' | 'Frozen';
   profile_photo?: string | null;
   biometric_id?: string | null;
@@ -28,8 +34,11 @@ export const memberSchema = z.object({
   address: z.string().optional().or(z.literal('')),
   emergency_contact: z.string().optional().or(z.literal('')),
   dob: z.string().min(1, 'Date of birth is required'),
-  membership_plan: z.enum(['Monthly', 'Quarterly', 'Biannual', 'Annual']),
-  join_date: z.string().min(1, 'Join date is required'),
+  package_name: z.string().min(1, 'Package name is required'),
+  package_duration: z.string().min(1, 'Package duration is required'),
+  package_price: z.coerce.number().min(0, 'Price must be 0 or greater'),
+  package_start_date: z.string().min(1, 'Start date is required'),
+  package_end_date: z.string().min(1, 'End date is required'),
   status: z.enum(['Active', 'Inactive', 'Expired', 'Frozen']),
   profile_photo: z.string().optional().or(z.literal('')),
   biometric_id: z.string().optional().or(z.literal('')),
@@ -145,7 +154,7 @@ export interface Invoice {
   pdf_url?: string | null;
   notes?: string | null;
   created_at: string;
-  member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'membership_plan'>;
+  member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'package_name' | 'package_duration' | 'package_price' | 'package_start_date' | 'package_end_date'>;
 }
 
 export const invoiceSchema = z.object({

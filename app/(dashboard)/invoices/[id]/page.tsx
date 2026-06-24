@@ -57,6 +57,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     try {
       const { generateInvoicePDF } = await import('@/lib/pdf/generateInvoice');
       await generateInvoicePDF(invoice, settings);
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      alert('Error generating PDF: ' + (err?.message || String(err)));
     } finally {
       setDownloading(false);
     }
@@ -70,7 +73,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     phone?: string;
     email?: string;
     address?: string;
-    membership_plan?: string;
+    package_name?: string;
+    package_duration?: string;
+    package_price?: number;
+    package_start_date?: string;
+    package_end_date?: string;
   } | undefined;
 
   const statusIcons = {
@@ -140,7 +147,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <p className="metric-label">Invoice details</p>
                 <div className="mt-2 space-y-2">
                   {[
-                    ['Plan', member?.membership_plan ?? '-'],
+                    ['Package', member?.package_name ?? '-'],
                     ['Due date', formatDate(invoice.due_date)],
                     ['Created', formatDate(invoice.created_at)],
                   ].map(([label, value]) => (
@@ -159,7 +166,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <span>Amount</span>
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 px-4 py-4 text-sm">
-                <span className="text-slate-700">Membership fee - {member?.membership_plan ?? 'Plan'}</span>
+                <span className="text-slate-700">Membership fee - {member?.package_name ?? 'Package'} ({member?.package_duration ?? '-'})</span>
                 <span className="font-semibold text-slate-950">{formatCurrency(invoice.amount)}</span>
               </div>
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-amber-300 bg-amber-300 px-4 py-4">

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     // However, the warnings are only sent to Active members. Expired alerts can be sent to members who just transitioned.
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, full_name, phone, join_date, status, membership_plan')
+      .select('id, full_name, phone, package_start_date, package_end_date, status')
       .in('status', ['Active', 'Expired']);
 
     if (fetchError) {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     for (const member of members) {
       if (!member.phone) continue;
 
-      const expiry = getMembershipExpiry(member.join_date, member.membership_plan);
+      const expiry = new Date(member.package_end_date);
       const expiryDateOnly = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
       
       const diffTime = expiryDateOnly.getTime() - today.getTime();
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           .select('id')
           .eq('member_id', member.id)
           .eq('sms_type', 'Expiry Warning')
-          .gte('created_at', member.join_date)
+          .gte('created_at', member.package_start_date)
           .limit(1);
 
         if (queryErr) {
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
           .select('id')
           .eq('member_id', member.id)
           .eq('sms_type', 'Expired')
-          .gte('created_at', member.join_date)
+          .gte('created_at', member.package_start_date)
           .limit(1);
 
         if (queryErr) {

@@ -95,7 +95,7 @@ export default async function DashboardPage() {
     const promises: any[] = [
       supabase
         .from('members')
-        .select('id, full_name, phone, join_date, status, membership_plan, profile_photo')
+        .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo')
         .order('created_at', { ascending: false })
         .catch((err: any) => {
           console.error("Error fetching members:", err);
@@ -154,16 +154,16 @@ export default async function DashboardPage() {
   // 4. Client-side state operations computed on Server (safely guarded)
   const total = members.length;
   const active = members.filter((member) => member && member.status === 'Active').length;
-  const expiringSoon = members.filter(
-    (member) =>
-      member &&
-      member.status === 'Active' &&
-      member.join_date &&
-      member.membership_plan &&
-      isExpiringSoon(member.join_date, member.membership_plan),
-  ).length;
-
   const now = new Date();
+  
+  const expiringSoon = members.filter((member) => {
+    if (!member || member.status !== 'Active' || !member.package_end_date) return false;
+    const expiry = new Date(member.package_end_date);
+    if (isNaN(expiry.getTime())) return false;
+    const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 7;
+  }).length;
+
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthlyRevenue = invoices
     .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= monthStart)
@@ -172,8 +172,8 @@ export default async function DashboardPage() {
   // Chart data formatting
   const planCounts: Record<string, number> = {};
   members.forEach((member) => {
-    if (member && member.membership_plan) {
-      planCounts[member.membership_plan] = (planCounts[member.membership_plan] ?? 0) + 1;
+    if (member && member.package_name) {
+      planCounts[member.package_name] = (planCounts[member.package_name] ?? 0) + 1;
     }
   });
   const pieData = Object.entries(planCounts).map(([name, value]) => ({ name, value }));
@@ -198,10 +198,16 @@ export default async function DashboardPage() {
   });
 
   const expiringMembersList = members
-    .filter((m) => m && m.status === 'Active' && m.join_date && m.membership_plan && isExpiringSoon(m.join_date, m.membership_plan))
+    .filter((m) => {
+      if (!m || m.status !== 'Active' || !m.package_end_date) return false;
+      const expiry = new Date(m.package_end_date);
+      if (isNaN(expiry.getTime())) return false;
+      const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff <= 7;
+    })
     .map((m) => {
-      const expiry = getMembershipExpiry(m.join_date, m.membership_plan);
-      const diff = expiry.getTime() - new Date().getTime();
+      const expiry = new Date(m.package_end_date);
+      const diff = expiry.getTime() - now.getTime();
       const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
       return { ...m, daysRemaining: isNaN(days) ? 0 : days, expiryDate: expiry };
     })
