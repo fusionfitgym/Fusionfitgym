@@ -144,8 +144,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   { icon: Mail, value: member.email, label: 'Email' },
                   { icon: MapPin, value: member.address, label: 'Address' },
                   { icon: AlertCircle, value: member.emergency_contact, label: 'Emergency contact' },
-                  { icon: Fingerprint, value: member.biometric_id, label: 'Biometric ID' },
-                  { icon: Fingerprint, value: member.device_user_id, label: 'Biometric Device User ID' },
+                  { icon: Fingerprint, value: member.biometric_user_id, label: 'Biometric User ID' },
                 ].map(({ icon: Icon, value, label }) => value ? (
                   <div key={label} className="flex items-start gap-3">
                     <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">

@@ -15,7 +15,7 @@ interface LiveMonitorLog {
   id: string;
   member_id: string;
   member_name: string;
-  device_user_id: string;
+  biometric_user_id: string;
   punch_time: string;
   punch_type: string;
   member?: Member | null;
@@ -195,7 +195,7 @@ export default function CheckinMonitorPage() {
                       {memberName}
                     </h2>
                     <p className="mt-1 font-mono text-sm text-slate-500">
-                      Device user ID: {lastCheckin?.device_user_id || "—"}
+                      Biometric User ID: {lastCheckin?.biometric_user_id || "—"}
                     </p>
 
                     {/* Status Alert Area */}

@@ -150,8 +150,8 @@ export default function MembersPage() {
                 <tr>
                   <th>Member</th>
                   <th className="hidden md:table-cell">Phone</th>
-                  <th className="hidden lg:table-cell">Package</th>
-                  <th className="hidden lg:table-cell">Join date</th>
+                  <th className="hidden lg:table-cell">Membership</th>
+                  <th className="hidden md:table-cell">Biometric User ID</th>
                   <th>Status</th>
                   <th className="text-right">Actions</th>
                 </tr>
@@ -170,7 +170,9 @@ export default function MembersPage() {
                     </td>
                     <td className="hidden md:table-cell">{member.phone}</td>
                     <td className="hidden lg:table-cell">{member.package_name}</td>
-                    <td className="hidden lg:table-cell">{formatDate(member.package_start_date)}</td>
+                    <td className="hidden md:table-cell font-mono text-xs font-semibold text-slate-600">
+                      {member.biometric_user_id || '—'}
+                    </td>
                     <td><StatusBadge variant={member.status} /></td>
                     <td>
                       <div className="table-actions">
@@ -219,12 +221,14 @@ export default function MembersPage() {
                 </div>
                 <div className="mobile-record-meta">
                   <div>
-                    <p className="metric-label">Package</p>
+                    <p className="metric-label">Membership</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900">{member.package_name}</p>
                   </div>
                   <div className="text-right">
-                    <p className="metric-label">Start date</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(member.package_start_date)}</p>
+                    <p className="metric-label">Biometric User ID</p>
+                    <p className="mt-1 font-mono text-xs font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded inline-block">
+                      {member.biometric_user_id || '—'}
+                    </p>
                   </div>
                 </div>
                 <div className="mobile-record-actions">

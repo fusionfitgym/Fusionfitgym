@@ -30,6 +30,7 @@ import {
 } from '@/types';
 import { cn } from '@/lib/utils';
 import { getSettings } from '@/lib/actions/settings';
+import { getMembers } from '@/lib/actions/members';
 import { GymSettings } from '@/types';
 
 const defaultValues: MemberFormValues = {
@@ -46,6 +47,7 @@ const defaultValues: MemberFormValues = {
   package_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   status: 'Active',
   profile_photo: '',
+  biometric_user_id: '',
 };
 
 interface MemberFormProps {
@@ -92,6 +94,7 @@ export function MemberForm({
     ) : 1500),
     package_start_date: initialValues?.package_start_date || legacyInitial?.join_date || new Date().toISOString().split('T')[0],
     package_end_date: initialValues?.package_end_date || (legacyInitial?.join_date ? new Date(new Date(legacyInitial.join_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]),
+    biometric_user_id: initialValues?.biometric_user_id || legacyInitial?.device_user_id || '',
   };
 
   const initialDuration = parsedInitialValues.package_duration;
@@ -105,10 +108,62 @@ export function MemberForm({
     handleSubmit,
     setValue,
     watch,
+    setError,
     formState: { errors },
   } = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema) as any,
     defaultValues: { ...defaultValues, ...parsedInitialValues },
+  });
+
+  const [existingBiometricIds, setExistingBiometricIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    getMembers().then((membersList) => {
+      const currentMemberId = (initialValues as any)?.id;
+      const filtered = membersList
+        .filter((m) => !currentMemberId || m.id !== currentMemberId)
+        .map((m) => m.biometric_user_id)
+        .filter((id): id is string => !!id);
+      setExistingBiometricIds(filtered);
+
+      // Auto-suggest next ID only on Add form (when no initial biometric_user_id)
+      const currentBiometricId = initialValues?.biometric_user_id || (initialValues as any)?.device_user_id;
+      if (!currentBiometricId && submitLabel === 'Save member') {
+        const numericIds = membersList
+          .map((m) => m.biometric_user_id)
+          .filter((id): id is string => !!id && /^\d+$/.test(id))
+          .map((id) => parseInt(id, 10));
+        
+        const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 101;
+        setValue('biometric_user_id', String(nextId), { shouldValidate: true });
+      }
+    }).catch(console.error);
+  }, [initialValues, submitLabel, setValue]);
+
+  const handleAutoGenerate = async () => {
+    try {
+      const membersList = await getMembers();
+      const numericIds = membersList
+        .map((m) => m.biometric_user_id)
+        .filter((id): id is string => !!id && /^\d+$/.test(id))
+        .map((id) => parseInt(id, 10));
+
+      const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 101;
+      setValue('biometric_user_id', String(nextId), { shouldValidate: true });
+    } catch (err) {
+      console.error('Failed to auto-generate biometric user ID:', err);
+    }
+  };
+
+  const handleFormSubmit = handleSubmit((data) => {
+    if (data.biometric_user_id && existingBiometricIds.includes(data.biometric_user_id)) {
+      setError('biometric_user_id', {
+        type: 'manual',
+        message: 'This Biometric User ID is already assigned to another member',
+      });
+      return;
+    }
+    onSubmit(data, photoFile);
   });
 
   const duration = watch('package_duration');
@@ -200,7 +255,7 @@ export function MemberForm({
 
   return (
     <form
-      onSubmit={handleSubmit((data) => onSubmit(data, photoFile))}
+      onSubmit={handleFormSubmit}
       className="page-stack"
       noValidate
     >
@@ -512,39 +567,34 @@ export function MemberForm({
             </FormField>
 
             <FormField
-              label="Biometric ID (Card/Machine Ref)"
-              htmlFor="biometric_id"
-              error={errors.biometric_id?.message}
+              label="Biometric User ID"
+              htmlFor="biometric_user_id"
+              error={errors.biometric_user_id?.message}
             >
-              <div className="input-with-icon">
-                <Fingerprint className="text-slate-400" />
-                <input
-                  id="biometric_id"
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. BIO-1001"
-                  aria-invalid={Boolean(errors.biometric_id)}
-                  {...register('biometric_id')}
-                />
+              <div className="flex gap-2">
+                <div className="input-with-icon flex-1">
+                  <Fingerprint className="text-slate-400" />
+                  <input
+                    id="biometric_user_id"
+                    type="text"
+                    className="input-field font-mono"
+                    placeholder="e.g. 101"
+                    aria-invalid={Boolean(errors.biometric_user_id)}
+                    {...register('biometric_user_id')}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoGenerate}
+                  className="btn btn-secondary text-xs shrink-0 cursor-pointer"
+                  title="Generate next available Biometric User ID"
+                >
+                  Auto Generate
+                </button>
               </div>
-            </FormField>
-
-            <FormField
-              label="Device User ID (eSSL X200B ID)"
-              htmlFor="device_user_id"
-              error={errors.device_user_id?.message}
-            >
-              <div className="input-with-icon">
-                <Fingerprint className="text-slate-400" />
-                <input
-                  id="device_user_id"
-                  type="text"
-                  className="input-field"
-                  placeholder="e.g. 1001"
-                  aria-invalid={Boolean(errors.device_user_id)}
-                  {...register('device_user_id')}
-                />
-              </div>
+              <p className="mt-1.5 text-xs text-slate-500">
+                This is the User ID stored in the biometric machine for this member. Example: 101, 102, 103.
+              </p>
             </FormField>
           </div>
         </SectionCard>

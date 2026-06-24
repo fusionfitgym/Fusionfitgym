@@ -18,7 +18,7 @@ export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'month
 
   const { data, error } = await supabase
     .from('attendance_logs')
-    .select('id, member_name, device_user_id, punch_time, punch_type')
+    .select('id, member_name, biometric_user_id, punch_time, punch_type')
     .gte('punch_time', startDate.toISOString())
     .order('punch_time', { ascending: false });
 

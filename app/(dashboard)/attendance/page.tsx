@@ -12,15 +12,23 @@ import {
   Trash2,
   UserCheck,
   UserX,
+  Terminal,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/Primitives';
+import { createClient } from '@/lib/supabase/client';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
   getAttendanceAnalytics,
   getTodayAttendanceLogs,
   deleteAttendanceLog,
+  getSyncLogs,
 } from '@/lib/actions/attendance';
-import { AttendanceLog } from '@/types';
+import { AttendanceLog, BiometricSyncLog } from '@/types';
+import { cn } from '@/lib/utils';
 import { CardSkeleton, ChartSkeleton, TableSkeleton } from '@/components/ui/Skeleton';
 
 // Dynamically import recharts bar chart with a loading placeholder skeleton
@@ -34,6 +42,8 @@ export default function AttendancePage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [syncLogs, setSyncLogs] = useState<BiometricSyncLog[]>([]);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const fetchAttendanceData = () => {
     Promise.all([getTodayAttendanceLogs(), getAttendanceAnalytics()])
@@ -51,6 +61,34 @@ export default function AttendancePage() {
     const interval = setInterval(fetchAttendanceData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch diagnostics sync logs
+  useEffect(() => {
+    if (showDiagnostics) {
+      getSyncLogs().then(setSyncLogs).catch(console.error);
+    }
+  }, [showDiagnostics]);
+
+  // Realtime subscription for sync diagnostics
+  useEffect(() => {
+    if (!showDiagnostics) return;
+    
+    const supabase = createClient();
+    const channel = supabase
+      .channel('realtime:biometric_sync_logs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'biometric_sync_logs' },
+        (payload: any) => {
+          setSyncLogs((prev) => [payload.new as BiometricSyncLog, ...prev.slice(0, 29)]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [showDiagnostics]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -70,11 +108,11 @@ export default function AttendancePage() {
       log?.member?.full_name ||
       log?.member_name ||
       "Unknown Member";
-    const deviceUserId = log?.device_user_id || "";
+    const biometricUserId = log?.biometric_user_id || "";
     
     return (
       (memberName || "").toLowerCase().includes(searchText) ||
-      (deviceUserId || "").includes(searchQuery || "")
+      (biometricUserId || "").includes(searchQuery || "")
     );
   });
 
@@ -130,6 +168,75 @@ export default function AttendancePage() {
             </div>
           </div>
 
+          {/* Real-time Biometric Sync Diagnostics Console */}
+          <section className="card mt-6 border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowDiagnostics(!showDiagnostics)}
+              className="flex w-full items-center justify-between p-4 sm:p-5 text-left font-semibold text-slate-900 cursor-pointer hover:bg-slate-50/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-amber-300 shadow">
+                  <Terminal className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-950">Biometric Sync Diagnostics Console</h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">Debug real-time member matching and hardware sync issues</p>
+                </div>
+              </div>
+              {showDiagnostics ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+            </button>
+
+            {showDiagnostics && (
+              <div className="border-t border-slate-100 p-4 sm:p-5 bg-slate-50/50">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Live matching logs</span>
+                  <button 
+                    onClick={() => getSyncLogs().then(setSyncLogs).catch(console.error)}
+                    className="text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer"
+                  >
+                    Refresh Logs
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-[250px] overflow-y-auto font-mono text-xs">
+                  {syncLogs.length === 0 ? (
+                    <div className="text-center py-6 text-slate-400">No sync events recorded recently. Try punching on the device.</div>
+                  ) : (
+                    syncLogs.map((sLog) => {
+                      const isSuccess = sLog.status === 'Success';
+                      return (
+                        <div 
+                          key={sLog.id} 
+                          className={cn(
+                            "flex items-start gap-3 p-3 rounded-xl border transition-all duration-200",
+                            isSuccess 
+                              ? "bg-emerald-50/40 border-emerald-100 text-emerald-950" 
+                              : "bg-rose-50/40 border-rose-100 text-rose-950"
+                          )}
+                        >
+                          {isSuccess ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold">{sLog.message}</p>
+                            <div className="mt-1 flex items-center gap-3 text-[10px] text-slate-500 font-sans">
+                              <span>Biometric ID: <strong className="font-mono">{sLog.biometric_user_id}</strong></span>
+                              <span>•</span>
+                              <span>{new Date(sLog.punch_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Hourly Trend Chart */}
           <section className="card mt-6 p-4 sm:p-6">
             <div className="mb-6">
@@ -150,7 +257,7 @@ export default function AttendancePage() {
                 <Search className="h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="Search member or device user ID..."
+                  placeholder="Search member or biometric user ID..."
                   className="input-field"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -169,7 +276,7 @@ export default function AttendancePage() {
                     <thead>
                       <tr>
                         <th>Member name</th>
-                        <th>Device user ID</th>
+                        <th>Biometric User ID</th>
                         <th>Time</th>
                         <th>Punch type</th>
                         <th className="text-right">Actions</th>
@@ -182,7 +289,7 @@ export default function AttendancePage() {
                           log?.member?.full_name ||
                           log?.member_name ||
                           "Unknown Member";
-                        const deviceUserId = log?.device_user_id || "—";
+                        const biometricUserId = log?.biometric_user_id || "—";
                         const punchType = log?.punch_type || "checkin";
                         
                         return (
@@ -196,7 +303,7 @@ export default function AttendancePage() {
                               </div>
                             </td>
                             <td>
-                              <span className="font-mono text-xs text-slate-600">{deviceUserId}</span>
+                              <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{biometricUserId}</span>
                             </td>
                             <td>
                               <div className="flex items-center gap-1.5 text-xs text-slate-700">

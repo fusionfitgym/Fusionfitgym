@@ -13,25 +13,28 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse payload
     const body = await request.json();
-    const { device_user_id, timestamp, event_type } = body;
+    const { device_user_id, member_id, timestamp, event_type } = body;
 
-    if (!device_user_id) {
+    const rawBiometricUserId = member_id ?? device_user_id;
+
+    if (!rawBiometricUserId) {
       return NextResponse.json(
-        { error: 'Missing device_user_id in request payload' },
+        { error: 'Missing member_id or device_user_id in request payload' },
         { status: 400 }
       );
     }
 
+    const biometricUserId = String(rawBiometricUserId);
     const punchType = event_type === 'checkout' ? 'checkout' : 'checkin';
     const punchTime = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
 
     const supabase = await createClient();
 
-    // 3. Match member by device_user_id
+    // 3. Match member by biometric_user_id
     const { data: member, error: fetchError } = await supabase
       .from('members')
       .select('id, full_name, package_start_date, package_end_date, status')
-      .eq('device_user_id', String(device_user_id))
+      .eq('biometric_user_id', biometricUserId)
       .maybeSingle();
 
     if (fetchError) {
@@ -40,11 +43,25 @@ export async function POST(request: NextRequest) {
     }
 
     if (!member) {
+      // Log lookup diagnostics failure
+      await supabase.from('biometric_sync_logs').insert({
+        biometric_user_id: biometricUserId,
+        status: 'Failed',
+        message: `No member mapped to Biometric User ID '${biometricUserId}'`
+      });
+
       return NextResponse.json(
-        { error: `No member mapped to device_user_id '${device_user_id}'` },
+        { error: `No member mapped to Biometric User ID '${biometricUserId}'` },
         { status: 404 }
       );
     }
+
+    // Log lookup diagnostics success
+    await supabase.from('biometric_sync_logs').insert({
+      biometric_user_id: biometricUserId,
+      status: 'Success',
+      message: `Biometric User ID ${biometricUserId} matched to ${member.full_name}`
+    });
 
     // 4. Determine membership status based on expiration
     const expiry = new Date(member.package_end_date);
@@ -65,7 +82,7 @@ export async function POST(request: NextRequest) {
       .insert({
         member_id: member.id,
         member_name: member.full_name,
-        device_user_id: String(device_user_id),
+        biometric_user_id: biometricUserId,
         punch_time: punchTime,
         punch_type: punchType,
       });

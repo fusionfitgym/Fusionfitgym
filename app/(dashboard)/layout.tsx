@@ -57,7 +57,7 @@ export default async function DashboardLayout({
   let isAllowed = false;
 
   if (role === 'Admin') {
-    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/invoices', '/reports', '/sms', '/settings', '/about'];
+    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/about'];
     isAllowed = allowedPrefixes.some((prefix) => {
       if (prefix === '/') return pathname === '/';
       return pathname.startsWith(prefix);

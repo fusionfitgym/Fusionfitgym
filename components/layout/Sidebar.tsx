@@ -20,6 +20,7 @@ import {
   LogOut,
   Info,
   Download,
+  Cpu,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,7 @@ const navItems = [
   { href: '/members', label: 'Members', icon: Users },
   { href: '/attendance', label: 'Attendance', icon: Activity },
   { href: '/monitor', label: 'Live Monitor', icon: Tv },
+  { href: '/devices', label: 'Device Management', icon: Cpu },
   { href: '/reports', label: 'Reports', icon: FileSpreadsheet },
   { href: '/health', label: 'Health Assessments', icon: HeartPulse },
   { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
@@ -135,7 +137,7 @@ function NavContent({
     
     if (role === 'Super Admin') return true;
     if (role === 'Admin') {
-      return ['/', '/members', '/attendance', '/monitor', '/invoices', '/reports', '/sms', '/settings'].includes(item.href);
+      return ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings'].includes(item.href);
     }
     if (role === 'Receptionist') {
       return ['/', '/members', '/attendance', '/monitor', '/invoices'].includes(item.href);

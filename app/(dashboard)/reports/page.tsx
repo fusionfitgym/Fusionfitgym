@@ -226,7 +226,7 @@ export default function ReportsPage() {
                   <thead>
                     <tr>
                       <th>Member Name</th>
-                      <th>Device ID</th>
+                      <th>Biometric User ID</th>
                       <th>Time</th>
                       <th>Punch Type</th>
                     </tr>
@@ -235,7 +235,7 @@ export default function ReportsPage() {
                     {attendanceData.map((row) => (
                       <tr key={row.id}>
                         <td><p className="table-primary">{row.member_name}</p></td>
-                        <td><span className="font-mono text-xs text-slate-500">{row.device_user_id}</span></td>
+                        <td><span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{row.biometric_user_id}</span></td>
                         <td>
                           <p className="text-xs text-slate-800">
                             {new Date(row.punch_time).toLocaleString('en-IN', {

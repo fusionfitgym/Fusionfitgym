@@ -19,8 +19,7 @@ export interface Member {
   join_date?: string | null;
   status: 'Active' | 'Inactive' | 'Expired' | 'Frozen';
   profile_photo?: string | null;
-  biometric_id?: string | null;
-  device_user_id?: string | null;
+  biometric_user_id?: string | null;
   membership_status?: string | null;
   last_checkin?: string | null;
   created_at?: string;
@@ -41,8 +40,10 @@ export const memberSchema = z.object({
   package_end_date: z.string().min(1, 'End date is required'),
   status: z.enum(['Active', 'Inactive', 'Expired', 'Frozen']),
   profile_photo: z.string().optional().or(z.literal('')),
-  biometric_id: z.string().optional().or(z.literal('')),
-  device_user_id: z.string().optional().or(z.literal('')),
+  biometric_user_id: z.string().optional().or(z.literal(''))
+    .refine((val) => !val || /^\d+$/.test(val), {
+      message: "Biometric User ID must contain numeric digits only",
+    }),
   membership_status: z.string().optional().or(z.literal('')),
 });
 
@@ -53,7 +54,7 @@ export interface AttendanceLog {
   id: string;
   member_id: string;
   member_name: string;
-  device_user_id: string;
+  biometric_user_id: string;
   punch_time: string;
   punch_type: 'checkin' | 'checkout';
   created_at?: string;
@@ -205,3 +206,24 @@ export interface SMSLog {
 export const MEMBERSHIP_PLANS = ['Monthly', 'Quarterly', 'Biannual', 'Annual'] as const;
 export const MEMBER_STATUSES = ['Active', 'Inactive', 'Expired', 'Frozen'] as const;
 export const INVOICE_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
+
+// ── Biometric Devices & Sync Logs ────────────────────────────
+export interface BiometricDevice {
+  id: string;
+  name: string;
+  serial_number: string;
+  ip_address?: string | null;
+  status: 'Online' | 'Offline';
+  last_sync?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface BiometricSyncLog {
+  id: string;
+  biometric_user_id: string;
+  status: 'Success' | 'Failed';
+  message: string;
+  punch_time: string;
+  created_at?: string;
+}

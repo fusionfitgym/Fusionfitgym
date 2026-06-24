@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { AttendanceLog, Member } from '@/types';
+import { AttendanceLog, Member, BiometricSyncLog } from '@/types';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
 
@@ -216,7 +216,7 @@ export async function getTodayMonitorLogs() {
   // Fetch the 10 most recent logs of today in a single query
   const { data: logs, error: logsError } = await supabase
     .from('attendance_logs')
-    .select('id, member_id, member_name, device_user_id, punch_time, punch_type')
+    .select('id, member_id, member_name, biometric_user_id, punch_time, punch_type')
     .gte('punch_time', startOfDay.toISOString())
     .order('punch_time', { ascending: false })
     .limit(10);
@@ -246,4 +246,19 @@ export async function getTodayMonitorLogs() {
     ...log,
     member: log?.member_id ? memberMap.get(log.member_id) || null : null
   }));
+}
+
+export async function getSyncLogs(): Promise<BiometricSyncLog[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('biometric_sync_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  if (error) {
+    console.error('Error fetching biometric sync logs:', error);
+    throw error;
+  }
+  return data as BiometricSyncLog[];
 }
