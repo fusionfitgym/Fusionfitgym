@@ -8,7 +8,10 @@ import { robotoRegular, robotoBold } from './robotoFonts';
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Only request CORS headers if the image is loaded from an external origin
+    if (url.startsWith('http') || url.startsWith('//')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => resolve(img);
     img.onerror = (e) => reject(e);
     img.src = url;
