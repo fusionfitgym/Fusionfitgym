@@ -56,7 +56,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setDownloading(true);
     try {
       const { generateInvoicePDF } = await import('@/lib/pdf/generateInvoice');
-      generateInvoicePDF(invoice, settings);
+      await generateInvoicePDF(invoice, settings);
     } finally {
       setDownloading(false);
     }

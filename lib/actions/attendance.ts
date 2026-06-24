@@ -1,15 +1,29 @@
 "use server";
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { AttendanceLog, Member } from '@/types';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
 
+// Helper: Get start of today in IST (UTC+5:30)
+function getStartOfTodayIST(): Date {
+  const now = new Date();
+  // Calculate IST offset: UTC + 5:30
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const istNow = new Date(now.getTime() + istOffsetMs);
+  // Get date parts in IST
+  const year = istNow.getUTCFullYear();
+  const month = istNow.getUTCMonth();
+  const day = istNow.getUTCDate();
+  // Midnight IST in UTC = midnight IST - 5:30 = previous day 18:30 UTC
+  return new Date(Date.UTC(year, month, day) - istOffsetMs);
+}
+
 // Fetch all attendance logs for the current calendar day
 export async function getTodayAttendanceLogs(): Promise<AttendanceLog[]> {
   const supabase = await createClient();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getStartOfTodayIST();
 
   const { data, error } = await supabase
     .from('attendance_logs')
@@ -59,11 +73,7 @@ export async function getAttendanceHistory(filters?: {
 export async function getAttendanceAnalytics() {
   const supabase = await createClient();
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const fourHoursAgo = new Date();
-  fourHoursAgo.setHours(fourHoursAgo.getHours() - 4);
+  const startOfDay = getStartOfTodayIST();
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -72,17 +82,12 @@ export async function getAttendanceAnalytics() {
   // Fetch all attendance analytics queries in parallel to optimize DB load
   const [
     { data: todayLogs, error: todayError },
-    { data: recentLogs, error: recentError },
     { data: trendLogs, error: trendError }
   ] = await Promise.all([
     supabase
       .from('attendance_logs')
       .select('member_id, punch_type, punch_time')
-      .gte('punch_time', startOfDay.toISOString()),
-    supabase
-      .from('attendance_logs')
-      .select('member_id, punch_type, punch_time')
-      .gte('punch_time', fourHoursAgo.toISOString())
+      .gte('punch_time', startOfDay.toISOString())
       .order('punch_time', { ascending: true }),
     supabase
       .from('attendance_logs')
@@ -103,9 +108,10 @@ export async function getAttendanceAnalytics() {
     else if (log?.punch_type === 'checkout') checkouts++;
   });
 
+  // Occupancy: use ALL of today's logs (sorted ascending) to track who is currently inside
   const activeMembers = new Set<string>();
-  if (!recentError && recentLogs) {
-    recentLogs.forEach((log: any) => {
+  if (todayLogs) {
+    todayLogs.forEach((log: any) => {
       if (log?.member_id) {
         if (log.punch_type === 'checkin') {
           activeMembers.add(log.member_id);
@@ -146,9 +152,10 @@ export async function getAttendanceAnalytics() {
     if (log?.punch_type === 'checkin' && log?.punch_time) {
       const pDate = new Date(log.punch_time);
       if (!isNaN(pDate.getTime())) {
-        const hour = pDate.getHours();
-        if (hourlyCounts[hour] !== undefined) {
-          hourlyCounts[hour]++;
+        // Convert UTC time to IST hours for display
+        const istHours = (pDate.getUTCHours() + 5 + Math.floor((pDate.getUTCMinutes() + 30) / 60)) % 24;
+        if (hourlyCounts[istHours] !== undefined) {
+          hourlyCounts[istHours]++;
         }
       }
     }
@@ -196,6 +203,8 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
     'Attendance',
     user.id
   );
+  revalidatePath('/');
+  revalidatePath('/attendance');
 }
 
 // Fetch the 10 most recent logs of today, batch-enriching member data on the server

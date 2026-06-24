@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { unstable_noStore as noStore } from 'next/cache';
 import {
   Activity,
   ArrowRight,
@@ -30,6 +31,8 @@ import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection'
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  // Prevent Next.js from caching the dashboard RSC output
+  noStore();
   let user = null;
   
   try {

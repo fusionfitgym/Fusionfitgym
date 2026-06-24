@@ -24,6 +24,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/AuthProvider';
 
+interface ServerProfile {
+  id: string;
+  auth_user_id: string;
+  full_name: string;
+  email: string;
+  role: 'Super Admin' | 'Admin' | 'Receptionist' | 'Trainer';
+  status: 'Active' | 'Suspended';
+  created_at: string;
+}
+
+interface ServerUser {
+  last_sign_in_at?: string | null;
+}
+
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/members', label: 'Members', icon: Users },
@@ -90,13 +104,21 @@ function NavContent({
   collapsed,
   onNavigate,
   onClose,
+  serverProfile,
+  serverUser,
 }: {
   pathname: string;
   collapsed?: boolean;
   onNavigate?: () => void;
   onClose?: () => void;
+  serverProfile?: ServerProfile;
+  serverUser?: ServerUser;
 }) {
-  const { profile, user, signOut } = useAuth();
+  const { profile: authProfile, user: authUser, signOut } = useAuth();
+
+  // Use server-provided profile immediately; fall back to AuthProvider
+  const profile = serverProfile || authProfile;
+  const lastSignInAt = serverUser?.last_sign_in_at ?? authUser?.last_sign_in_at;
 
   // Role-based route filtering
   const filteredItems = navItems.filter((item) => {
@@ -201,11 +223,11 @@ function NavContent({
             )}
           </div>
 
-          {!collapsed && user?.last_sign_in_at && !isNaN(new Date(user.last_sign_in_at).getTime()) && (
+          {!collapsed && lastSignInAt && !isNaN(new Date(lastSignInAt).getTime()) && (
             <div className="text-[10px] text-zinc-500 font-medium leading-tight">
               Last login: <br />
               <span className="text-zinc-400 font-semibold mt-0.5 inline-block">
-                {new Date(user.last_sign_in_at).toLocaleDateString('en-IN', {
+                {new Date(lastSignInAt).toLocaleDateString('en-IN', {
                   day: '2-digit',
                   month: 'short',
                   hour: '2-digit',
@@ -234,7 +256,13 @@ function NavContent({
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  serverProfile,
+  serverUser,
+}: {
+  serverProfile?: ServerProfile;
+  serverUser?: ServerUser;
+} = {}) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -260,10 +288,10 @@ export default function Sidebar() {
     <>
       <aside className="sticky top-0 z-40 hidden h-screen flex-col overflow-hidden border-r border-white/[0.07] bg-[#0b0d12] md:flex">
         <div className="hidden h-full w-full flex-col lg:flex">
-          <NavContent pathname={pathname} />
+          <NavContent pathname={pathname} serverProfile={serverProfile} serverUser={serverUser} />
         </div>
         <div className="flex h-full w-full flex-col lg:hidden">
-          <NavContent pathname={pathname} collapsed />
+          <NavContent pathname={pathname} collapsed serverProfile={serverProfile} serverUser={serverUser} />
         </div>
       </aside>
 
@@ -300,7 +328,7 @@ export default function Sidebar() {
             className="relative z-10 flex h-full w-[min(288px,86vw)] flex-col bg-[#0b0d12] shadow-2xl"
             style={{ animation: 'slide-in 180ms ease-out both' }}
           >
-            <NavContent pathname={pathname} onNavigate={closeMobile} onClose={closeMobile} />
+            <NavContent pathname={pathname} onNavigate={closeMobile} onClose={closeMobile} serverProfile={serverProfile} serverUser={serverUser} />
           </aside>
         </div>
       )}

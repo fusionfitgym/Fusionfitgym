@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { Invoice, InvoiceFormValues } from '@/types';
 import { sendInvoiceSMS } from '@/lib/sms';
@@ -71,6 +72,8 @@ export async function createInvoice(values: InvoiceFormValues): Promise<Invoice>
     console.error('Failed to trigger invoice notification SMS:', smsErr);
   }
 
+  revalidatePath('/');
+  revalidatePath('/invoices');
   return data as Invoice;
 }
 
@@ -78,6 +81,8 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
   const supabase = await createClient();
   const { error } = await supabase.from('invoices').update({ status }).eq('id', id);
   if (error) throw error;
+  revalidatePath('/');
+  revalidatePath('/invoices');
 }
 
 export async function updateInvoicePdfUrl(id: string, pdf_url: string): Promise<void> {

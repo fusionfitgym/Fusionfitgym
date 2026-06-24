@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Member, MemberFormValues } from '@/types';
@@ -51,6 +52,8 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       console.error('Failed to trigger welcome SMS:', smsErr);
     }
 
+    revalidatePath('/');
+    revalidatePath('/members');
     return { data: data as Member };
   } catch (err: any) {
     return { error: err.message || 'An unexpected error occurred.' };
@@ -93,6 +96,8 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
       }
     }
 
+    revalidatePath('/');
+    revalidatePath('/members');
     return { data: data as Member };
   } catch (err: any) {
     return { error: err.message || 'An unexpected error occurred.' };
@@ -113,6 +118,8 @@ export async function deleteMember(id: string): Promise<void> {
   if (error) throw error;
 
   await logAudit(`Deleted member: ${member?.full_name || id}`, 'Members', user.id);
+  revalidatePath('/');
+  revalidatePath('/members');
 }
 
 export async function uploadProfilePhoto(file: File): Promise<{ url?: string; error?: string }> {

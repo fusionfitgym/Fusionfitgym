@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { GymSettings } from '@/types';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
@@ -27,7 +28,45 @@ export async function getSettings(): Promise<GymSettings> {
     sms_api_key:   map.sms_api_key   ?? '',
     sms_sender_id: map.sms_sender_id ?? 'FUSFIT',
     sms_enabled:   map.sms_enabled   === 'true',
+    gym_logo:      map.gym_logo      ?? '/Logo.jpeg',
   };
+}
+
+export async function uploadGymLogo(file: File): Promise<{ url?: string; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin']);
+    const adminSupabase = createAdminClient();
+    
+    // Ensure the bucket exists
+    const { data: buckets, error: listError } = await adminSupabase.storage.listBuckets();
+    if (listError) {
+      console.error('Failed to list buckets:', listError.message);
+    }
+    
+    const bucketExists = buckets?.some(b => b.id === 'gym-assets');
+    if (!bucketExists) {
+      const { error: createError } = await adminSupabase.storage.createBucket('gym-assets', {
+        public: true,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+        fileSizeLimit: 5242880 // 5MB
+      });
+      if (createError) {
+        return { error: `Failed to create storage bucket: ${createError.message}` };
+      }
+    }
+
+    const ext = file.name.split('.').pop();
+    const filename = `gym-logo-${Date.now()}.${ext}`;
+    const { error } = await adminSupabase.storage
+      .from('gym-assets')
+      .upload(filename, file, { upsert: true });
+    if (error) return { error: error.message };
+
+    const { data } = adminSupabase.storage.from('gym-assets').getPublicUrl(filename);
+    return { url: data.publicUrl };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
 }
 
 export async function upsertSetting(key: string, value: string): Promise<void> {

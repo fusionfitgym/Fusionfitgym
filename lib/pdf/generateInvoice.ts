@@ -2,9 +2,28 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Invoice, GymSettings } from '@/types';
 import { formatCurrency, formatDate, getMembershipExpiry } from '@/lib/utils';
+import { robotoRegular, robotoBold } from './robotoFonts';
 
-export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): void {
+// Helper to load image asynchronously in browser environment
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = url;
+  });
+}
+
+export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // Register Roboto fonts
+  doc.addFileToVFS('Roboto-Regular.ttf', robotoRegular);
+  doc.addFileToVFS('Roboto-Bold.ttf', robotoBold);
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+
   const member = invoice.member as {
     full_name: string;
     phone?: string;
@@ -56,32 +75,58 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
 
     doc.setTextColor(text[0], text[1], text[2]);
     doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.text(status.toUpperCase(), x + 11, y + 4.2, { align: 'center' });
   };
 
   // ── Header Section ─────────────────────────────────────────
   let y = 15;
 
-  // Draw Logo (left aligned)
-  drawGymLogo(M, y, 12);
+  // Load custom logo with fallbacks
+  let logoImg: HTMLImageElement | null = null;
+  if (settings.gym_logo) {
+    try {
+      logoImg = await loadImage(settings.gym_logo);
+    } catch (err) {
+      console.warn('Failed to load custom gym logo from settings:', err);
+    }
+  }
 
-  // Gym Name & Details
+  if (!logoImg) {
+    try {
+      logoImg = await loadImage('/Logo.jpeg');
+    } catch (err) {
+      console.warn('Failed to load default logo /Logo.jpeg:', err);
+    }
+  }
+
+  // Draw Logo or Fallback Dumbbell Icon
+  const logoSize = logoImg ? 20 : 12;
+  if (logoImg) {
+    // Sharp image rendering for premium branding
+    doc.addImage(logoImg, 'JPEG', M, y, logoSize, logoSize);
+  } else {
+    drawGymLogo(M, y, logoSize);
+  }
+
+  // Gym Name & Details Alignment
+  const textX = M + logoSize + 4; // Spacing after logo (4mm gap)
+
   doc.setTextColor(11, 13, 18); // Rich Black
   doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text(settings.gym_name.toUpperCase(), M + 15, y + 6);
+  doc.setFont('Roboto', 'bold');
+  doc.text(settings.gym_name.toUpperCase(), textX, y + (logoImg ? 5.5 : 4.5));
 
   doc.setTextColor(100, 116, 139); // Slate Gray (#64748B)
   doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(settings.gym_address, M + 15, y + 11);
-  doc.text(`${settings.gym_phone}   |   ${settings.gym_email}`, M + 15, y + 15.5);
+  doc.setFont('Roboto', 'normal');
+  doc.text(settings.gym_address, textX, y + (logoImg ? 11 : 9.5));
+  doc.text(`${settings.gym_phone}   |   ${settings.gym_email}`, textX, y + (logoImg ? 16.5 : 14));
 
   // Right Side: INVOICE label
   doc.setTextColor(196, 145, 2); // Rich Dark Gold
   doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('INVOICE', PW - M, y + 5, { align: 'right' });
 
   // Bordered Invoice Number Card
@@ -97,11 +142,11 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
 
   doc.setTextColor(30, 41, 59); // Charcoal
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text(`INV NO:`, invCardX + 3, invCardY + 5.5);
   
   doc.setTextColor(11, 13, 18);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text(invoice.invoice_number, invCardX + 45, invCardY + 5.5, { align: 'right' });
 
   // Status Badge next to invoice card
@@ -110,7 +155,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
   // Print label "STATUS:" next to the status badge
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('STATUS:', PW - M - 24, y + 22.8, { align: 'right' });
 
   // Accent Line
@@ -137,18 +182,18 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
   doc.rect(M, y + 4, cardW, 2.5, 'F'); // Overwrite bottom corners
   doc.setTextColor(212, 175, 55); // Gold
   doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('MEMBER INFORMATION', M + 4, y + 4.5);
 
   // Card 1 Details
   let cy = y + 11.5;
   doc.setTextColor(11, 13, 18);
   doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text(member?.full_name ?? 'Member', M + 4, cy);
 
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(71, 85, 105);
   
   if (member?.phone) {
@@ -181,7 +226,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
   doc.rect(c2X, y + 4, cardW, 2.5, 'F'); // Overwrite bottom corners
   doc.setTextColor(212, 175, 55); // Gold
   doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('INVOICE DETAILS', c2X + 4, y + 4.5);
 
   // Card 2 Details
@@ -194,12 +239,12 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
 
   cy = y + 11.5;
   invoiceDetails.forEach(([label, val]) => {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8);
     doc.text(label + ':', c2X + 4, cy);
 
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     doc.setTextColor(30, 41, 59);
     doc.text(val, c2X + cardW - 4, cy, { align: 'right' });
     cy += 5.2;
@@ -230,7 +275,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
   // Section Title
   doc.setTextColor(196, 145, 2); // Gold
   doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('MEMBERSHIP SUMMARY', M + 4, y + 4.5);
 
   // Compute duration and package type
@@ -268,11 +313,11 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
   doc.setFontSize(7.5);
   summaryCols.forEach((col, i) => {
     const colX = M + i * colW;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setTextColor(100, 116, 139);
     doc.text(col.label, colX + 4, y + 10);
     
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.setTextColor(11, 13, 18);
     if (col.label === 'PACKAGE TYPE') {
       doc.setFontSize(7);
@@ -305,6 +350,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
       textColor: [212, 175, 55], // Gold
       fontStyle: 'bold',
       fontSize: 8.5,
+      font: 'Roboto',
     },
     columnStyles: {
       0: { cellWidth: 90, halign: 'left' },
@@ -316,6 +362,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
       fontSize: 8.5,
       textColor: [30, 41, 59], // Slate Dark
       cellPadding: 4,
+      font: 'Roboto',
     },
     alternateRowStyles: {
       fillColor: [250, 250, 250],
@@ -324,6 +371,7 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
     styles: {
       lineColor: [226, 232, 240], // Light slate gray grid lines
       lineWidth: 0.1,
+      font: 'Roboto',
     },
     margin: { left: M, right: M, bottom: 30, top: 20 },
     didDrawPage: () => {
@@ -343,20 +391,20 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
       // Thank You Message
       doc.setTextColor(212, 175, 55); // Gold
       doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont('Roboto', 'bold');
       doc.text('Thank you for choosing Fusion Fit Multi Gym', pageWidth / 2, pageHeight - 19, { align: 'center' });
 
       // Contact Info
       doc.setTextColor(156, 163, 175); // Light Gray
       doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont('Roboto', 'normal');
       const contactText = `Website: www.fusionfitgym.com    |    Phone: ${settings.gym_phone}    |    Email: ${settings.gym_email}`;
       doc.text(contactText, pageWidth / 2, pageHeight - 13, { align: 'center' });
 
       // Disclaimer
       doc.setTextColor(107, 114, 128); // Muted Gray
       doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'italic');
+      doc.setFont('Roboto', 'normal'); // Changed from italic to avoid needing Roboto-Italic font
       doc.text('This invoice was generated automatically by Fusion Fit Management System.', pageWidth / 2, pageHeight - 7, { align: 'center' });
     }
   });
@@ -374,13 +422,13 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
     // Title
     doc.setTextColor(196, 145, 2); // Gold
     doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont('Roboto', 'bold');
     doc.text('INVOICE NOTES', M + 4, finalY + 4.5);
 
     // Notes text
     doc.setTextColor(71, 85, 105);
     doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('Roboto', 'normal');
     const noteLines = doc.splitTextToSize(invoice.notes, 92);
     doc.text(noteLines, M + 4, finalY + 9.5);
   }
@@ -400,29 +448,29 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
   let sy = finalY + 5.5;
 
   // Subtotal
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(100, 116, 139);
   doc.setFontSize(8);
   doc.text('Subtotal:', leftLabelX, sy);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(30, 41, 59);
   doc.text(formatCurrency(invoice.amount), rightAlignX, sy, { align: 'right' });
   
   // Discount
   sy += 4.8;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(100, 116, 139);
   doc.text('Discount:', leftLabelX, sy);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(30, 41, 59);
   doc.text(formatCurrency(0), rightAlignX, sy, { align: 'right' });
 
   // Tax
   sy += 4.8;
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.setTextColor(100, 116, 139);
   doc.text('Tax (0%):', leftLabelX, sy);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('Roboto', 'normal');
   doc.setTextColor(30, 41, 59);
   doc.text(formatCurrency(0), rightAlignX, sy, { align: 'right' });
 
@@ -440,11 +488,11 @@ export function generateInvoicePDF(invoice: Invoice, settings: GymSettings): voi
 
   doc.setTextColor(212, 175, 55); // Gold Text
   doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text('AMOUNT DUE', summaryBoxX + 5, dueBoxY + 7.5);
 
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('Roboto', 'bold');
   doc.text(formatCurrency(invoice.amount), rightAlignX - 5, dueBoxY + 8.2, { align: 'right' });
 
   // ── Save ─────────────────────────────────────────────────

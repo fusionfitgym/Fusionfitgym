@@ -174,6 +174,7 @@ export interface GymSettings {
   sms_api_key: string;
   sms_sender_id: string;
   sms_enabled: boolean;
+  gym_logo?: string;
 }
 
 // ── SMS Logs ────────────────────────────────────────────────

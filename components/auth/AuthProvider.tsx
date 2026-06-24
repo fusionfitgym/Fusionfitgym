@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -31,7 +31,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient();
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
+  // Memoize client to prevent re-creating on every render
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchProfile = async () => {
     try {
@@ -43,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await signOutAction();
           setUser(null);
           setProfile(null);
-          router.push('/login?error=Your account has been suspended. Please contact the administrator.');
+          routerRef.current.push('/login?error=Your account has been suspended. Please contact the administrator.');
         }
       } else {
         setUser(null);
@@ -72,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setProfile(null);
         setLoading(false);
-        router.push('/login');
+        routerRef.current.push('/login');
       } else if (event === 'TOKEN_REFRESHED') {
         // Just refresh the profile/user data
         if (session?.user) {
@@ -84,7 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   const handleSignOut = async () => {
     setLoading(true);

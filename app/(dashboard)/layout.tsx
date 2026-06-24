@@ -14,7 +14,7 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  const { profile } = result;
+  const { profile, user } = result;
 
   // 2. Protect against suspended status
   if (profile.status === 'Suspended') {
@@ -27,11 +27,26 @@ export default async function DashboardLayout({
 
   const role = profile.role;
 
+  // Prepare server profile data for Sidebar (avoids duplicate AuthProvider fetch)
+  const serverProfile = {
+    id: profile.id,
+    auth_user_id: profile.auth_user_id,
+    full_name: profile.full_name,
+    email: profile.email,
+    role: profile.role as 'Super Admin' | 'Admin' | 'Receptionist' | 'Trainer',
+    status: profile.status as 'Active' | 'Suspended',
+    created_at: profile.created_at || '',
+  };
+
+  const serverUser = user ? {
+    last_sign_in_at: user.last_sign_in_at,
+  } : undefined;
+
   // Super Admin has full system permissions
   if (role === 'Super Admin') {
     return (
       <div className="app-shell">
-        <Sidebar />
+        <Sidebar serverProfile={serverProfile} serverUser={serverUser} />
         <main className="app-main">
           <div className="app-content">{children}</div>
         </main>
@@ -72,7 +87,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar serverProfile={serverProfile} serverUser={serverUser} />
       <main className="app-main">
         <div className="app-content">{children}</div>
       </main>

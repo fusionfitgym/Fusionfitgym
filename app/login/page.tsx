@@ -2,11 +2,10 @@
 
 import type { Metadata } from 'next';
 import { useActionState, useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Dumbbell, Mail, Lock, Eye, EyeOff, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { signInAction, SignInState } from '@/lib/actions/auth';
-import { useAuth } from '@/components/auth/AuthProvider';
 
 const initialState: SignInState = {
   error: '',
@@ -18,22 +17,18 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // Get errors from URL query parameters (e.g. from middleware or redirects)
   const urlError = searchParams.get('error');
   const urlMessage = searchParams.get('message');
 
-  const { refreshProfile } = useAuth();
-
   useEffect(() => {
     if (state?.success) {
-      refreshProfile().then(() => {
-        router.push('/');
-        router.refresh();
-      });
+      // Full navigation ensures the auth cookies set by the server action
+      // are sent on the next HTTP request. router.push() would use stale cookies.
+      window.location.href = '/';
     }
-  }, [state?.success, router, refreshProfile]);
+  }, [state?.success]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0b0d12] text-white px-4 relative overflow-hidden select-none">

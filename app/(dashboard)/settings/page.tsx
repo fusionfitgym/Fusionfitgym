@@ -36,13 +36,30 @@ export default function SettingsPage() {
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Logo upload states
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+
   const { register, handleSubmit, reset } = useForm<GymSettings>();
 
   useEffect(() => {
     getSettings()
-      .then(reset)
+      .then((data) => {
+        reset(data);
+        if (data.gym_logo) {
+          setLogoPreview(data.gym_logo);
+        }
+      })
       .finally(() => setLoading(false));
   }, [reset]);
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  }
 
   async function handleSendTest() {
     if (!testPhone) return;
@@ -62,9 +79,18 @@ export default function SettingsPage() {
     setSaving(true);
     setSaved(false);
     try {
-      await upsertSettings(data);
+      let currentLogo = data.gym_logo;
+      if (logoFile) {
+        const { uploadGymLogo } = await import('@/lib/actions/settings');
+        const uploadRes = await uploadGymLogo(logoFile);
+        if (uploadRes.error) throw new Error(uploadRes.error);
+        currentLogo = uploadRes.url;
+      }
+      await upsertSettings({ ...data, gym_logo: currentLogo });
       setSaved(true);
       window.setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -85,26 +111,51 @@ export default function SettingsPage() {
           description="These details appear on generated invoices and documents."
           icon={<Building2 className="h-5 w-5" />}
         >
-          <div className="field-grid field-grid-2">
-            {[
-              { name: 'gym_name' as const, label: 'Gym name', icon: Building2, placeholder: 'FusionFit Gym' },
-              { name: 'gym_phone' as const, label: 'Phone', icon: Phone, placeholder: '+91 98765 43210' },
-              { name: 'gym_email' as const, label: 'Email', icon: Mail, placeholder: 'info@fusionfitgym.com' },
-              { name: 'gym_address' as const, label: 'Address', icon: MapPin, placeholder: 'Street, city, state' },
-            ].map(({ name, label, icon: Icon, placeholder }) => (
-              <FormField key={name} label={label} htmlFor={name}>
-                <div className="input-with-icon">
-                  <Icon />
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+            {/* Logo Upload Container */}
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Gym Logo</span>
+              <div className="relative group h-28 w-28 rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm flex items-center justify-center">
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Gym Logo" className="h-full w-full object-contain p-1" />
+                ) : (
+                  <Building2 className="h-10 w-10 text-slate-300" />
+                )}
+                <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-xs font-semibold cursor-pointer transition-opacity duration-200 rounded-xl">
+                  <span>Choose file</span>
                   <input
-                    id={name}
-                    type={name === 'gym_email' ? 'email' : 'text'}
-                    placeholder={placeholder}
-                    className="input-field"
-                    {...register(name)}
+                    type="file"
+                    accept="image/png, image/jpeg, image/gif, image/webp"
+                    className="sr-only"
+                    onChange={handleLogoChange}
                   />
-                </div>
-              </FormField>
-            ))}
+                </label>
+              </div>
+              <p className="text-[10px] text-slate-400">PNG, JPG up to 5MB</p>
+            </div>
+
+            {/* Existing Fields */}
+            <div className="flex-1 field-grid field-grid-2">
+              {[
+                { name: 'gym_name' as const, label: 'Gym name', icon: Building2, placeholder: 'FusionFit Gym' },
+                { name: 'gym_phone' as const, label: 'Phone', icon: Phone, placeholder: '+91 98765 43210' },
+                { name: 'gym_email' as const, label: 'Email', icon: Mail, placeholder: 'info@fusionfitgym.com' },
+                { name: 'gym_address' as const, label: 'Address', icon: MapPin, placeholder: 'Street, city, state' },
+              ].map(({ name, label, icon: Icon, placeholder }) => (
+                <FormField key={name} label={label} htmlFor={name}>
+                  <div className="input-with-icon">
+                    <Icon />
+                    <input
+                      id={name}
+                      type={name === 'gym_email' ? 'email' : 'text'}
+                      placeholder={placeholder}
+                      className="input-field"
+                      {...register(name)}
+                    />
+                  </div>
+                </FormField>
+              ))}
+            </div>
           </div>
         </SectionCard>
 

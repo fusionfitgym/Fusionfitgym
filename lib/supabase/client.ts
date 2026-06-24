@@ -37,7 +37,11 @@ function createSafeStub(error: Error) {
   return stub;
 }
 
+let cachedClient: ReturnType<typeof createBrowserClient> | null = null;
+
 export function createClient(): ReturnType<typeof createBrowserClient> {
+  if (cachedClient) return cachedClient;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -53,7 +57,8 @@ export function createClient(): ReturnType<typeof createBrowserClient> {
     return createSafeStub(new Error("Invalid client-side NEXT_PUBLIC_SUPABASE_URL: " + url)) as any;
   }
 
-  return createBrowserClient(url, anonKey)
+  cachedClient = createBrowserClient(url, anonKey);
+  return cachedClient;
 }
 
 
