@@ -185,78 +185,53 @@ export default function SettingsPage() {
         </SectionCard>
 
         <SectionCard
-          title="SMS Configuration"
-          description="Configure your external HTTP API gateway and Sender ID details. Credentials are saved securely on the server."
+          title="SMS Automation Settings"
+          description="Enable or disable automatic SMS notifications dispatched via the gym's connected Android phone."
           icon={<MessageSquare className="h-5 w-5" />}
         >
-          <div className="field-grid field-grid-2">
-            {[
-              { name: 'sms_provider_name' as const, label: 'SMS Provider Name', placeholder: 'Generic HTTP API' },
-              { name: 'sms_sender_id' as const, label: 'Sender ID', placeholder: 'FUSFIT' },
-              { name: 'sms_api_url' as const, label: 'API URL', placeholder: 'https://api.sms-provider.com/send?key={api_key}&to={phone}&msg={message}' },
-              { name: 'sms_api_key' as const, label: 'API Key', placeholder: 'Your API key or bearer token' },
-            ].map(({ name, label, placeholder }) => (
-              <FormField key={name} label={label} htmlFor={name}>
-                <input
-                  id={name}
-                  type={name === 'sms_api_key' ? 'password' : 'text'}
-                  placeholder={placeholder}
-                  className="input-field"
-                  {...register(name)}
-                />
-              </FormField>
-            ))}
-          </div>
-
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <input
               id="sms_enabled"
               type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+              className="h-5 w-5 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
               {...register('sms_enabled')}
             />
-            <label htmlFor="sms_enabled" className="text-sm font-semibold text-slate-700 cursor-pointer">
-              Enable SMS Notifications
-            </label>
+            <div className="flex flex-col">
+              <label htmlFor="sms_enabled" className="text-sm font-semibold text-slate-800 cursor-pointer">
+                Enable SMS Communication System
+              </label>
+              <span className="text-xs text-slate-500">Enable or disable all outgoing SMS communication.</span>
+            </div>
           </div>
 
-          <div className="mt-8 border-t border-slate-200 pt-6">
-            <h4 className="text-sm font-bold text-slate-900 mb-2">Test SMS Integration</h4>
-            <p className="text-xs text-slate-500 mb-4">
-              Enter a phone number and click send to test your configuration. Make sure to **save settings first** before testing.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 items-end max-w-md">
-              <div className="flex-1 w-full">
-                <FormField label="Test Phone Number" htmlFor="test_phone">
+          <div className="border-t border-slate-200 pt-5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Automatic SMS Triggers</h4>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[
+                { name: 'sms_automation_new_member' as const, label: 'New member registration', desc: 'Welcome SMS when a new member is added' },
+                { name: 'sms_automation_expires_7' as const, label: 'Membership expires in 7 days', desc: 'Pre-expiry warning 7 days before end date' },
+                { name: 'sms_automation_expires_3' as const, label: 'Membership expires in 3 days', desc: 'Pre-expiry warning 3 days before end date' },
+                { name: 'sms_automation_expires_today' as const, label: 'Membership expires today', desc: 'Reminder sent on the day of expiry' },
+                { name: 'sms_automation_expired' as const, label: 'Membership expired', desc: 'Alert sent when membership status becomes Expired' },
+                { name: 'sms_automation_invoice' as const, label: 'Invoice generated', desc: 'Sent when an invoice is created' },
+                { name: 'sms_automation_payment' as const, label: 'Payment reminder', desc: 'Manual or automated invoice payment reminder' },
+              ].map(({ name, label, desc }) => (
+                <div key={name} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm hover:border-slate-200 transition-colors">
                   <input
-                    id="test_phone"
-                    type="text"
-                    placeholder="+919876543210"
-                    className="input-field"
-                    value={testPhone}
-                    onChange={(e) => setTestPhone(e.target.value)}
+                    id={name}
+                    type="checkbox"
+                    className="mt-0.5 h-4.5 w-4.5 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                    {...register(name)}
                   />
-                </FormField>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleSendTest()}
-                disabled={sendingTest || !testPhone}
-                className="btn btn-secondary min-h-[44px] w-full sm:w-auto shrink-0"
-              >
-                {sendingTest ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Send Test SMS
-              </button>
+                  <div className="flex flex-col">
+                    <label htmlFor={name} className="text-sm font-semibold text-slate-800 cursor-pointer">
+                      {label}
+                    </label>
+                    <span className="text-xs text-slate-500 mt-0.5">{desc}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            {testResult && (
-              <div className={cn("mt-3 rounded-lg p-3 text-xs font-semibold border", 
-                testResult.success 
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-800" 
-                  : "bg-red-50 border-red-200 text-red-800"
-              )}>
-                {testResult.message}
-              </div>
-            )}
           </div>
         </SectionCard>
 

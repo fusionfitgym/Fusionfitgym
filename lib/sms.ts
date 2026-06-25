@@ -9,52 +9,38 @@ function cleanPhoneNumber(phone: string): string {
 }
 
 /**
- * Execute HTTP API call with retries
+ * Replace placeholders in template strings
  */
-async function sendSMSWithRetry(
-  url: string,
-  options: RequestInit,
-  retries = 3,
-  delayMs = 1000
-): Promise<{ success: boolean; responseText: string }> {
-  let attempt = 0;
-  while (attempt < retries) {
-    try {
-      const res = await fetch(url, options);
-      const text = await res.text();
-      
-      if (res.ok) {
-        return { success: true, responseText: text };
-      }
-      
-      attempt++;
-      if (attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
-      } else {
-        return { success: false, responseText: `HTTP ${res.status}: ${text}` };
-      }
-    } catch (err: any) {
-      attempt++;
-      if (attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
-      } else {
-        return { success: false, responseText: err?.message || String(err) };
-      }
-    }
+export function renderTemplate(template: string, data: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(data)) {
+    result = result.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value);
   }
-  return { success: false, responseText: 'Max retries reached' };
+  return result;
 }
 
+export const BUILTIN_TEMPLATES = {
+  Welcome: 'Hello {{member_name}},\nWelcome to FusionFit Gym.',
+  Renewal: 'Hi {{member_name}},\nYour membership expires on {{expiry_date}}.',
+  ExpiryWarning: 'Hi {{member_name}},\nYour membership will expire in {{days_left}} days.',
+  Payment: 'Hi {{member_name}},\nYour payment is pending.',
+  Expired: 'Hi {{member_name}},\nYour membership has expired.',
+};
+
 /**
- * Core function to send SMS notifications and record logs
+ * Core function to insert SMS notifications into the queue and record logs
  */
 export async function sendSMS(
   memberId: string | null,
   phone: string,
   message: string,
-  smsType: 'Invoice' | 'Welcome' | 'Renewal' | 'Expiry Warning' | 'Expired' | 'Test'
+  smsType: string,
+  isManual = false
 ): Promise<{ success: boolean; error?: string }> {
   const cleanPhone = cleanPhoneNumber(phone);
+  if (!cleanPhone) {
+    return { success: false, error: 'Invalid phone number' };
+  }
   
   // 1. Fetch SMS settings from settings table
   let settings;
@@ -67,97 +53,127 @@ export async function sendSMS(
   
   const supabase = await createClient();
 
-  // 2. Check if SMS notifications are enabled
+  // 2. Fallback check for table column structure
+  let phoneCol = 'phone';
+  let typeCol = 'sms_type';
+  let isModern = false;
+  try {
+    const { error } = await supabase.from('sms_logs').select('phone_number').limit(1);
+    if (!error) {
+      phoneCol = 'phone_number';
+      typeCol = 'message_type';
+      isModern = true;
+    }
+  } catch (err) {
+    console.error('Database connection or query issue during schema detection:', err);
+  }
+
+  // 3. Check if SMS system is enabled globally
   if (!settings.sms_enabled) {
-    // Log in database as "Skipped"
     try {
-      await supabase.from('sms_logs').insert({
+      const logData: Record<string, any> = {
         member_id: memberId,
-        phone: cleanPhone,
-        sms_type: smsType,
         message,
         status: 'Skipped',
-        provider_response: 'SMS notifications are disabled in settings',
-      });
+      };
+      logData[phoneCol] = cleanPhone;
+      logData[typeCol] = smsType;
+      if (!isModern) {
+        logData.provider_response = 'SMS notifications are disabled in settings';
+      }
+      await supabase.from('sms_logs').insert(logData);
     } catch (dbErr) {
       console.error('Failed to write skipped SMS log:', dbErr);
     }
-    return { success: false, error: 'SMS notifications are disabled' };
+    return { success: false, error: 'SMS notifications are disabled globally' };
   }
 
-  // 3. Check if API URL is configured
-  if (!settings.sms_api_url) {
-    try {
-      await supabase.from('sms_logs').insert({
-        member_id: memberId,
-        phone: cleanPhone,
-        sms_type: smsType,
-        message,
-        status: 'Failed',
-        provider_response: 'SMS API URL is not configured',
-      });
-    } catch (dbErr) {
-      console.error('Failed to write failed SMS log:', dbErr);
-    }
-    return { success: false, error: 'SMS API URL is not configured' };
-  }
-
-  // 4. Build fetch options based on URL placeholder structure
-  let url = settings.sms_api_url;
-  let options: RequestInit = {};
-
-  const hasPlaceholders = 
-    url.includes('{phone}') || 
-    url.includes('{message}') || 
-    url.includes('{api_key}') || 
-    url.includes('{sender_id}');
-
-  if (hasPlaceholders) {
-    // Perform placeholder replacement (HTTP GET typical setup)
-    url = url
-      .replace('{phone}', encodeURIComponent(cleanPhone))
-      .replace('{message}', encodeURIComponent(message))
-      .replace('{sender_id}', encodeURIComponent(settings.sms_sender_id ?? ''))
-      .replace('{api_key}', encodeURIComponent(settings.sms_api_key ?? ''));
+  // 4. Check automation specific settings (if not manual)
+  if (!isManual) {
+    let isAutomationEnabled = true;
     
-    options = {
-      method: 'GET',
-    };
-  } else {
-    // Default to HTTP POST with JSON payload
-    options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.sms_api_key ?? ''}`,
-        'X-API-Key': settings.sms_api_key ?? '',
-      },
-      body: JSON.stringify({
-        phone: cleanPhone,
-        message,
-        sender_id: settings.sms_sender_id,
-      }),
-    };
+    // Check specific automation flags
+    if (smsType === 'Welcome') {
+      isAutomationEnabled = !!settings.sms_automation_new_member;
+    } else if (smsType === 'Renewal') {
+      isAutomationEnabled = !!settings.sms_automation_payment; // Fallback to payment
+    } else if (smsType.startsWith('Expiry Warning')) {
+      if (smsType.includes('7')) {
+        isAutomationEnabled = !!settings.sms_automation_expires_7;
+      } else if (smsType.includes('3')) {
+        isAutomationEnabled = !!settings.sms_automation_expires_3;
+      } else if (smsType.includes('0')) {
+        isAutomationEnabled = !!settings.sms_automation_expires_today;
+      } else {
+        isAutomationEnabled = !!settings.sms_automation_expires_3;
+      }
+    } else if (smsType === 'Expired') {
+      isAutomationEnabled = !!settings.sms_automation_expired;
+    } else if (smsType === 'Invoice') {
+      isAutomationEnabled = !!settings.sms_automation_invoice;
+    } else if (smsType === 'Payment Reminder') {
+      isAutomationEnabled = !!settings.sms_automation_payment;
+    }
+
+    if (!isAutomationEnabled) {
+      try {
+        const logData: Record<string, any> = {
+          member_id: memberId,
+          message,
+          status: 'Skipped',
+        };
+        logData[phoneCol] = cleanPhone;
+        logData[typeCol] = smsType;
+        if (!isModern) {
+          logData.provider_response = `SMS automation for '${smsType}' is disabled`;
+        }
+        await supabase.from('sms_logs').insert(logData);
+      } catch (dbErr) {
+        console.error('Failed to write skipped SMS log:', dbErr);
+      }
+      return { success: false, error: `SMS automation for ${smsType} is disabled` };
+    }
   }
 
-  // 5. Send HTTP API request with retry logic
-  const result = await sendSMSWithRetry(url, options);
+  // 5. Query default device if modern schema is present
+  let defaultDeviceId: string | null = null;
+  if (isModern) {
+    try {
+      const { data: devices } = await supabase.from('sms_devices').select('id').limit(1);
+      if (devices && devices.length > 0) {
+        defaultDeviceId = devices[0].id;
+      }
+    } catch {}
+  }
 
-  // 6. Write record to sms_logs
+  // 6. Write record to sms_logs with status 'Pending'
   try {
-    await supabase.from('sms_logs').insert({
+    const logData: Record<string, any> = {
       member_id: memberId,
-      phone: cleanPhone,
-      sms_type: smsType,
       message,
-      status: result.success ? 'Sent' : 'Failed',
-      provider_response: result.responseText.substring(0, 1000), // Protect database against oversized payload text
-    });
-  } catch (dbErr) {
-    console.error('Failed to write send result SMS log:', dbErr);
+      status: 'Pending',
+    };
+    logData[phoneCol] = cleanPhone;
+    logData[typeCol] = smsType;
+
+    if (isModern) {
+      if (defaultDeviceId) {
+        logData.device_id = defaultDeviceId;
+      }
+    } else {
+      logData.provider_response = 'Queued in database. Device: Android SIM Bridge';
+    }
+
+    const { error: insertError } = await supabase.from('sms_logs').insert(logData);
+    if (insertError) {
+      throw insertError;
+    }
+  } catch (dbErr: any) {
+    console.error('Failed to write pending SMS log:', dbErr);
+    return { success: false, error: dbErr?.message || 'Database write error' };
   }
 
-  return { success: result.success, error: result.success ? undefined : result.responseText };
+  return { success: true };
 }
 
 /**
@@ -171,7 +187,7 @@ export async function sendInvoiceSMS(
   amount: number,
   phone: string
 ) {
-  const message = `FusionFit Gym\n\nInvoice Generated\n\nInvoice: ${invoiceNumber}\nPlan: ${plan}\nAmount: ₹${amount}\n\nThank you for choosing FusionFit Gym.`;
+  const message = `Hi, invoice ${invoiceNumber} for plan ${plan} (Amount: ₹${amount}) has been generated.`;
   return sendSMS(memberId, phone, message, 'Invoice');
 }
 
@@ -181,17 +197,18 @@ export async function sendRenewalSMS(
   expiryDate: string,
   phone: string
 ) {
-  const message = `Dear ${name},\n\nYour membership has been successfully renewed.\n\nValid Until: ${expiryDate}\n\nThank you for choosing FusionFit Gym.`;
+  const message = renderTemplate(BUILTIN_TEMPLATES.Renewal, { member_name: name, expiry_date: expiryDate });
   return sendSMS(memberId, phone, message, 'Renewal');
 }
 
 export async function sendExpiryWarningSMS(
   memberId: string,
   name: string,
-  phone: string
+  phone: string,
+  daysLeft = 3
 ) {
-  const message = `Dear ${name},\n\nYour FusionFit Gym membership expires in 3 days.\n\nPlease renew your membership.`;
-  return sendSMS(memberId, phone, message, 'Expiry Warning');
+  const message = renderTemplate(BUILTIN_TEMPLATES.ExpiryWarning, { member_name: name, days_left: String(daysLeft) });
+  return sendSMS(memberId, phone, message, `Expiry Warning (${daysLeft} days)`);
 }
 
 export async function sendExpiredMembershipSMS(
@@ -199,7 +216,7 @@ export async function sendExpiredMembershipSMS(
   name: string,
   phone: string
 ) {
-  const message = `Dear ${name},\n\nYour FusionFit Gym membership has expired.\n\nPlease renew to continue access.`;
+  const message = renderTemplate(BUILTIN_TEMPLATES.Expired, { member_name: name });
   return sendSMS(memberId, phone, message, 'Expired');
 }
 
@@ -208,6 +225,15 @@ export async function sendWelcomeSMS(
   name: string,
   phone: string
 ) {
-  const message = `Welcome to FusionFit Gym.\n\nYour membership has been successfully activated.\n\nFor assistance contact reception.`;
+  const message = renderTemplate(BUILTIN_TEMPLATES.Welcome, { member_name: name });
   return sendSMS(memberId, phone, message, 'Welcome');
+}
+
+export async function sendPaymentReminderSMS(
+  memberId: string,
+  name: string,
+  phone: string
+) {
+  const message = renderTemplate(BUILTIN_TEMPLATES.Payment, { member_name: name });
+  return sendSMS(memberId, phone, message, 'Payment Reminder');
 }

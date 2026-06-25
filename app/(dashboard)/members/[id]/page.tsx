@@ -37,14 +37,14 @@ import {
   SectionCard,
 } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { SmsSendButton } from '@/components/ui/SmsSendButton';
 import { deleteMember, getMemberById } from '@/lib/actions/members';
 import { getHealthByMember } from '@/lib/actions/health';
 import { getParqByMember } from '@/lib/actions/parq';
 import { getInvoicesByMember } from '@/lib/actions/invoices';
 import { getAttendanceHistory } from '@/lib/actions/attendance';
 import { getDevices } from '@/lib/actions/devices';
-import { AttendanceLog, BiometricDevice, HealthAssessment, Invoice, Member, ParqResponse } from '@/types';
+import { getSMSLogsByMember, sendSMSAction } from '@/lib/actions/sms';
+import { AttendanceLog, BiometricDevice, HealthAssessment, Invoice, Member, ParqResponse, SMSLog } from '@/types';
 import {
   calculateAge,
   cn,
@@ -52,7 +52,7 @@ import {
   formatDate,
   getMembershipExpiry,
 } from '@/lib/utils';
-import { buildExpiryReminderMessage } from '@/lib/native-sms';
+import { MessageSquare, Send, CheckCircle2 } from 'lucide-react';
 
 export default function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -63,8 +63,17 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
+  const [smsLogs, setSmsLogs] = useState<SMSLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  // Send SMS state variables
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [sendTemplateKey, setSendTemplateKey] = useState('Custom');
+  const [sendMessage, setSendMessage] = useState('');
+  const [sendingSms, setSendingSms] = useState(false);
+  const [smsModalError, setSmsModalError] = useState<string | null>(null);
+  const [smsModalSuccess, setSmsModalSuccess] = useState<string | null>(null);
 
   const [mounted, setMounted] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'today' | '7days' | '30days' | 'custom'>('all');
@@ -77,6 +86,15 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  async function loadSmsHistory() {
+    try {
+      const data = await getSMSLogsByMember(id);
+      setSmsLogs(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -92,14 +110,19 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         console.error('Failed to get devices:', e);
         return [];
       }),
+      getSMSLogsByMember(id).catch((e) => {
+        console.error('Failed to get SMS logs:', e);
+        return [];
+      }),
     ])
-      .then(([memberData, healthData, parqData, invoiceData, attendanceData, devicesData]) => {
+      .then(([memberData, healthData, parqData, invoiceData, attendanceData, devicesData, smsData]) => {
         setMember(memberData);
         setAssessments(healthData);
         setParqs(parqData);
         setInvoices(invoiceData);
         setAttendance(attendanceData || []);
         setDevices(devicesData || []);
+        setSmsLogs(smsData || []);
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -315,15 +338,14 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         subtitle={`Member since ${formatDate(start)}`}
         action={
           <>
-            <SmsSendButton
-              phone={member.phone}
-              message={buildExpiryReminderMessage(
-                member.full_name,
-                formatDate(expiry),
-              )}
-              variant="sms"
-              label="Send SMS"
-            />
+            <button
+              type="button"
+              onClick={() => setIsSmsModalOpen(true)}
+              className="btn btn-secondary shadow-sm"
+            >
+              <MessageSquare className="h-4 w-4 mr-1.5 text-slate-500" />
+              Send SMS
+            </button>
             <Link href={`/members/${id}/edit`} className="btn btn-primary">
               <Edit className="h-4 w-4" /> Edit member
             </Link>
@@ -384,6 +406,61 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               <p className="text-xs font-medium text-black/65">Expires {formatDate(expiry)}</p>
             </div>
           </div>
+
+          {/* Communication History Card */}
+          <Card>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                <MessageSquare className="h-4 w-4 text-amber-500" />
+                Communication History
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsSmsModalOpen(true)}
+                className="btn btn-secondary btn-xs py-1 px-2.5"
+              >
+                Send SMS
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-3 text-xs text-slate-700">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">Total SMS Sent</span>
+                <span className="font-bold text-slate-800">{smsLogs.filter(l => l.status === 'Sent').length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">Last SMS Date</span>
+                <span className="font-bold text-slate-800">
+                  {smsLogs.length > 0 ? formatDate(smsLogs[0].created_at) : 'Never'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-semibold">Last SMS Status</span>
+                <span>
+                  {smsLogs.length > 0 ? (
+                    smsLogs[0].status === 'Sent' ? (
+                      <span className="badge badge-active py-0.5 px-1.5 text-[10px]">Sent</span>
+                    ) : smsLogs[0].status === 'Failed' ? (
+                      <span className="badge badge-inactive py-0.5 px-1.5 text-[10px]">Failed</span>
+                    ) : smsLogs[0].status === 'Pending' ? (
+                      <span className="badge py-0.5 px-1.5 text-[10px] bg-blue-50 text-blue-700 border-blue-200">Pending</span>
+                    ) : (
+                      <span className="badge badge-expired py-0.5 px-1.5 text-[10px]">Skipped</span>
+                    )
+                  ) : '—'}
+                </span>
+              </div>
+              
+              {smsLogs.length > 0 && (
+                <div className="border-t border-slate-100 pt-3 mt-1 flex flex-col">
+                  <span className="text-slate-400 font-semibold mb-1 block">Last Message Preview</span>
+                  <p className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-slate-600 font-normal leading-normal whitespace-pre-wrap line-clamp-3">
+                    {smsLogs[0].message}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
 
         <div className="page-stack">
@@ -793,6 +870,151 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Send Individual SMS from Profile */}
+      {isSmsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSmsModalOpen(false)} />
+          <div className="card relative z-10 w-full max-w-lg overflow-hidden border border-slate-200 bg-white p-6 shadow-xl animate-enter">
+            <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-amber-500" />
+              Send SMS to {member.full_name}
+            </h3>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!sendMessage) return;
+              setSendingSms(true);
+              setSmsModalError(null);
+              setSmsModalSuccess(null);
+              try {
+                const res = await sendSMSAction(
+                  member.id,
+                  member.phone || '',
+                  sendMessage,
+                  sendTemplateKey === 'Custom' ? 'Individual Communication' : sendTemplateKey
+                );
+                if (res.success) {
+                  setSmsModalSuccess('SMS successfully added to dispatch queue.');
+                  setSendMessage('');
+                  await loadSmsHistory();
+                  setTimeout(() => {
+                    setIsSmsModalOpen(false);
+                    setSmsModalSuccess(null);
+                  }, 1500);
+                } else {
+                  setSmsModalError(res.message);
+                }
+              } catch (err: any) {
+                setSmsModalError(err?.message || 'Failed to queue SMS.');
+              } finally {
+                setSendingSms(false);
+              }
+            }} className="flex flex-col gap-4">
+              
+              <div>
+                <span className="text-xs font-semibold text-slate-400 block mb-1">Recipient Number</span>
+                <p className="font-mono text-sm text-slate-800 bg-slate-50 border border-slate-100 p-2.5 rounded-lg font-bold">
+                  {member.phone || 'No phone number configured for this member.'}
+                </p>
+              </div>
+
+              <div>
+                <label className="field-label" htmlFor="profile_template">Template Base</label>
+                <select
+                  id="profile_template"
+                  className="input-field"
+                  value={sendTemplateKey}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    setSendTemplateKey(key);
+                    if (key === 'Custom') {
+                      setSendMessage('');
+                      return;
+                    }
+                    
+                    const templates: Record<string, string> = {
+                      Welcome: 'Hello {{member_name}},\nWelcome to FusionFit Gym.',
+                      Renewal: 'Hi {{member_name}},\nYour membership expires on {{expiry_date}}.',
+                      ExpiryWarning: 'Hi {{member_name}},\nYour membership will expire in {{days_left}} days.',
+                      Payment: 'Hi {{member_name}},\nYour payment is pending.',
+                      Expired: 'Hi {{member_name}},\nYour membership has expired.',
+                    };
+                    
+                    const expiryTime = new Date(member.package_end_date);
+                    const todayTime = new Date();
+                    todayTime.setHours(0,0,0,0);
+                    const diffDays = Math.max(0, Math.round((expiryTime.getTime() - todayTime.getTime()) / (1000 * 60 * 60 * 24)));
+                    
+                    let text = templates[key] || '';
+                    text = text
+                      .replace(/{{\s*member_name\s*}}/g, member.full_name)
+                      .replace(/{{\s*days_left\s*}}/g, String(diffDays))
+                      .replace(/{{\s*expiry_date\s*}}/g, member.package_end_date ? formatDate(member.package_end_date) : 'N/A');
+                    
+                    setSendMessage(text);
+                  }}
+                >
+                  <option value="Custom">Custom Message</option>
+                  <option value="Welcome">Welcome Member</option>
+                  <option value="Renewal">Renewal Reminder</option>
+                  <option value="ExpiryWarning">Expiry Warning</option>
+                  <option value="Payment">Payment Reminder</option>
+                  <option value="Expired">Membership Expired</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="field-label required-mark" htmlFor="profile_msg">Message Content</label>
+                <textarea
+                  id="profile_msg"
+                  className="input-field min-h-24 resize-y text-sm font-sans"
+                  value={sendMessage}
+                  onChange={(e) => setSendMessage(e.target.value)}
+                  placeholder="Type message here..."
+                  required
+                />
+              </div>
+
+              {smsModalError && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-800 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                  {smsModalError}
+                </div>
+              )}
+
+              {smsModalSuccess && (
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  {smsModalSuccess}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4 mt-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsSmsModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingSms || !member.phone}
+                  className="btn btn-primary"
+                >
+                  {sendingSms ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Queue SMS
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

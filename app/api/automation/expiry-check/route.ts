@@ -1,7 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getMembershipExpiry } from '@/lib/utils';
-import { sendExpiryWarningSMS, sendExpiredMembershipSMS } from '@/lib/sms';
+import { sendExpiryWarningSMS, sendExpiredMembershipSMS, sendRenewalSMS } from '@/lib/sms';
+
+/**
+ * Check if a specific SMS type has been sent to the member since their package started
+ */
+async function hasSentNotification(
+  supabase: any,
+  memberId: string,
+  type: string,
+  startDate: string
+): Promise<boolean> {
+  let typeCol = 'sms_type';
+  try {
+    const { error } = await supabase.from('sms_logs').select('message_type').limit(1);
+    if (!error) {
+      typeCol = 'message_type';
+    }
+  } catch {}
+
+  const { data } = await supabase
+    .from('sms_logs')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq(typeCol, type)
+    .gte('created_at', startDate)
+    .limit(1);
+
+  return !!data && data.length > 0;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,8 +44,6 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     // 2. Fetch all members who are currently Active or Expired
-    // We fetch active to trigger warning & expired. We fetch expired to update status if missed, or check if expired alerts are already sent.
-    // However, the warnings are only sent to Active members. Expired alerts can be sent to members who just transitioned.
     const { data: members, error: fetchError } = await supabase
       .from('members')
       .select('id, full_name, phone, package_start_date, package_end_date, status')
@@ -52,24 +77,12 @@ export async function POST(request: NextRequest) {
       const diffTime = expiryDateOnly.getTime() - today.getTime();
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-      // Condition A: 3 days before expiry
-      if (diffDays === 3 && member.status === 'Active') {
-        // Double check if warning already dispatched since join_date
-        const { data: existingWarning, error: queryErr } = await supabase
-          .from('sms_logs')
-          .select('id')
-          .eq('member_id', member.id)
-          .eq('sms_type', 'Expiry Warning')
-          .gte('created_at', member.package_start_date)
-          .limit(1);
-
-        if (queryErr) {
-          console.error(`Error querying warning logs for ${member.full_name}:`, queryErr);
-          continue;
-        }
-
-        if (!existingWarning || existingWarning.length === 0) {
-          const smsResult = await sendExpiryWarningSMS(member.id, member.full_name, member.phone);
+      // Case 1: 7 days before expiry
+      if (diffDays === 7 && member.status === 'Active') {
+        const alreadySent = await hasSentNotification(supabase, member.id, 'Expiry Warning (7 days)', member.package_start_date);
+        
+        if (!alreadySent) {
+          const smsResult = await sendExpiryWarningSMS(member.id, member.full_name, member.phone, 7);
           if (smsResult.success) {
             results.warningsSent++;
           }
@@ -77,8 +90,37 @@ export async function POST(request: NextRequest) {
           results.skipped++;
         }
       }
-      // Condition B: Expiry date reached or passed
-      else if (diffDays <= 0) {
+      
+      // Case 2: 3 days before expiry
+      else if (diffDays === 3 && member.status === 'Active') {
+        const alreadySent = await hasSentNotification(supabase, member.id, 'Expiry Warning (3 days)', member.package_start_date);
+        
+        if (!alreadySent) {
+          const smsResult = await sendExpiryWarningSMS(member.id, member.full_name, member.phone, 3);
+          if (smsResult.success) {
+            results.warningsSent++;
+          }
+        } else {
+          results.skipped++;
+        }
+      }
+
+      // Case 3: Expires today (0 days)
+      else if (diffDays === 0 && member.status === 'Active') {
+        const alreadySent = await hasSentNotification(supabase, member.id, 'Renewal', member.package_start_date);
+        
+        if (!alreadySent) {
+          const smsResult = await sendRenewalSMS(member.id, member.full_name, member.package_end_date, member.phone);
+          if (smsResult.success) {
+            results.warningsSent++;
+          }
+        } else {
+          results.skipped++;
+        }
+      }
+
+      // Case 4: Expiry date reached or passed
+      else if (diffDays < 0) {
         // Transition status to Expired if not already done
         if (member.status === 'Active') {
           const { error: updateErr } = await supabase
@@ -90,24 +132,14 @@ export async function POST(request: NextRequest) {
             console.error(`Failed to update status to Expired for ${member.full_name}:`, updateErr);
           } else {
             results.statusUpdates++;
+            member.status = 'Expired'; // update in-memory status
           }
         }
 
         // Check if expired notice already dispatched since join_date
-        const { data: existingExpired, error: queryErr } = await supabase
-          .from('sms_logs')
-          .select('id')
-          .eq('member_id', member.id)
-          .eq('sms_type', 'Expired')
-          .gte('created_at', member.package_start_date)
-          .limit(1);
+        const alreadySentExpired = await hasSentNotification(supabase, member.id, 'Expired', member.package_start_date);
 
-        if (queryErr) {
-          console.error(`Error querying expired logs for ${member.full_name}:`, queryErr);
-          continue;
-        }
-
-        if (!existingExpired || existingExpired.length === 0) {
+        if (!alreadySentExpired) {
           const smsResult = await sendExpiredMembershipSMS(member.id, member.full_name, member.phone);
           if (smsResult.success) {
             results.expiredNoticesSent++;
@@ -130,7 +162,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Allow GET request triggers in non-prod environments or via URL directly to make testing easier
+// Allow GET triggers for convenience
 export async function GET(request: NextRequest) {
   return POST(request);
 }

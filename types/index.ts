@@ -181,23 +181,34 @@ export interface GymSettings {
   plan_quarterly: string;
   plan_biannual: string;
   plan_annual: string;
-  sms_provider_name: string;
-  sms_api_url: string;
-  sms_api_key: string;
-  sms_sender_id: string;
+  sms_provider_name?: string;
+  sms_api_url?: string;
+  sms_api_key?: string;
+  sms_sender_id?: string;
   sms_enabled: boolean;
   gym_logo?: string;
+  sms_automation_new_member?: boolean;
+  sms_automation_expires_7?: boolean;
+  sms_automation_expires_3?: boolean;
+  sms_automation_expires_today?: boolean;
+  sms_automation_expired?: boolean;
+  sms_automation_invoice?: boolean;
+  sms_automation_payment?: boolean;
 }
 
 // ── SMS Logs ────────────────────────────────────────────────
 export interface SMSLog {
   id: string;
   member_id: string | null;
-  phone: string;
-  sms_type: string;
+  phone?: string;
+  phone_number?: string;
+  sms_type?: string;
+  message_type?: string;
   message: string;
   status: string | null;
-  provider_response: string | null;
+  provider_response?: string | null;
+  device_id?: string | null;
+  sent_at?: string | null;
   created_at: string;
   member?: {
     full_name: string;

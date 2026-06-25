@@ -29,6 +29,13 @@ export async function getSettings(): Promise<GymSettings> {
     sms_sender_id: map.sms_sender_id ?? 'FUSFIT',
     sms_enabled:   map.sms_enabled   === 'true',
     gym_logo:      map.gym_logo      ?? '/Logo.jpeg',
+    sms_automation_new_member: map.sms_automation_new_member === 'true',
+    sms_automation_expires_7:    map.sms_automation_expires_7    === 'true',
+    sms_automation_expires_3:    map.sms_automation_expires_3    === 'true',
+    sms_automation_expires_today:map.sms_automation_expires_today === 'true',
+    sms_automation_expired:      map.sms_automation_expired      === 'true',
+    sms_automation_invoice:      map.sms_automation_invoice      === 'true',
+    sms_automation_payment:      map.sms_automation_payment      === 'true',
   };
 }
 
