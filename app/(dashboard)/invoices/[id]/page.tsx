@@ -7,7 +7,9 @@ import {
   ArrowLeft,
   CheckCircle,
   Clock,
+  Copy,
   Download,
+  ExternalLink,
   Loader2,
 } from 'lucide-react';
 import {
@@ -121,6 +123,29 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               variant="sms"
               label="Send Invoice SMS"
             />
+            {invoiceLink && (
+              <button
+                type="button"
+                onClick={() => window.open(invoiceLink, '_blank')}
+                className="btn btn-ghost"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Preview Invoice
+              </button>
+            )}
+            {invoiceLink && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(invoiceLink);
+                  alert('Invoice link copied to clipboard');
+                }}
+                className="btn btn-secondary"
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copy Invoice Link
+              </button>
+            )}
             <button
               type="button"
               onClick={handleDownloadPDF}
@@ -149,6 +174,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Invoice</p>
                 <p className="mt-1 font-mono text-sm font-bold text-white">{invoice.invoice_number}</p>
                 <div className="mt-3"><StatusBadge variant={invoice.status} /></div>
+                {invoiceLink && (
+                  <div className="mt-3 space-y-1 rounded-xl bg-white/10 px-3 py-2 text-left text-[11px] text-slate-200">
+                    <p className="font-semibold text-slate-100">Public invoice link</p>
+                    <p className="truncate font-mono text-[10px] text-amber-100">{invoiceLink}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

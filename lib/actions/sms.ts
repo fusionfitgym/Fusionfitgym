@@ -283,6 +283,10 @@ export async function markInvoiceNotificationSent(
     query = query.eq('sms_type', 'Invoice');
   }
 
+  if (invoiceNumber) {
+    query = query.ilike('message', `%${invoiceNumber}%`);
+  }
+
   const { data } = await query.order('created_at', { ascending: false }).limit(5);
 
   if (!data || data.length === 0) {
