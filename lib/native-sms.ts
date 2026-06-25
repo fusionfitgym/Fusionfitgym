@@ -5,6 +5,8 @@
  * The user manually presses "Send" in the SMS app.
  */
 
+import { buildInvoiceSmsMessage } from '@/lib/invoice-links';
+
 /**
  * Opens the device default SMS app with the given phone and message.
  * @returns true on success, false when phone is missing
@@ -45,20 +47,17 @@ export function buildExpiryReminderMessage(
   ].join('\n');
 }
 
-/** Generates the invoice notification message */
+/** Generates the invoice notification SMS message */
 export function buildInvoiceMessage(
   memberName: string,
   invoiceNumber: string,
   amount: string,
+  invoiceLink?: string
 ): string {
-  return [
-    `Hello ${memberName},`,
-    '',
-    'Your invoice has been generated.',
-    '',
-    `Invoice No: ${invoiceNumber}`,
-    `Amount: ${amount}`,
-    '',
-    'Thank you for choosing Fusion Fit Gym.',
-  ].join('\n');
+  return buildInvoiceSmsMessage({
+    memberName,
+    invoiceNumber,
+    amount,
+    invoiceLink: invoiceLink || '',
+  });
 }

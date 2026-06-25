@@ -6,6 +6,7 @@ import { Invoice, InvoiceFormValues } from '@/types';
 import { sendInvoiceSMS } from '@/lib/sms';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
+import { buildInvoicePublicUrl, generateInvoiceToken } from '@/lib/invoice-links';
 
 export async function getInvoices(): Promise<Invoice[]> {
   const supabase = await createClient();
@@ -39,41 +40,78 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
   return data as Invoice;
 }
 
+/** Ensure an invoice has a public share token (backfill for legacy rows) */
+export async function ensureInvoiceToken(invoiceId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('invoices')
+    .select('invoice_token')
+    .eq('id', invoiceId)
+    .single();
+
+  if (data?.invoice_token) return data.invoice_token;
+
+  const token = generateInvoiceToken();
+  const { error } = await supabase
+    .from('invoices')
+    .update({ invoice_token: token })
+    .eq('id', invoiceId);
+
+  if (error) throw error;
+  return token;
+}
+
+/** Regenerate the public invoice link (invalidates the previous URL) */
+export async function regenerateInvoiceToken(invoiceId: string): Promise<string> {
+  await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+  const supabase = await createClient();
+  const token = generateInvoiceToken();
+  const { error } = await supabase
+    .from('invoices')
+    .update({ invoice_token: token })
+    .eq('id', invoiceId);
+
+  if (error) throw error;
+  revalidatePath('/sms');
+  revalidatePath('/invoices');
+  return token;
+}
+
 export async function createInvoice(values: InvoiceFormValues): Promise<Invoice> {
   const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('invoices')
     .insert([{ ...values, invoice_number: '' }])
-    .select()
+    .select('*, member:members(full_name, phone, package_name)')
     .single();
   if (error) throw error;
 
   await logAudit(`Created invoice: ${data.invoice_number} (Amount: ₹${data.amount})`, 'Invoices', user.id);
 
-  // Retrieve member details to send automated invoice SMS
-  try {
-    const { data: member } = await supabase
-      .from('members')
-      .select('phone, package_name')
-      .eq('id', values.member_id)
-      .single();
+  const member = data.member as { full_name?: string; phone?: string; package_name?: string } | null;
+  const token = data.invoice_token || (await ensureInvoiceToken(data.id));
+  const invoiceLink = buildInvoicePublicUrl(token);
 
-    if (member && member.phone) {
+  try {
+    if (member?.phone) {
       await sendInvoiceSMS(
         data.member_id,
         data.invoice_number,
-        member.package_name,
+        member.package_name || 'Membership',
         data.amount,
-        member.phone
+        member.phone,
+        member.full_name || 'Member',
+        invoiceLink
       );
     }
   } catch (smsErr) {
-    console.error('Failed to trigger invoice notification SMS:', smsErr);
+    console.error('Failed to queue invoice SMS notification:', smsErr);
   }
 
   revalidatePath('/');
   revalidatePath('/invoices');
+  revalidatePath('/sms');
   return data as Invoice;
 }
 

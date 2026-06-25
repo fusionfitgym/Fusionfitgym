@@ -155,6 +155,7 @@ export interface Invoice {
   due_date: string;
   status: 'Paid' | 'Pending' | 'Overdue';
   pdf_url?: string | null;
+  invoice_token?: string | null;
   notes?: string | null;
   created_at: string;
   member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'package_name' | 'package_duration' | 'package_price' | 'package_start_date' | 'package_end_date'>;

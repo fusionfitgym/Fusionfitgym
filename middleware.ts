@@ -88,6 +88,8 @@ export async function middleware(request: NextRequest) {
     // Define public paths that do not require authentication
     const isPublicPath = isAuthPage ||
       pathname.startsWith('/pricing') ||
+      pathname.startsWith('/i/') ||
+      pathname.startsWith('/invoice/') ||
       pathname === '/sw.js' ||
       pathname === '/manifest.json' ||
       pathname === '/offline';

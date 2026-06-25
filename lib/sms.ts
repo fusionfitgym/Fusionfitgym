@@ -24,7 +24,7 @@ export const BUILTIN_TEMPLATES = {
   Renewal: 'Hello {{member_name}},\nYour membership expires on {{expiry_date}}.\nPlease renew your membership to continue training without interruption.',
   ExpiryWarning: 'Hello {{member_name}},\nYour membership will expire in {{days_left}} days.\nPlease renew to avoid interruption.',
   Payment: 'Hello {{member_name}},\nYour payment is pending.\nPlease contact us to complete your payment.',
-  Invoice: 'Hello {{member_name}},\nInvoice #{{invoice_number}} has been generated.\nAmount: ₹{{amount}}',
+  Invoice: 'Hi {{member_name}},\nYour FusionFit Gym invoice is ready.\nInvoice No: {{invoice_number}}\nAmount: ₹{{amount}}\nView Invoice:\n{{invoice_link}}\nThank you.\n- FusionFit Gym',
   Expired: 'Hello {{member_name}},\nYour membership has expired.\nPlease contact us to renew your membership.',
 };
 
@@ -172,12 +172,14 @@ export async function sendInvoiceSMS(
   plan: string,
   amount: number,
   phone: string,
-  memberName = 'Member'
+  memberName = 'Member',
+  invoiceLink?: string
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.Invoice, {
     member_name: memberName,
     invoice_number: invoiceNumber,
     amount: String(amount),
+    invoice_link: invoiceLink || '',
   });
   return sendSMS(memberId, phone, message, 'Invoice');
 }

@@ -264,9 +264,35 @@ export async function retrySMSAction(logId: string): Promise<{ success: boolean;
   return resendSMSAction(logId);
 }
 
-/**
- * Fetch logs for a specific member mapped fallback-safely
- */
+/** Mark invoice-related pending SMS as sent */
+export async function markInvoiceNotificationSent(
+  memberId: string,
+  invoiceNumber?: string
+): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  let query = supabase
+    .from('sms_logs')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq('status', 'Pending');
+
+  const isModern = await detectModernSchema(supabase);
+  if (isModern) {
+    query = query.eq('message_type', 'Invoice');
+  } else {
+    query = query.eq('sms_type', 'Invoice');
+  }
+
+  const { data } = await query.order('created_at', { ascending: false }).limit(5);
+
+  if (!data || data.length === 0) {
+    return { success: false, message: 'No pending invoice notification found.' };
+  }
+
+  const targetId = data[0].id;
+  return markSMSAsSentAction(targetId);
+}
+
 export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
   const supabase = await createClient();
   const isModern = await detectModernSchema(supabase);

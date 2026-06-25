@@ -18,12 +18,13 @@ import {
 } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SmsSendButton } from '@/components/ui/SmsSendButton';
-import { getInvoiceById, updateInvoiceStatus } from '@/lib/actions/invoices';
+import { getInvoiceById, updateInvoiceStatus, ensureInvoiceToken } from '@/lib/actions/invoices';
 import { getSettings } from '@/lib/actions/settings';
 import { GymSettings, Invoice, INVOICE_STATUSES } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { buildInvoiceMessage } from '@/lib/native-sms';
+import { buildInvoicePublicUrl } from '@/lib/invoice-links';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -32,12 +33,17 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [invoiceLink, setInvoiceLink] = useState('');
 
   useEffect(() => {
     Promise.all([getInvoiceById(id), getSettings()])
-      .then(([invoiceData, settingsData]) => {
+      .then(async ([invoiceData, settingsData]) => {
         setInvoice(invoiceData);
         setSettings(settingsData);
+        if (invoiceData) {
+          const token = invoiceData.invoice_token || (await ensureInvoiceToken(invoiceData.id));
+          setInvoiceLink(buildInvoicePublicUrl(token));
+        }
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -110,6 +116,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 member?.full_name ?? 'Member',
                 invoice.invoice_number,
                 formatCurrency(invoice.amount),
+                invoiceLink,
               )}
               variant="sms"
               label="Send Invoice SMS"
