@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Bell,
+  AlertCircle,
   Calendar,
   Check,
   CheckCircle2,
@@ -26,8 +26,15 @@ import {
   TrendingUp,
   X,
   XCircle,
+  Phone,
+  Smartphone,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
+  SendHorizontal,
+  Info,
 } from 'lucide-react';
-import { EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
+import { EmptyState, LoadingSpinner } from '@/components/ui/Primitives';
 import {
   dismissSMSAction,
   duplicateSMSAction,
@@ -70,6 +77,13 @@ function statusBadge(status: string | null) {
   }
 }
 
+interface SMSTemplate {
+  key: string;
+  name: string;
+  text: string;
+  isCustom?: boolean;
+}
+
 const builtInTemplates = [
   {
     key: 'Welcome',
@@ -99,7 +113,6 @@ const builtInTemplates = [
 ];
 
 const DISMISSED_KEY = 'fusionfit_dismissed_sms';
-
 type DismissedKey = string;
 
 function buildDismissKey(memberId: string, context: string) {
@@ -110,14 +123,7 @@ export default function SMSNotificationCenterPage() {
   const [logs, setLogs] = useState<SMSLog[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [stats, setStats] = useState<{
-    todaySent: number;
-    monthlySent: number;
-    failed: number;
-    pending: number;
-    renewalRemindersSent: number;
-    notificationQueue: number;
-  } | null>(null);
+  const [stats, setStats] = useState<any | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -134,6 +140,28 @@ export default function SMSNotificationCenterPage() {
   const [templateSuccess, setTemplateSuccess] = useState<string | null>(null);
   const [copiedTemplateName, setCopiedTemplateName] = useState<string | null>(null);
 
+  // Accordion SMS Templates: only one template expanded at a time
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>('Welcome');
+
+  // Collapsible Smart Notification cards
+  const [notificationsExpanded, setNotificationsExpanded] = useState<Record<string, boolean>>({
+    today: true,
+    threeDays: false,
+    sevenDays: false,
+  });
+
+  // FAB menu expand
+  const [isFabMenuOpen, setIsFabMenuOpen] = useState(false);
+
+  // Compose/Send SMS Modal Wizard
+  const [composeModal, setComposeModal] = useState<{
+    isOpen: boolean;
+    templateType: string;
+    memberId: string;
+    phone: string;
+    message: string;
+  } | null>(null);
+
   const [editModal, setEditModal] = useState<{
     logId?: string;
     memberId: string;
@@ -142,6 +170,7 @@ export default function SMSNotificationCenterPage() {
     messageType: string;
     title: string;
   } | null>(null);
+  
   const [previewLog, setPreviewLog] = useState<SMSLog | null>(null);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const [invoiceLinks, setInvoiceLinks] = useState<Record<string, string>>({});
@@ -371,23 +400,8 @@ export default function SMSNotificationCenterPage() {
     setTimeout(() => setCopiedTemplateName(null), 2000);
   };
 
-  const yesterdaySent = useMemo(() => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(0, 0, 0, 0);
-    const yesterdayEnd = new Date(yesterday);
-    yesterdayEnd.setHours(23, 59, 59, 999);
-    return logs.filter(
-      (l) =>
-        l.status === 'Sent' &&
-        l.created_at &&
-        new Date(l.created_at) >= yesterday &&
-        new Date(l.created_at) <= yesterdayEnd
-    ).length;
-  }, [logs]);
-
   const expiringGroups = useMemo(() => {
-    const active = members.filter((m) => m.status === 'Active' && m.phone && m.package_end_date);
+    const active = members.filter((m) => m.status === 'Active' && m.phone && m.package_end_date && m.duration !== 'Daily Pass');
     const notDismissed = (m: Member, ctx: string) => !dismissed.has(buildDismissKey(m.id, ctx));
     return {
       today: active.filter((m) => getDaysUntilExpiry(m.package_end_date) === 0 && notDismissed(m, 'today')),
@@ -424,753 +438,905 @@ export default function SMSNotificationCenterPage() {
     });
   }, [logs, searchQuery, activityFilter]);
 
+  // Open Compose SMS modal with auto-loaded values
+  const openComposeWizard = (type: string) => {
+    setIsFabMenuOpen(false);
+    const firstMem = members[0];
+    if (!firstMem) {
+      alert('No members available to draft message.');
+      return;
+    }
+    
+    let templateKey = 'Welcome';
+    if (type.includes('Renewal')) templateKey = 'Renewal';
+    else if (type.includes('Invoice')) templateKey = 'Invoice';
+    else if (type.includes('Custom')) templateKey = 'Custom';
+
+    // Auto-calculate message
+    const phone = firstMem.phone || '';
+    let extra: any = {};
+    if (templateKey === 'Invoice') {
+      const pendingInv = invoices.find(i => i.member_id === firstMem.id && i.status !== 'Paid');
+      if (pendingInv) {
+        extra = {
+          invoice_number: pendingInv.invoice_number,
+          amount: String(pendingInv.amount),
+          invoice_link: invoiceLinks[pendingInv.id] || '',
+        };
+      }
+    }
+    const message = templateKey === 'Custom' 
+      ? `Hello ${firstMem.full_name},\n`
+      : buildMemberMessage(firstMem, templateKey, extra);
+
+    setComposeModal({
+      isOpen: true,
+      templateType: templateKey,
+      memberId: firstMem.id,
+      phone,
+      message,
+    });
+  };
+
+  // Handle changes in Compose Wizard
+  const handleComposeFieldChange = (tplType: string, mId: string, customMsg?: string) => {
+    const selectedMem = members.find(m => m.id === mId);
+    if (!selectedMem) return;
+    const phone = selectedMem.phone || '';
+    
+    let message = '';
+    if (tplType === 'Custom') {
+      message = customMsg !== undefined ? customMsg : `Hello ${selectedMem.full_name},\n`;
+    } else {
+      let extra: any = {};
+      if (tplType === 'Invoice') {
+        const pendingInv = invoices.find(i => i.member_id === mId && i.status !== 'Paid');
+        if (pendingInv) {
+          extra = {
+            invoice_number: pendingInv.invoice_number,
+            amount: String(pendingInv.amount),
+            invoice_link: invoiceLinks[pendingInv.id] || '',
+          };
+        }
+      }
+      message = buildMemberMessage(selectedMem, tplType, extra);
+    }
+
+    setComposeModal({
+      isOpen: true,
+      templateType: tplType,
+      memberId: mId,
+      phone,
+      message,
+    });
+  };
+
+  // Submit Compose Wizard
+  const handleComposeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!composeModal) return;
+    const { phone, message, memberId, templateType } = composeModal;
+    if (!phone || !message) {
+      alert('Phone and Message fields are required.');
+      return;
+    }
+    setComposeModal(null);
+    await handleNativeSend(phone, message, undefined, memberId, templateType);
+  };
+
+  // Smooth scroll helper
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Trigger Send All reminders for a group
+  const handleSendAllGroup = async (groupMembers: Member[], templateKey: string, typeName: string) => {
+    if (groupMembers.length === 0) return;
+    if (!confirm(`Are you sure you want to open and queue native SMS alerts for all ${groupMembers.length} members?`)) return;
+
+    for (const member of groupMembers) {
+      const pendingLog = findPendingLog(member.id, typeName.split(' ')[0]);
+      const message = pendingLog?.message || buildMemberMessage(member, templateKey, { days_left: String(getDaysUntilExpiry(member.package_end_date)) });
+      await handleNativeSend(member.phone, message, pendingLog?.id, member.id, typeName);
+    }
+  };
+
   if (loading) return <LoadingSpinner size={40} />;
 
-  const todayTrendUp = (stats?.todaySent ?? 0) >= yesterdaySent;
+  // Smart stats calculation
+  const totalSent = stats?.todaySent ?? 0;
+  const pendingCount = pendingQueue.length;
+  const failedCount = stats?.failed ?? 0;
+  const totalQueue = stats?.pending ?? 0;
 
-  const kpiCards = stats
-    ? [
-        { label: 'SMS Sent Today', value: stats.todaySent, icon: Send, trend: todayTrendUp },
-        { label: 'SMS Sent This Month', value: stats.monthlySent, icon: Calendar },
-        { label: 'Pending SMS', value: stats.pending, icon: Clock },
-        { label: 'Failed SMS', value: stats.failed, icon: XCircle, alert: stats.failed > 0 },
-        { label: 'Renewal Reminders Sent', value: stats.renewalRemindersSent, icon: Bell },
-        { label: 'Notification Queue', value: stats.notificationQueue, icon: Inbox },
-      ]
-    : [];
+  const templatesList: SMSTemplate[] = [
+    ...builtInTemplates.map((t) => ({ ...t, isCustom: false })),
+    ...customTemplates.map((t) => ({ ...t, key: t.name, isCustom: true })),
+  ];
 
-  const renderExpirySection = (
-    title: string,
-    groupMembers: Member[],
-    context: string,
-    templateKey: string,
-    messageType: string,
-    urgent = false
-  ) => (
-    <div key={context}>
-      <h4
-        className={cn(
-          'mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider',
-          urgent ? 'text-red-600' : 'text-slate-500'
+  return (
+    <div className="min-h-screen bg-slate-900 pb-20 text-white select-none">
+      
+      {/* 1. Compact Sticky Header */}
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.08] bg-slate-900/90 px-4 py-3 backdrop-blur-md">
+        <div>
+          <h1 className="text-lg font-bold tracking-tight text-amber-400 flex items-center gap-1.5">
+            <Smartphone className="h-5 w-5" /> SMS Hub
+          </h1>
+          <p className="text-[10px] text-slate-400">Manage member notifications and reminders</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-300 transition-all active:scale-95"
+          title="Refresh Hub"
+        >
+          <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+        </button>
+      </header>
+
+      <main className="p-4 space-y-5 max-w-4xl mx-auto">
+        
+        {/* Device Status banner */}
+        {stats && (
+          <div className={cn(
+            "rounded-2xl border px-4 py-3 flex items-center justify-between transition-all",
+            stats.deviceStatus === 'Online' 
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+          )}>
+            <div className="flex items-center gap-2.5">
+              <span className={cn("h-2.5 w-2.5 rounded-full", stats.deviceStatus === 'Online' ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider">Device Status: {stats.deviceStatus}</p>
+                <p className="text-[9px] opacity-75 mt-0.5">Last Heartbeat: {stats.lastSync ? formatDate(stats.lastSync) : 'Never'}</p>
+              </div>
+            </div>
+            <Phone className="h-4 w-4 opacity-75" />
+          </div>
         )}
-      >
-        {title}
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{groupMembers.length}</span>
-      </h4>
-      {groupMembers.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-3 text-xs text-slate-400">
-          No members in this category.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {groupMembers.map((member) => {
-            const pendingLog = findPendingLog(member.id, messageType.split(' ')[0]);
-            const message =
-              pendingLog?.message || buildMemberMessage(member, templateKey, { days_left: String(getDaysUntilExpiry(member.package_end_date)) });
+
+        {/* 2. Statistics Grid */}
+        <section className="grid grid-cols-2 gap-3.5">
+          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-[10px] font-bold uppercase tracking-wider">Sent Today</span>
+              <Send className="h-4 w-4 text-emerald-500" />
+            </div>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{totalSent}</p>
+          </div>
+          
+          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
+              <Clock className="h-4 w-4 text-amber-500" />
+            </div>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{pendingCount}</p>
+          </div>
+
+          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-[10px] font-bold uppercase tracking-wider">Failed</span>
+              <XCircle className="h-4 w-4 text-red-500" />
+            </div>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{failedCount}</p>
+          </div>
+
+          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500">
+              <span className="text-[10px] font-bold uppercase tracking-wider">Queue</span>
+              <Inbox className="h-4 w-4 text-indigo-400" />
+            </div>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{totalQueue}</p>
+          </div>
+        </section>
+
+        {/* 3. Quick Actions Section */}
+        <section className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => openComposeWizard('Invoice')}
+              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+            >
+              <FileText className="h-4 w-4" /> Send Invoice
+            </button>
+            <button
+              type="button"
+              onClick={() => openComposeWizard('Renewal')}
+              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+            >
+              <RotateCcw className="h-4 w-4" /> Send Renewal
+            </button>
+            <button
+              type="button"
+              onClick={() => openComposeWizard('Welcome')}
+              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+            >
+              <Sparkles className="h-4 w-4" /> Send Welcome
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToSection('activity-timeline')}
+              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-slate-800 border border-white/[0.08] text-slate-200 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+            >
+              <MessageSquare className="h-4 w-4 text-amber-400" /> View Activity
+            </button>
+          </div>
+        </section>
+
+        {/* 4. Smart Notifications Collapsible Accordions */}
+        <section className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg space-y-3">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Smart Notifications
+          </h2>
+
+          {[
+            {
+              id: 'today',
+              title: 'Membership Expiring Today',
+              members: expiringGroups.today,
+              template: 'Renewal',
+              typeName: 'Renewal',
+              urgent: true
+            },
+            {
+              id: 'threeDays',
+              title: 'Expiring in 3 Days',
+              members: expiringGroups.threeDays,
+              template: 'ExpiryWarning',
+              typeName: 'Expiry Warning (3 days)',
+              urgent: false
+            },
+            {
+              id: 'sevenDays',
+              title: 'Expiring in 7 Days',
+              members: expiringGroups.sevenDays,
+              template: 'ExpiryWarning',
+              typeName: 'Expiry Warning (7 days)',
+              urgent: false
+            }
+          ].map((grp) => {
+            const isOpen = notificationsExpanded[grp.id];
             return (
-              <div
-                key={member.id}
-                className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 transition-all duration-200 hover:border-amber-200 hover:shadow-sm"
-              >
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{member.full_name}</p>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                      <span className="font-mono">{member.phone}</span>
-                      <span>Expires: {formatDate(member.package_end_date)}</span>
-                    </div>
+              <div key={grp.id} className="border border-white/[0.06] rounded-xl overflow-hidden bg-slate-900/60">
+                <button
+                  type="button"
+                  onClick={() => setNotificationsExpanded({
+                    ...notificationsExpanded,
+                    [grp.id]: !isOpen
+                  })}
+                  className="w-full flex items-center justify-between px-3.5 py-3 hover:bg-white/[0.02]"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={cn("h-2 w-2 rounded-full", grp.urgent ? "bg-red-500 animate-pulse" : "bg-amber-400")} />
+                    <span className="text-xs font-bold text-slate-200">{grp.title}</span>
+                    <span className="rounded-full bg-slate-800 border border-white/[0.05] px-2 py-0.5 text-[9px] text-slate-400">
+                      {grp.members.length}
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === pendingLog?.id}
-                      onClick={() =>
-                        void handleNativeSend(
-                          member.phone,
-                          message,
-                          pendingLog?.id,
-                          member.id,
-                          messageType
-                        )
-                      }
-                      className="btn btn-primary btn-sm shadow-sm"
-                    >
-                      <Send className="mr-1.5 h-3.5 w-3.5" />
-                      Send SMS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditModal({
-                          logId: pendingLog?.id,
-                          memberId: member.id,
-                          phone: member.phone,
-                          message,
-                          messageType,
-                          title: `Edit — ${member.full_name}`,
-                        })
-                      }
-                      className="btn btn-secondary btn-sm"
-                    >
-                      <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Edit Message
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDismiss(member.id, context, pendingLog?.id)}
-                      className="btn btn-ghost btn-sm text-slate-500"
-                    >
-                      <X className="mr-1.5 h-3.5 w-3.5" />
-                      Dismiss
-                    </button>
+                  {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                </button>
+
+                {isOpen && (
+                  <div className="px-3 pb-3 pt-1 border-t border-white/[0.03] space-y-3.5">
+                    {grp.members.length > 0 && (
+                      <div className="flex justify-between items-center bg-white/[0.02] p-2 rounded-lg border border-white/[0.04]">
+                        <span className="text-[10px] text-slate-400 font-semibold">Bulk action</span>
+                        <button
+                          type="button"
+                          onClick={() => void handleSendAllGroup(grp.members, grp.template, grp.typeName)}
+                          className="btn btn-primary py-1 px-3 text-[10px] rounded-md font-bold flex items-center gap-1"
+                        >
+                          <SendHorizontal className="h-3 w-3" /> Send All ({grp.members.length})
+                        </button>
+                      </div>
+                    )}
+                    {grp.members.length === 0 ? (
+                      <p className="text-center text-xs text-slate-500 py-2">No members in this roster.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {grp.members.map((m) => {
+                          const pendingLog = findPendingLog(m.id, grp.typeName.split(' ')[0]);
+                          const message = pendingLog?.message || buildMemberMessage(m, grp.template, { days_left: String(getDaysUntilExpiry(m.package_end_date)) });
+                          return (
+                            <div key={m.id} className="bg-slate-950/40 border border-white/[0.04] rounded-xl p-3 flex flex-col gap-3">
+                              <div>
+                                <h4 className="text-xs font-bold text-slate-200">{m.full_name}</h4>
+                                <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
+                                  <span className="font-mono">{m.phone}</span>
+                                  <span>·</span>
+                                  <span>Exp: {formatDate(m.package_end_date)}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDismiss(m.id, grp.id, pendingLog?.id)}
+                                  className="btn btn-secondary py-1.5 px-3 text-[10px] font-semibold text-slate-300 hover:text-white"
+                                >
+                                  Dismiss
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditModal({
+                                    logId: pendingLog?.id,
+                                    memberId: m.id,
+                                    phone: m.phone || '',
+                                    message,
+                                    messageType: grp.typeName,
+                                    title: `Edit — ${m.full_name}`
+                                  })}
+                                  className="btn btn-secondary py-1.5 px-3 text-[10px] font-semibold text-slate-300"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleNativeSend(m.phone || '', message, pendingLog?.id, m.id, grp.typeName)}
+                                  className="btn btn-primary py-1.5 px-3.5 text-[10px] font-bold flex items-center gap-1"
+                                >
+                                  <SendHorizontal className="h-3 w-3" /> Send SMS
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             );
           })}
-        </div>
-      )}
-    </div>
-  );
+        </section>
 
-  return (
-    <div className="page page-enter">
-      <PageHeader
-        title="SMS Notification Center"
-        subtitle="Manage pending member notifications, renewal reminders, and invoice alerts. Messages open in your device SMS app — no gateway required."
-        action={
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="btn btn-secondary shadow-sm transition-all hover:shadow-md"
-          >
-            <RefreshCw className={cn('mr-2 h-4 w-4', refreshing && 'animate-spin')} />
-            Refresh
-          </button>
-        }
-      />
+        {/* 5. Pending SMS Queue (Mobile Cards, Highest Priority) */}
+        <section id="pending-queue-section" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Inbox className="h-4 w-4 text-amber-400" /> Pending Queue
+            </h2>
+            <span className="text-xs font-bold text-amber-400/90">{pendingCount} pending</span>
+          </div>
 
-      {/* KPI Cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        {kpiCards.map(({ label, value, icon: Icon, trend, alert }) => (
-          <article
-            key={label}
-            className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">{label}</span>
-              <div className={cn('rounded-lg bg-amber-50 p-1.5', alert ? 'text-red-500' : 'text-amber-600')}>
-                <Icon className="h-4 w-4" />
-              </div>
-            </div>
-            <div className="flex items-end gap-2">
-              <p className="text-2xl font-extrabold tracking-tight text-slate-900">{value}</p>
-              {trend !== undefined && (
-                <span
-                  className={cn(
-                    'mb-1 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold',
-                    trend ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  )}
-                >
-                  {trend && <TrendingUp className="h-3 w-3" />}
-                </span>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="flex flex-col gap-6 lg:col-span-8">
-          {/* Smart Member Notifications */}
-          <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-md">
-            <h3 className="mb-5 flex items-center gap-2 border-b border-slate-100 pb-3 text-sm font-bold text-slate-900">
-              <Sparkles className="h-4 w-4 text-amber-500" />
-              Smart Member Notifications
-            </h3>
-            <div className="flex flex-col gap-6">
-              {renderExpirySection(
-                'Membership Expiring Today',
-                expiringGroups.today,
-                'today',
-                'Renewal',
-                'Renewal',
-                true
-              )}
-              {renderExpirySection(
-                'Membership Expiring In 3 Days',
-                expiringGroups.threeDays,
-                '3days',
-                'ExpiryWarning',
-                'Expiry Warning (3 days)'
-              )}
-              {renderExpirySection(
-                'Membership Expiring In 7 Days',
-                expiringGroups.sevenDays,
-                '7days',
-                'ExpiryWarning',
-                'Expiry Warning (7 days)'
-              )}
-            </div>
-          </section>
-
-          {/* Invoice Notifications Panel */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-md">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <FileText className="h-4 w-4 text-amber-500" />
-                Invoice Notifications
-              </h3>
-              <span className="text-xs text-slate-400">{recentInvoices.length} recent</span>
-            </div>
-            {recentInvoices.length === 0 ? (
-              <div className="p-6">
-                <EmptyState
-                  icon={<FileText className="h-5 w-5" />}
-                  title="No invoice notifications"
-                  description="When invoices are generated, pending SMS notifications with secure links appear here."
-                />
-              </div>
-            ) : (
-              <>
-                <div className="hidden md:block data-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Member Name</th>
-                        <th>Invoice Number</th>
-                        <th>Amount</th>
-                        <th>Invoice Date</th>
-                        <th>Payment Status</th>
-                        <th>Invoice Link</th>
-                        <th className="text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentInvoices.map((inv) => {
-                        const member = members.find((m) => m.id === inv.member_id);
-                        const phone = member?.phone || inv.member?.phone;
-                        const name = member?.full_name || inv.member?.full_name || 'Member';
-                        const link = invoiceLinks[inv.id] || '';
-                        const message = buildInvoiceMessage(inv, name);
-                        const pendingLog = findPendingLog(inv.member_id, 'Invoice');
-                        const isLoading = actionLoadingId === inv.id;
-                        return (
-                          <tr key={inv.id} className="hover:bg-slate-50/80">
-                            <td className="table-primary">{name}</td>
-                            <td className="font-mono text-xs">{inv.invoice_number}</td>
-                            <td className="text-sm font-semibold">{formatCurrency(inv.amount)}</td>
-                            <td className="text-xs text-slate-600">
-                              {inv.created_at ? formatDate(inv.created_at) : '—'}
-                            </td>
-                            <td>
-                              <span
-                                className={cn(
-                                  'badge border text-xs',
-                                  inv.status === 'Paid'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : inv.status === 'Overdue'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                )}
-                              >
-                                {inv.status}
-                              </span>
-                            </td>
-                            <td>
-                              {link ? (
-                                <a
-                                  href={link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="max-w-[140px] truncate text-[10px] font-mono text-amber-700 hover:underline block"
-                                >
-                                  {link.replace(/^https?:\/\//, '')}
-                                </a>
-                              ) : (
-                                <span className="text-xs text-slate-400">Generating…</span>
-                              )}
-                            </td>
-                            <td className="text-right">
-                              <div className="flex flex-wrap justify-end gap-1">
-                                <button
-                                  type="button"
-                                  disabled={!phone || isLoading}
-                                  onClick={() =>
-                                    phone &&
-                                    void handleNativeSend(phone, message, pendingLog?.id, inv.member_id, 'Invoice')
-                                  }
-                                  className="btn btn-primary btn-xs"
-                                  title="Send SMS"
-                                >
-                                  <Send className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={!link}
-                                  onClick={() => link && window.open(link, '_blank')}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Open Invoice"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={!link}
-                                  onClick={() => link && handleCopyLink(inv.id, link)}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Copy Link"
-                                >
-                                  {copiedLinkId === inv.id ? (
-                                    <Check className="h-3 w-3 text-emerald-500" />
-                                  ) : (
-                                    <Link2 className="h-3 w-3" />
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isLoading}
-                                  onClick={() => void handleDownloadInvoicePdf(inv)}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Download PDF"
-                                >
-                                  <Download className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isLoading}
-                                  onClick={() => void handleRegenerateLink(inv.id)}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Regenerate Link"
-                                >
-                                  <RefreshCw className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewMessage(message)}
-                                  className="btn btn-ghost btn-xs"
-                                  title="Preview Message"
-                                >
-                                  <Eye className="h-3 w-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isLoading}
-                                  onClick={async () => {
-                                    setActionLoadingId(inv.id);
-                                    await markInvoiceNotificationSent(inv.member_id, inv.invoice_number);
-                                    setActionLoadingId(null);
-                                    loadData();
-                                  }}
-                                  className="btn btn-secondary btn-xs"
-                                  title="Mark Sent"
-                                >
-                                  <CheckCircle2 className="h-3 w-3" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex flex-col gap-3 p-4 md:hidden">
-                  {recentInvoices.map((inv) => {
-                    const member = members.find((m) => m.id === inv.member_id);
-                    const phone = member?.phone || inv.member?.phone;
-                    const name = member?.full_name || inv.member?.full_name || 'Member';
-                    const link = invoiceLinks[inv.id] || '';
-                    const message = buildInvoiceMessage(inv, name);
-                    const pendingLog = findPendingLog(inv.member_id, 'Invoice');
-                    return (
-                      <article key={inv.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
-                        <p className="font-semibold text-slate-900">{name}</p>
-                        <p className="mt-1 font-mono text-xs text-slate-600">{inv.invoice_number}</p>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                          <span>{formatCurrency(inv.amount)}</span>
+          {pendingCount === 0 ? (
+            <EmptyState
+              icon={<Inbox className="h-6 w-6 text-slate-500" />}
+              title="Queue is empty"
+              description="ERP automations will insert alert logs here when memberships run out or invoices are pending."
+            />
+          ) : (
+            <div className="space-y-3">
+              {pendingQueue.map((log) => {
+                const phone = log.phone_number || log.phone || '—';
+                const smsType = log.message_type || log.sms_type || '—';
+                const isLoading = actionLoadingId === log.id;
+                
+                return (
+                  <article key={log.id} className="bg-slate-900/80 border border-white/[0.06] rounded-2xl p-4 shadow-md space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-100">{log.member?.full_name || '—'}</h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                          <span className="font-mono">📱 {phone}</span>
                           <span>·</span>
-                          <span>{inv.created_at ? formatDate(inv.created_at) : '—'}</span>
-                          <span>·</span>
-                          <span className="font-semibold">{inv.status}</span>
+                          <span className="font-semibold text-indigo-400">📩 {smsType}</span>
                         </div>
-                        {link && (
-                          <p className="mt-2 truncate font-mono text-[10px] text-amber-700">{link}</p>
-                        )}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={!phone}
-                            onClick={() =>
-                              phone &&
-                              void handleNativeSend(phone, message, pendingLog?.id, inv.member_id, 'Invoice')
-                            }
-                            className="btn btn-primary btn-sm"
-                          >
-                            <Send className="mr-1 h-3.5 w-3.5" />
-                            Send SMS
-                          </button>
-                          <button
-                            type="button"
-                            disabled={!link}
-                            onClick={() => link && window.open(link, '_blank')}
-                            className="btn btn-secondary btn-sm"
-                          >
-                            Open Invoice
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMessage(message)}
-                            className="btn btn-ghost btn-sm"
-                          >
-                            Preview
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </section>
+                      </div>
+                      <span className="badge border border-amber-500/25 bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2">
+                        Pending
+                      </span>
+                    </div>
 
-          {/* Pending SMS Queue */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-md">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <Inbox className="h-4 w-4 text-amber-500" />
-                Pending SMS Queue
-              </h3>
-              <span className="text-xs font-semibold text-amber-700">{pendingQueue.length} pending</span>
-            </div>
-            {pendingQueue.length === 0 ? (
-              <div className="p-6">
-                <EmptyState
-                  icon={<Inbox className="h-5 w-5" />}
-                  title="Queue is empty"
-                  description="ERP automations will add pending notifications here when memberships expire, invoices are generated, or payments are due."
-                />
-              </div>
-            ) : (
-              <div className="data-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Member Name</th>
-                      <th>Phone Number</th>
-                      <th>Message Type</th>
-                      <th>Created Time</th>
-                      <th>Status</th>
-                      <th className="text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingQueue.map((log) => {
-                      const phone = log.phone_number || log.phone || '—';
-                      const smsType = log.message_type || log.sms_type || '—';
-                      const isLoading = actionLoadingId === log.id;
-                      return (
-                        <tr key={log.id} className="hover:bg-slate-50/80">
-                          <td className="table-primary">{log.member?.full_name || '—'}</td>
-                          <td className="font-mono text-xs">{phone}</td>
-                          <td>
-                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold">{smsType}</span>
-                          </td>
-                          <td className="text-xs text-slate-600">
-                            {log.created_at ? formatDate(log.created_at) : '—'}
-                            <span className="block text-[10px] text-slate-400">
-                              {log.created_at
-                                ? new Date(log.created_at).toLocaleTimeString('en-IN', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : '—'}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={cn('badge border text-xs', statusBadge(log.status))}>
-                              {log.status || 'Pending'}
-                            </span>
-                          </td>
-                          <td className="text-right">
-                            <button
-                              type="button"
-                              disabled={isLoading}
-                              onClick={() =>
-                                void handleNativeSend(phone, log.message, log.id, log.member_id, smsType)
-                              }
-                              className="btn btn-primary btn-xs"
-                            >
-                              <Send className="mr-1 h-3 w-3" />
-                              Send SMS
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                    <div className="text-xs text-slate-300 bg-slate-950/40 rounded-xl p-3 border border-white/[0.03] font-medium leading-relaxed max-h-24 overflow-y-auto whitespace-pre-wrap">
+                      {log.message}
+                    </div>
 
-          {/* Recent SMS Activity */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-md">
-            <div className="border-b border-slate-100 p-4 sm:p-5">
-              <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
-                <MessageSquare className="h-4 w-4 text-amber-500" />
-                Recent SMS Activity
-              </h3>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="input-with-icon max-w-sm w-full">
-                  <Search className="h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Search member or phone..."
-                    className="input-field"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {['All', 'Sent', 'Pending', 'Failed', 'Skipped'].map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setActivityFilter(f)}
-                      className={cn(
-                        'rounded-lg border px-3 py-1 text-xs font-semibold transition-colors',
-                        activityFilter === f
-                          ? 'border-amber-400 bg-amber-50 text-amber-800'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      )}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {recentActivity.length === 0 ? (
-              <div className="p-6">
-                <EmptyState icon={<MessageSquare className="h-5 w-5" />} title="No activity found" />
-              </div>
-            ) : (
-              <div className="data-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Member</th>
-                      <th>Phone</th>
-                      <th>Message Type</th>
-                      <th>Status</th>
-                      <th className="text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentActivity.slice(0, 25).map((log) => {
-                      const phone = log.phone_number || log.phone || '—';
-                      const smsType = log.message_type || log.sms_type || '—';
-                      const isLoading = actionLoadingId === log.id;
-                      return (
-                        <tr key={log.id}>
-                          <td className="text-xs text-slate-600">
-                            {log.created_at ? formatDate(log.created_at) : '—'}
-                          </td>
-                          <td className="table-primary">{log.member?.full_name || '—'}</td>
-                          <td className="font-mono text-xs">{phone}</td>
-                          <td>
-                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold">{smsType}</span>
-                          </td>
-                          <td>
-                            <span className={cn('badge border text-xs', statusBadge(log.status))}>
-                              {log.status || '—'}
-                            </span>
-                          </td>
-                          <td className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs"
-                                onClick={() => setPreviewLog(log)}
-                                title="View"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs"
-                                disabled={isLoading}
-                                onClick={async () => {
-                                  setActionLoadingId(log.id);
-                                  await resendSMSAction(log.id);
-                                  setActionLoadingId(null);
-                                  loadData();
-                                }}
-                                title="Resend"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs"
-                                disabled={isLoading}
-                                onClick={async () => {
-                                  setActionLoadingId(log.id);
-                                  await duplicateSMSAction(log.id);
-                                  setActionLoadingId(null);
-                                  loadData();
-                                }}
-                                title="Duplicate"
-                              >
-                                <Copy className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                      <span>Created today</span>
+                      <span>
+                        🕒{' '}
+                        {log.created_at
+                          ? new Date(log.created_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </span>
+                    </div>
 
-        {/* Templates */}
-        <div className="lg:col-span-4">
-          <section className="sticky top-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-md">
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <FileText className="h-4 w-4 text-amber-500" />
-                SMS Templates
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingTemplateName(null);
-                  setNewTemplateName('');
-                  setNewTemplateText('');
-                  setIsTemplateModalOpen(true);
-                }}
-                className="btn btn-secondary btn-xs"
-              >
-                <Plus className="mr-1 h-3 w-3" />
-                Create
-              </button>
-            </div>
-            <div className="flex max-h-[calc(100vh-12rem)] flex-col gap-3 overflow-y-auto">
-              {[...builtInTemplates, ...customTemplates.map((t) => ({ ...t, key: t.name, isCustom: true }))].map(
-                (tpl) => (
-                  <div
-                    key={tpl.key}
-                    className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 transition-all hover:border-amber-200 hover:shadow-sm"
-                  >
-                    <p className="text-xs font-bold text-slate-800">{tpl.name}</p>
-                    <p className="mt-1 line-clamp-3 font-mono text-[10px] leading-relaxed text-slate-500 whitespace-pre-wrap">
-                      {tpl.text}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setPreviewMessage(tpl.text)}
-                        className="btn btn-ghost btn-xs"
+                        onClick={() => setEditModal({
+                          logId: log.id,
+                          memberId: log.member_id || '',
+                          phone,
+                          message: log.message,
+                          messageType: smsType,
+                          title: `Edit message queue`
+                        })}
+                        className="btn btn-secondary py-2.5 flex-1 font-bold text-xs rounded-xl"
                       >
-                        <Eye className="mr-1 h-3 w-3" />
-                        Preview
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyTemplate(tpl.name, tpl.text)}
-                        className="btn btn-ghost btn-xs"
-                      >
-                        {copiedTemplateName === tpl.name ? (
-                          <Check className="mr-1 h-3 w-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="mr-1 h-3 w-3" />
-                        )}
-                        Copy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if ('isCustom' in tpl && tpl.isCustom) {
-                            setEditingTemplateName(tpl.name);
-                            setNewTemplateName(tpl.name);
-                            setNewTemplateText(tpl.text);
-                          } else {
-                            setEditingTemplateName(null);
-                            setNewTemplateName(`${tpl.name} (Copy)`);
-                            setNewTemplateText(tpl.text);
-                          }
-                          setIsTemplateModalOpen(true);
-                        }}
-                        className="btn btn-ghost btn-xs"
-                      >
-                        <Edit3 className="mr-1 h-3 w-3" />
                         Edit
                       </button>
-                      {'isCustom' in tpl && tpl.isCustom ? (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => void handleNativeSend(phone, log.message, log.id, log.member_id, smsType)}
+                        className="btn btn-primary py-2.5 flex-[2] font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                      >
+                        <SendHorizontal className="h-4 w-4" /> Send SMS
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* 6. Recent SMS Activity (Timeline Layout) */}
+        <section id="activity-timeline" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
+          <div className="border-b border-white/[0.06] pb-3 mb-4 space-y-3">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <MessageSquare className="h-4 w-4 text-amber-400" /> Recent SMS Activity
+            </h2>
+            <div className="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-xl border border-white/[0.04] shadow-inner">
+              <Search className="h-3.5 w-3.5 text-slate-400 ml-1.5" />
+              <input
+                type="text"
+                placeholder="Search member name or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-0 outline-none text-xs text-white placeholder-slate-500 w-full"
+              />
+            </div>
+            
+            {/* Horizontal Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+              {['All', 'Sent', 'Pending', 'Failed'].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setActivityFilter(f)}
+                  className={cn(
+                    'rounded-lg border px-3.5 py-1.5 text-[10px] font-bold transition-all shrink-0 active:scale-95',
+                    activityFilter === f
+                      ? 'border-amber-400 bg-amber-400 text-zinc-950 shadow-md'
+                      : 'border-white/[0.08] bg-slate-950/20 text-slate-300 hover:bg-slate-800'
+                  )}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {recentActivity.length === 0 ? (
+            <EmptyState icon={<MessageSquare className="h-5 w-5" />} title="No activity found" />
+          ) : (
+            <div className="relative pl-4 border-l border-white/[0.08] space-y-5 py-2">
+              {recentActivity.slice(0, 20).map((log) => {
+                const phone = log.phone_number || log.phone || '—';
+                const smsType = log.message_type || log.sms_type || '—';
+                const isLoading = actionLoadingId === log.id;
+                
+                return (
+                  <article key={log.id} className="relative space-y-1.5">
+                    {/* Timeline Node Point */}
+                    <span className={cn(
+                      "absolute -left-[20.5px] top-1.5 h-3 w-3 rounded-full border border-slate-900 shadow",
+                      log.status === 'Sent' ? "bg-emerald-500" : log.status === 'Failed' ? "bg-red-500" : "bg-amber-500"
+                    )} />
+
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {log.created_at ? formatDate(log.created_at) : '—'}
+                      </span>
+                      <span className={cn(
+                        "text-[9px] font-bold border rounded py-0.5 px-2",
+                        log.status === 'Sent' 
+                          ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' 
+                          : log.status === 'Failed' 
+                          ? 'border-red-500/20 bg-red-500/10 text-red-400' 
+                          : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                      )}>
+                        {log.status}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-100">{log.member?.full_name || '—'}</h4>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{smsType} · <span className="font-mono">{phone}</span></p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewLog(log)}
+                        className="btn btn-secondary py-1 px-2.5 text-[9px] font-bold flex items-center gap-1"
+                      >
+                        <Eye className="h-3 w-3" /> View Details
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          setActionLoadingId(log.id);
+                          await resendSMSAction(log.id);
+                          setActionLoadingId(null);
+                          loadData();
+                        }}
+                        className="btn btn-secondary py-1 px-2.5 text-[9px] font-bold flex items-center gap-1"
+                      >
+                        <RotateCcw className="h-3 w-3" /> Resend
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        onClick={async () => {
+                          setActionLoadingId(log.id);
+                          await duplicateSMSAction(log.id);
+                          setActionLoadingId(null);
+                          loadData();
+                        }}
+                        className="btn btn-secondary py-1 px-2.5 text-[9px] font-bold flex items-center gap-1"
+                      >
+                        <Copy className="h-3 w-3" /> Duplicate
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* 7. SMS Templates (Accordion Cards, only one expanded) */}
+        <section id="sms-templates" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-amber-400" /> Templates Directory
+            </h2>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTemplateName(null);
+                setNewTemplateName('');
+                setNewTemplateText('');
+                setIsTemplateModalOpen(true);
+              }}
+              className="btn btn-secondary py-1.5 px-3 text-[10px] font-bold rounded-lg flex items-center gap-1"
+            >
+              <Plus className="h-3.5 w-3.5 text-amber-400" /> Create New
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            {templatesList.map((tpl) => {
+              const isExpanded = expandedTemplate === tpl.key;
+              return (
+                <div key={tpl.key} className="border border-white/[0.06] rounded-xl overflow-hidden bg-slate-900/60">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedTemplate(isExpanded ? null : tpl.key)}
+                    className="w-full flex items-center justify-between p-3.5 hover:bg-white/[0.02]"
+                  >
+                    <span className="text-xs font-bold text-slate-200">{tpl.name}</span>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-3.5 pb-3.5 pt-1 border-t border-white/[0.03] space-y-3">
+                      <div className="text-xs font-mono bg-slate-950/40 p-3 rounded-lg border border-white/[0.03] text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        {tpl.text}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 justify-end">
+                        {!!tpl.isCustom && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = customTemplates.filter((t) => t.name !== tpl.name);
+                              setCustomTemplates(updated);
+                              localStorage.setItem('fusionfit_custom_templates', JSON.stringify(updated));
+                            }}
+                            className="btn btn-secondary py-1.5 px-2.5 text-[10px] font-semibold text-red-400 hover:text-red-500"
+                            title="Delete custom template"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => {
-                            const updated = customTemplates.filter((t) => t.name !== tpl.name);
-                            setCustomTemplates(updated);
-                            localStorage.setItem('fusionfit_custom_templates', JSON.stringify(updated));
-                          }}
-                          className="btn btn-ghost btn-xs text-red-500"
+                          onClick={() => setPreviewMessage(tpl.text)}
+                          className="btn btn-secondary py-1.5 px-3 text-[10px] font-bold flex items-center gap-1"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Eye className="h-3 w-3" /> Preview
                         </button>
-                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyTemplate(tpl.name, tpl.text)}
+                          className="btn btn-secondary py-1.5 px-3 text-[10px] font-bold flex items-center gap-1"
+                        >
+                          {copiedTemplateName === tpl.name ? (
+                            <Check className="h-3 w-3 text-emerald-400" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                          Copy
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
-                            setEditingTemplateName(null);
-                            setNewTemplateName(`${tpl.name} (Copy)`);
-                            setNewTemplateText(tpl.text);
+                            if (tpl.isCustom) {
+                              setEditingTemplateName(tpl.name);
+                              setNewTemplateName(tpl.name);
+                              setNewTemplateText(tpl.text);
+                            } else {
+                              setEditingTemplateName(null);
+                              setNewTemplateName(`${tpl.name} (Copy)`);
+                              setNewTemplateText(tpl.text);
+                            }
                             setIsTemplateModalOpen(true);
                           }}
-                          className="btn btn-ghost btn-xs"
+                          className="btn btn-primary py-1.5 px-3 text-[10px] font-bold flex items-center gap-1"
                         >
-                          Duplicate
+                          <Edit3 className="h-3 w-3" /> Edit
                         </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                )
-              )}
-            </div>
-            <p className="mt-4 text-[10px] leading-relaxed text-slate-400">
-              Variables: {'{{member_name}}'}, {'{{expiry_date}}'}, {'{{amount}}'}, {'{{invoice_number}}'}, {'{{invoice_link}}'}, {'{{days_left}}'}
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3.5 flex items-start gap-1 bg-white/[0.02] border border-white/[0.04] p-3 rounded-xl">
+            <Info className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+            <p className="text-[9px] leading-normal text-slate-400">
+              Personalization tags: {'{{member_name}}'}, {'{{expiry_date}}'}, {'{{amount}}'}, {'{{invoice_number}}'}, {'{{invoice_link}}'}, {'{{days_left}}'}
             </p>
-          </section>
-        </div>
+          </div>
+        </section>
+
+        {/* 8. Invoice Notifications Cards */}
+        <section id="invoice-notif" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-amber-400" /> Invoice Alerts
+            </h2>
+            <span className="text-xs text-slate-400 font-bold">{recentInvoices.length} recent</span>
+          </div>
+
+          {recentInvoices.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="h-6 w-6 text-slate-500" />}
+              title="No recent invoices"
+              description="Generating standard packages will register billing logs here."
+            />
+          ) : (
+            <div className="space-y-3">
+              {recentInvoices.map((inv) => {
+                const member = members.find((m) => m.id === inv.member_id);
+                const phone = member?.phone || inv.member?.phone;
+                const name = member?.full_name || inv.member?.full_name || 'Member';
+                const link = invoiceLinks[inv.id] || '';
+                const message = buildInvoiceMessage(inv, name);
+                const pendingLog = findPendingLog(inv.member_id, 'Invoice');
+                const isLoading = actionLoadingId === inv.id;
+                
+                return (
+                  <article key={inv.id} className="bg-slate-900/80 border border-white/[0.06] rounded-2xl p-4 shadow-md space-y-3.5">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-100">{name}</h3>
+                        <p className="text-[10px] font-mono text-slate-400 mt-1">{inv.invoice_number} · {inv.created_at ? formatDate(inv.created_at) : '—'}</p>
+                      </div>
+                      <span className={cn(
+                        "badge text-[9px] font-bold uppercase tracking-wide border py-0.5 px-2",
+                        inv.status === 'Paid' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      )}>
+                        {inv.status}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center bg-slate-950/40 rounded-xl p-3 border border-white/[0.03] text-xs">
+                      <span className="text-slate-400 font-semibold">Total Amount</span>
+                      <span className="text-slate-100 font-extrabold">{formatCurrency(inv.amount)}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={!link}
+                        onClick={() => link && window.open(link, '_blank')}
+                        className="btn btn-secondary py-2.5 flex-1 font-bold text-xs rounded-xl flex items-center justify-center gap-1"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> View Invoice
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!phone || isLoading}
+                        onClick={() => phone && void handleNativeSend(phone, message, pendingLog?.id, inv.member_id, 'Invoice')}
+                        className="btn btn-primary py-2.5 flex-1 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1 shadow-md active:scale-95 transition-all"
+                      >
+                        <SendHorizontal className="h-3.5 w-3.5" /> Send SMS
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+      </main>
+
+      {/* 9. Bottom Navigation (Mobile Only, Sticky) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 border-t border-white/[0.08] backdrop-blur-md px-2 py-1.5 flex justify-around md:hidden shadow-2xl">
+        {[
+          { label: 'Queue', icon: Inbox, id: 'pending-queue-section' },
+          { label: 'Activity', icon: MessageSquare, id: 'activity-timeline' },
+          { label: 'Templates', icon: FileText, id: 'sms-templates' },
+          { label: 'Invoices', icon: FileText, id: 'invoice-notif' },
+        ].map((tab) => (
+          <button
+            key={tab.label}
+            type="button"
+            onClick={() => scrollToSection(tab.id)}
+            className="flex flex-col items-center gap-1.5 text-slate-400 hover:text-amber-400 py-1 transition-all active:scale-90"
+          >
+            <tab.icon className="h-4.5 w-4.5" />
+            <span className="text-[9px] font-bold tracking-wide">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {/* 10. Floating Send Button (FAB) */}
+      <div className="fixed bottom-20 right-4 z-40 md:bottom-6">
+        {isFabMenuOpen && (
+          <div className="absolute bottom-16 right-0 bg-slate-950 border border-white/[0.08] rounded-2xl p-2.5 shadow-2xl space-y-1.5 w-44 animate-enter">
+            {[
+              { label: 'Invoice Reminder', type: 'Invoice' },
+              { label: 'Renewal Reminder', type: 'Renewal' },
+              { label: 'Welcome Message', type: 'Welcome' },
+              { label: 'Custom Message', type: 'Custom' },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => openComposeWizard(opt.type)}
+                className="w-full text-left py-2 px-3 hover:bg-white/[0.04] rounded-lg text-xs font-bold text-slate-200 transition-colors"
+              >
+                • {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 text-zinc-950 shadow-2xl transition-all active:scale-90 focus:outline-none"
+        >
+          {isFabMenuOpen ? <X className="h-5 w-5 stroke-[2.5]" /> : <Plus className="h-6 w-6 stroke-[2.5]" />}
+        </button>
       </div>
+
+      {/* Compose/Send SMS Modal Wizard */}
+      {composeModal && composeModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm" onClick={() => setComposeModal(null)} />
+          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-md p-5 rounded-2xl shadow-2xl space-y-4 animate-enter text-white">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
+              <h3 className="text-sm font-bold text-amber-400">Send New SMS</h3>
+              <button type="button" onClick={() => setComposeModal(null)} className="text-slate-400 hover:text-white">
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleComposeSubmit} className="space-y-4 text-slate-800">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Select Member</label>
+                <select
+                  value={composeModal.memberId}
+                  onChange={(e) => handleComposeFieldChange(composeModal.templateType, e.target.value)}
+                  className="select-field text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950"
+                >
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id} className="text-slate-800 bg-white">
+                      {m.full_name} ({m.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Template Type</label>
+                <select
+                  value={composeModal.templateType}
+                  onChange={(e) => handleComposeFieldChange(e.target.value, composeModal.memberId)}
+                  className="select-field text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950"
+                >
+                  <option value="Welcome" className="text-slate-800 bg-white">Welcome Template</option>
+                  <option value="Renewal" className="text-slate-800 bg-white">Renewal Reminder</option>
+                  <option value="ExpiryWarning" className="text-slate-800 bg-white">Expiry Warning</option>
+                  <option value="Payment" className="text-slate-800 bg-white">Payment Reminder</option>
+                  <option value="Invoice" className="text-slate-800 bg-white">Invoice Notification</option>
+                  <option value="Custom" className="text-slate-800 bg-white">Custom Message</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mobile Phone</label>
+                <input
+                  type="text"
+                  value={composeModal.phone}
+                  onChange={(e) => setComposeModal({ ...composeModal, phone: e.target.value })}
+                  className="input-field text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950"
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Personalized Message</label>
+                <textarea
+                  value={composeModal.message}
+                  onChange={(e) => handleComposeFieldChange(composeModal.templateType, composeModal.memberId, e.target.value)}
+                  className="input-field min-h-28 text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950 resize-none whitespace-pre-wrap leading-relaxed"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+                <button
+                  type="button"
+                  className="btn btn-secondary py-2 px-4 text-xs font-semibold text-slate-300"
+                  onClick={() => setComposeModal(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1 shadow-md"
+                >
+                  <SendHorizontal className="h-3.5 w-3.5" /> Queue & Send
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Message Modal */}
       {editModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditModal(null)} />
-          <div className="card relative z-10 w-full max-w-lg p-6 shadow-2xl animate-enter">
-            <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-900">
-              <Edit3 className="h-5 w-5 text-amber-500" />
+          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-lg p-5 rounded-2xl shadow-2xl animate-enter text-white">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-amber-400">
+              <Edit3 className="h-4.5 w-4.5" />
               {editModal.title}
             </h3>
             <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
               <textarea
-                className="input-field min-h-32 resize-y text-sm"
+                className="input-field bg-slate-950/60 border border-white/[0.08] text-white min-h-32 resize-none text-xs leading-relaxed"
                 value={editModal.message}
                 onChange={(e) => setEditModal({ ...editModal, message: e.target.value })}
                 required
               />
-              <div className="flex justify-end gap-2">
-                <button type="button" className="btn btn-secondary" onClick={() => setEditModal(null)}>
+              <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-3">
+                <button type="button" className="btn btn-secondary text-xs" onClick={() => setEditModal(null)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-primary text-xs font-bold">
                   Save Message
                 </button>
               </div>
@@ -1183,37 +1349,37 @@ export default function SMSNotificationCenterPage() {
       {isTemplateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsTemplateModalOpen(false)} />
-          <div className="card relative z-10 w-full max-w-lg p-6 shadow-2xl animate-enter">
-            <h3 className="mb-4 text-base font-bold text-slate-900">
-              {editingTemplateName ? 'Edit Template' : 'Create Template'}
+          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-lg p-5 rounded-2xl shadow-2xl animate-enter text-white">
+            <h3 className="mb-4 text-sm font-bold text-amber-400">
+              {editingTemplateName ? 'Edit Template' : 'Create Custom Template'}
             </h3>
             <form onSubmit={handleCreateTemplate} className="flex flex-col gap-4">
               <input
-                className="input-field"
+                className="input-field bg-slate-950/60 border border-white/[0.08] text-white text-xs"
                 placeholder="Template name"
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
                 required
               />
               <textarea
-                className="input-field min-h-28 resize-y text-sm"
+                className="input-field bg-slate-950/60 border border-white/[0.08] text-white min-h-28 resize-none text-xs leading-relaxed"
                 placeholder="Message body with {{variables}}"
                 value={newTemplateText}
                 onChange={(e) => setNewTemplateText(e.target.value)}
                 required
               />
               {templateSuccess && (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-400">
                   <CheckCircle2 className="h-4 w-4" />
                   {templateSuccess}
                 </div>
               )}
-              <div className="flex justify-end gap-2">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsTemplateModalOpen(false)}>
+              <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-3">
+                <button type="button" className="btn btn-secondary text-xs" onClick={() => setIsTemplateModalOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Save
+                <button type="submit" className="btn btn-primary text-xs font-bold">
+                  Save Template
                 </button>
               </div>
             </form>
@@ -1231,18 +1397,18 @@ export default function SMSNotificationCenterPage() {
               setPreviewMessage(null);
             }}
           />
-          <div className="card relative z-10 w-full max-w-md p-6 shadow-2xl animate-enter">
-            <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-900">
-              <Eye className="h-5 w-5 text-amber-500" />
+          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-md p-5 rounded-2xl shadow-2xl animate-enter text-white">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-amber-400">
+              <Eye className="h-4.5 w-4.5" />
               Message Preview
             </h3>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm whitespace-pre-line leading-relaxed">
+            <div className="rounded-xl border border-white/[0.05] bg-slate-950/50 p-4 text-xs whitespace-pre-line leading-relaxed text-slate-200">
               {previewLog?.message || previewMessage}
             </div>
             {previewLog && previewLog.status === 'Pending' && (
               <button
                 type="button"
-                className="btn btn-primary mt-4 w-full"
+                className="btn btn-primary mt-4 w-full py-2.5 text-xs font-bold flex items-center justify-center gap-1.5"
                 onClick={() => {
                   const phone = previewLog.phone_number || previewLog.phone || '';
                   void handleNativeSend(
@@ -1255,13 +1421,13 @@ export default function SMSNotificationCenterPage() {
                   setPreviewLog(null);
                 }}
               >
-                <Send className="mr-2 h-4 w-4" />
+                <SendHorizontal className="h-4 w-4" />
                 Send SMS
               </button>
             )}
             <button
               type="button"
-              className="btn btn-secondary mt-3 w-full"
+              className="btn btn-secondary mt-3 w-full py-2.5 text-xs"
               onClick={() => {
                 setPreviewLog(null);
                 setPreviewMessage(null);
