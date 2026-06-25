@@ -168,6 +168,7 @@ export interface Invoice {
   status: 'Paid' | 'Pending' | 'Overdue';
   pdf_url?: string | null;
   invoice_token?: string | null;
+  invoice_link?: string | null;
   notes?: string | null;
   created_at: string;
   membership_fee?: number;
