@@ -60,6 +60,7 @@ export interface AttendanceLog {
   punch_type: 'checkin' | 'checkout';
   created_at?: string;
   member?: Member;
+  sync_status?: string;
 }
 
 // ── PAR-Q ───────────────────────────────────────────────────

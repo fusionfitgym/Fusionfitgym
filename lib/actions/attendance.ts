@@ -118,6 +118,7 @@ async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
       punch_time: timestamp,
       punch_type,
       created_at: log.created_at,
+      sync_status: log.sync_status,
       member: member ? {
         id: member.id,
         full_name: member.full_name,
