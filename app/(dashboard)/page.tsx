@@ -304,7 +304,7 @@ export default async function DashboardPage() {
               <p className="text-xs text-slate-500 mt-0.5">Real-time status of system-generated notifications and member alerts</p>
             </div>
             <Link href="/sms" className="btn btn-ghost btn-sm text-amber-700 hover:text-amber-800 self-start sm:self-auto">
-              Open Communication Center <ArrowRight className="h-3.5 w-3.5" />
+              Open SMS Hub <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">

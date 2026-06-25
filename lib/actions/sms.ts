@@ -75,7 +75,7 @@ export async function getSMSDevice() {
   // Fallback / Mock Device if migration not run yet
   return {
     id: 'mock-device-id',
-    name: 'Owner SIM Bridge',
+    name: 'SMS Gateway Device',
     device_model: 'Samsung Galaxy S23 Ultra',
     android_version: 'Android 14',
     sim_number: '+91 98765 43210',
@@ -98,12 +98,23 @@ export async function getSMSStats() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Execute count queries in parallel
+  // Detect schema for renewal reminder filter
+  let isModern = false;
+  try {
+    const { error } = await supabase.from('sms_logs').select('phone_number').limit(1);
+    if (!error) isModern = true;
+  } catch {}
+
+  const renewalFilter = isModern
+    ? 'message_type.eq.Renewal,message_type.ilike.Expiry Warning%'
+    : 'sms_type.eq.Renewal,sms_type.ilike.Expiry Warning%';
+
   const [
     { count: todaySent },
     { count: monthlySent },
     { count: failedCount },
-    { count: pendingCount }
+    { count: pendingCount },
+    { count: renewalRemindersSent },
   ] = await Promise.all([
     supabase
       .from('sms_logs')
@@ -122,7 +133,12 @@ export async function getSMSStats() {
     supabase
       .from('sms_logs')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'Pending')
+      .eq('status', 'Pending'),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Sent')
+      .or(renewalFilter),
   ]);
 
   const device = await getSMSDevice();
@@ -134,9 +150,61 @@ export async function getSMSStats() {
     monthlySent: monthlySent ?? 0,
     failed: failedCount ?? 0,
     pending: pendingCount ?? 0,
+    renewalRemindersSent: renewalRemindersSent ?? 0,
     deviceStatus: isOnline ? 'Online' : 'Offline',
     lastSync: device?.last_heartbeat ?? null,
   };
+}
+
+/**
+ * Re-queue a failed SMS for delivery
+ */
+export async function retrySMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  const logs = await getSMSLogs();
+  const log = logs.find((l) => l.id === logId);
+  if (!log) {
+    return { success: false, message: 'SMS log not found.' };
+  }
+  if (log.status !== 'Failed') {
+    return { success: false, message: 'Only failed messages can be retried.' };
+  }
+  const phone = log.phone_number || log.phone || '';
+  const messageType = log.message_type || log.sms_type || 'Custom Communication';
+  return sendSMSAction(log.member_id, phone, log.message, messageType);
+}
+
+/**
+ * Cancel or remove a queued SMS
+ */
+export async function deleteSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  const { data, error: fetchError } = await supabase
+    .from('sms_logs')
+    .select('status')
+    .eq('id', logId)
+    .single();
+
+  if (fetchError || !data) {
+    return { success: false, message: 'SMS log not found.' };
+  }
+
+  if (data.status === 'Pending') {
+    const { error } = await supabase
+      .from('sms_logs')
+      .update({ status: 'Cancelled' })
+      .eq('id', logId);
+    if (error) {
+      return { success: false, message: error.message };
+    }
+    return { success: true, message: 'Message cancelled successfully.' };
+  }
+
+  const { error } = await supabase.from('sms_logs').delete().eq('id', logId);
+  if (error) {
+    return { success: false, message: error.message };
+  }
+  return { success: true, message: 'Message removed successfully.' };
 }
 
 /**

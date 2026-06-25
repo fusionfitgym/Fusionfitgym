@@ -52,7 +52,7 @@ const navItems = [
   { href: '/health', label: 'Health Assessments', icon: HeartPulse },
   { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
   { href: '/invoices', label: 'Invoices', icon: FileText },
-  { href: '/sms', label: 'SMS Logs', icon: MessageSquare },
+  { href: '/sms', label: 'SMS Hub', icon: MessageSquare },
   { href: '/users', label: 'User Management', icon: UserPlus },
   { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/about', label: 'About', icon: Info },
