@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Member, MemberFormValues } from '@/types';
+import { Member, MemberFormValues, memberSchema } from '@/types';
 import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
 import { formatDate } from '@/lib/utils';
 import { validateRole } from './auth';
@@ -33,10 +33,14 @@ export async function getMemberById(id: string): Promise<Member | null> {
 export async function createMember(values: MemberFormValues): Promise<{ data?: Member; error?: string }> {
   try {
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
+    
+    // Validate inputs server-side (Requirement 3 & 4)
+    const validatedValues = memberSchema.parse(values);
+    
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('members')
-      .insert([values])
+      .insert([validatedValues])
       .select()
       .single();
     if (error) return { error: error.message };
@@ -71,6 +75,14 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
       .select('full_name, phone, package_start_date, package_end_date, status, package_name')
       .eq('id', id)
       .single();
+
+    // Validate biometric_user_id specifically if it is updated (Requirement 3 & 4)
+    if (values.biometric_user_id !== undefined) {
+      const bioId = values.biometric_user_id;
+      if (bioId && !/^\d+$/.test(bioId)) {
+        throw new Error("Biometric User ID must contain numeric digits only");
+      }
+    }
 
     const { data, error } = await supabase
       .from('members')

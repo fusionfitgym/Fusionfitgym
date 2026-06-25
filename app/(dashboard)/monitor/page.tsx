@@ -57,6 +57,11 @@ export default function CheckinMonitorPage() {
         async (payload: any) => {
           const newLog = payload.new as any;
           try {
+            const rawId = newLog.member_id || '';
+            if (rawId.toLowerCase().startsWith('oplog')) {
+              console.log('Skipping OPLOG event in realtime monitor:', rawId);
+              return;
+            }
             const memberInfo = await getMemberByBiometricId(newLog.member_id);
             const cleanId = newLog.member_id ? newLog.member_id.replace(/[^0-9]/g, '') : '';
             
@@ -184,9 +189,11 @@ export default function CheckinMonitorPage() {
                 return (
                   <div
                     className={`card flex flex-col items-center justify-center p-6 text-center border-2 transition-all duration-300 ${
-                      isMemberActive
-                        ? 'border-emerald-500 bg-emerald-50/20'
-                        : 'border-rose-500 bg-rose-50/20'
+                      lastCheckin?.member
+                        ? isMemberActive
+                          ? 'border-emerald-500 bg-emerald-50/20'
+                          : 'border-rose-500 bg-rose-50/20'
+                        : 'border-amber-400 bg-amber-50/15'
                     }`}
                   >
                     <div className="relative">
@@ -195,7 +202,9 @@ export default function CheckinMonitorPage() {
                         name={memberName}
                         size="xl"
                         className={`h-40 w-40 border-4 ${
-                          isMemberActive ? 'border-emerald-500' : 'border-rose-500'
+                          lastCheckin?.member
+                            ? isMemberActive ? 'border-emerald-500' : 'border-rose-500'
+                            : 'border-amber-400'
                         }`}
                       />
                       <div className="absolute -bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-amber-300 shadow">
@@ -203,7 +212,7 @@ export default function CheckinMonitorPage() {
                       </div>
                     </div>
 
-                    <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-950">
+                    <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-955">
                       {memberName}
                     </h2>
                     <p className="mt-1 font-mono text-sm text-slate-500">
@@ -212,13 +221,19 @@ export default function CheckinMonitorPage() {
 
                     {/* Status Alert Area */}
                     <div className="mt-6 flex flex-col items-center">
-                      {isMemberActive ? (
-                        <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-5 py-2 text-sm font-bold text-emerald-800">
-                          <ShieldCheck className="h-5 w-5" /> MEMBER ACTIVE
-                        </div>
+                      {lastCheckin?.member ? (
+                        isMemberActive ? (
+                          <div className="flex items-center gap-2 rounded-full bg-emerald-100 px-5 py-2 text-sm font-bold text-emerald-800">
+                            <ShieldCheck className="h-5 w-5" /> MEMBER ACTIVE
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 rounded-full bg-rose-100 px-5 py-2 text-sm font-bold text-rose-800">
+                            <ShieldAlert className="h-5 w-5" /> DANGER: MEMBER {(memberStatus || 'EXPIRED').toUpperCase()}
+                          </div>
+                        )
                       ) : (
-                        <div className="flex items-center gap-2 rounded-full bg-rose-100 px-5 py-2 text-sm font-bold text-rose-800">
-                          <ShieldAlert className="h-5 w-5" /> DANGER: MEMBER {(memberStatus || 'EXPIRED').toUpperCase()}
+                        <div className="flex items-center gap-2 rounded-full bg-amber-100 px-5 py-2 text-sm font-bold text-amber-800">
+                          <ShieldAlert className="h-5 w-5" /> UNREGISTERED BIOMETRIC ID
                         </div>
                       )}
 
@@ -283,7 +298,7 @@ export default function CheckinMonitorPage() {
                   log?.member_name ||
                   "Unknown Member";
                 const isMemberActive = log?.member?.status === 'Active';
-                const memberStatus = log?.member?.status || 'Expired';
+                const memberStatus = log?.member ? (log.member.status || 'Expired') : 'Unregistered';
                 
                 return (
                   <div
@@ -311,7 +326,11 @@ export default function CheckinMonitorPage() {
                     <div>
                       <span
                         className={`badge text-[10px] ${
-                          isMemberActive ? 'badge-active' : 'badge-inactive'
+                          isMemberActive 
+                            ? 'badge-active' 
+                            : log?.member 
+                              ? 'badge-inactive' 
+                              : 'bg-amber-100 text-amber-800 border-amber-200'
                         }`}
                       >
                         {memberStatus}

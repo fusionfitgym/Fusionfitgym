@@ -24,7 +24,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const biometricUserId = String(rawBiometricUserId);
+    const biometricUserIdRaw = String(rawBiometricUserId).trim();
+    
+    // Ignore OPLOG records (Requirement 2)
+    if (/oplog/i.test(biometricUserIdRaw)) {
+      return NextResponse.json({ error: 'OPLOG events ignored' }, { status: 400 });
+    }
+
+    // Match using numeric IDs only (Requirement 1 & 5)
+    // Extract PIN if matching "PIN=..."
+    let cleanId = '';
+    const pinMatch = biometricUserIdRaw.match(/PIN\s*[=-]?\s*(\d+)/i);
+    if (pinMatch) {
+      cleanId = pinMatch[1];
+    } else {
+      cleanId = biometricUserIdRaw.replace(/[^0-9]/g, '');
+    }
+
+    if (!cleanId || !/^\d+$/.test(cleanId)) {
+      return NextResponse.json({ error: 'Numeric biometric ID required' }, { status: 400 });
+    }
+
+    const biometricUserId = cleanId;
     const punchType = event_type === 'checkout' ? 'checkout' : 'checkin';
     const punchTime = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
 

@@ -20,10 +20,31 @@ function getStartOfTodayIST(): Date {
   return new Date(Date.UTC(year, month, day) - istOffsetMs);
 }
 
-// Helper: Extract numeric digits from biometric ID string
+// Helper: Extract numeric digits from biometric ID string, matching ONLY numeric biometric IDs
 function cleanBiometricId(id: string | null | undefined): string {
   if (!id) return '';
-  return id.replace(/[^0-9]/g, '');
+  const trimmed = id.trim();
+  
+  // Ignore any log containing "OPLOG" (Requirement 2)
+  if (/oplog/i.test(trimmed)) {
+    return '';
+  }
+  
+  // Handle forms like "USER PIN=106" or "FP PIN-203" or "USER PIN 203"
+  const pinMatch = trimmed.match(/PIN\s*[=-]?\s*(\d+)/i);
+  if (pinMatch) {
+    return pinMatch[1];
+  }
+  
+  // Extract all numeric digits
+  const clean = trimmed.replace(/[^0-9]/g, '');
+  
+  // Ensure it matches only numeric biometric IDs (Requirement 1)
+  if (/^\d+$/.test(clean)) {
+    return clean;
+  }
+  
+  return '';
 }
 
 // Helper: Resolve timestamp, falling back to created_at if punch_time is invalid/prior to 2024
@@ -60,8 +81,14 @@ async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
     }
   });
 
+  // Filter out OPLOG records (Requirement 5)
+  const nonOplogRawLogs = rawLogs.filter(log => {
+    const rawId = log.member_id || '';
+    return !rawId.toLowerCase().startsWith('oplog');
+  });
+
   // Sort raw logs chronologically (ascending) to accurately alternate check-in/check-out
-  const sortedRaw = [...rawLogs].sort((a, b) => 
+  const sortedRaw = [...nonOplogRawLogs].sort((a, b) => 
     new Date(a.created_at || a.punch_time).getTime() - new Date(b.created_at || b.punch_time).getTime()
   );
   
@@ -110,7 +137,15 @@ async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
     new Date(b.punch_time).getTime() - new Date(a.punch_time).getTime()
   );
 
-  // DEBUG LOGGING (Requirement 9)
+  // DEBUG LOGGING (Requirement 7 & 9)
+  finalLogs.forEach((log) => {
+    console.log(`[ATTENDANCE MATCHING DEBUG]
+      attendance user id: ${log.biometric_user_id}
+      matched member id: ${log.member ? log.member.id : 'NONE'}
+      matched member name: ${log.member ? log.member.full_name : 'NONE'}`
+    );
+  });
+
   const matchCount = finalLogs.filter(l => l.member).length;
   const unmatchedIds = Array.from(new Set(
     finalLogs.filter(l => !l.member).map(l => l.biometric_user_id)
@@ -118,8 +153,9 @@ async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   
   console.log(`[DEBUG Attendance Enrich]
     Total raw records fetched: ${rawLogs.length}
+    Filtered OPLOG records: ${rawLogs.length - nonOplogRawLogs.length}
     Successfully matched members: ${matchCount}
-    Unmatched records: ${rawLogs.length - matchCount}
+    Unmatched records: ${nonOplogRawLogs.length - matchCount}
     Unmatched Biometric IDs:`, unmatchedIds
   );
 
@@ -219,8 +255,12 @@ export async function getAttendanceAnalytics() {
   }
 
   // Enrich logs to match members and calculate punch types
-  const todayLogs = await enrichLogs(todayRawLogs || []);
-  const trendLogs = await enrichLogs(trendRawLogs || []);
+  const enrichedTodayLogs = await enrichLogs(todayRawLogs || []);
+  const enrichedTrendLogs = await enrichLogs(trendRawLogs || []);
+
+  // Filter to ONLY matched records for stats calculation (Requirement 8)
+  const todayLogs = enrichedTodayLogs.filter(log => log.member);
+  const trendLogs = enrichedTrendLogs.filter(log => log.member);
 
   let checkins = 0;
   let checkouts = 0;
