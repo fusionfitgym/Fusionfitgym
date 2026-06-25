@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import {
   Activity,
   ArrowRight,
@@ -18,7 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { PageHeader } from '@/components/ui/Primitives';
+import { PageHeader, LoadingSpinner } from '@/components/ui/Primitives';
 import { createClient } from '@/lib/supabase/client';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import {
@@ -37,10 +38,18 @@ const AttendancePeakChart = dynamic(() => import('@/components/dashboard/Attenda
   loading: () => <ChartSkeleton />
 });
 
-export default function AttendancePage() {
+function AttendancePageContent() {
+  const searchParams = useSearchParams();
+  const deviceIdParam = searchParams.get('device_id');
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(deviceIdParam || '');
+
+  useEffect(() => {
+    if (deviceIdParam) {
+      setSearchQuery(deviceIdParam);
+    }
+  }, [deviceIdParam]);
   const [loading, setLoading] = useState(true);
   const [syncLogs, setSyncLogs] = useState<BiometricSyncLog[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -357,5 +366,13 @@ export default function AttendancePage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function AttendancePage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <AttendancePageContent />
+    </Suspense>
   );
 }

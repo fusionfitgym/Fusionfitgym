@@ -55,6 +55,7 @@ export interface AttendanceLog {
   member_id: string;
   member_name: string;
   biometric_user_id: string;
+  device_id?: string;
   punch_time: string;
   punch_type: 'checkin' | 'checkout';
   created_at?: string;
@@ -209,14 +210,16 @@ export const INVOICE_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
 
 // ── Biometric Devices & Sync Logs ────────────────────────────
 export interface BiometricDevice {
-  id: string;
-  name: string;
-  serial_number: string;
-  ip_address?: string | null;
-  status: 'Online' | 'Offline';
-  last_sync?: string | null;
-  created_at?: string;
-  updated_at?: string;
+  device_name: string;
+  device_id: string;
+  device_ip?: string | null;
+  device_port?: number | null;
+  status?: string | null;
+  users_count?: number;
+  last_seen?: string | null;
+  lastheartbeat?: string | null;
+  lastattendancereceived?: string | null;
+  latency?: string | number | null;
 }
 
 export interface BiometricSyncLog {
