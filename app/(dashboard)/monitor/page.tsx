@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Clock, Dumbbell, Fingerprint, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { getMemberById } from '@/lib/actions/members';
+import { getMemberById, getMemberByBiometricId } from '@/lib/actions/members';
 import { getTodayMonitorLogs } from '@/lib/actions/attendance';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageHeader } from '@/components/ui/Primitives';
@@ -57,14 +57,10 @@ export default function CheckinMonitorPage() {
         async (payload: any) => {
           const newLog = payload.new as any;
           try {
-            const memberInfo = await getMemberById(newLog.member_id);
-            const enrichedLog = { ...newLog, member: memberInfo };
+            const memberInfo = await getMemberByBiometricId(newLog.member_id);
+            const cleanId = newLog.member_id ? newLog.member_id.replace(/[^0-9]/g, '') : '';
             
-            // Push to the logs history and update the focal card
-            setLogs((prev) => [enrichedLog, ...prev.slice(0, 19)]); // keep last 20
-            setLastCheckin(enrichedLog);
-
-            // Play checkin status tone (high for active, low for expired)
+            // Play checkin status tone (high for active, low for expired/unmatched)
             if (typeof window !== 'undefined') {
               const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
               const oscillator = audioCtx.createOscillator();
@@ -77,6 +73,22 @@ export default function CheckinMonitorPage() {
               oscillator.start();
               oscillator.stop(audioCtx.currentTime + 0.15);
             }
+
+            setLogs((prev) => {
+              const punch_type = prev.filter(l => l.biometric_user_id === cleanId).length % 2 === 0 ? 'checkin' : 'checkout';
+              const enrichedLog = {
+                id: newLog.id,
+                member_id: memberInfo ? memberInfo.id : newLog.member_id,
+                member_name: memberInfo ? memberInfo.full_name : `Unknown Member (${newLog.member_id})`,
+                biometric_user_id: cleanId,
+                punch_time: newLog.created_at || newLog.punch_time,
+                punch_type,
+                member: memberInfo
+              };
+              
+              setLastCheckin(enrichedLog as any);
+              return [enrichedLog as any, ...prev.slice(0, 19)];
+            });
           } catch (err) {
             console.error('Error handling realtime log payload:', err);
           }

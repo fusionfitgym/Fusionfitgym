@@ -242,3 +242,25 @@ export async function getMembersPaginated({
     totalCount: count || 0,
   };
 }
+
+export async function getMemberByBiometricId(biometricId: string): Promise<Member | null> {
+  const supabase = await createClient();
+  
+  // Clean biometric ID to digits only
+  const cleanId = biometricId.replace(/[^0-9]/g, '');
+  if (!cleanId) return null;
+  
+  const { data, error } = await supabase
+    .from('members')
+    .select('*')
+    .eq('biometric_user_id', cleanId)
+    .limit(1)
+    .maybeSingle();
+    
+  if (error) {
+    console.error('Error in getMemberByBiometricId:', error);
+    return null;
+  }
+  return data as Member;
+}
+

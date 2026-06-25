@@ -20,7 +20,113 @@ function getStartOfTodayIST(): Date {
   return new Date(Date.UTC(year, month, day) - istOffsetMs);
 }
 
-// Fetch all attendance logs for the current calendar day
+// Helper: Extract numeric digits from biometric ID string
+function cleanBiometricId(id: string | null | undefined): string {
+  if (!id) return '';
+  return id.replace(/[^0-9]/g, '');
+}
+
+// Helper: Resolve timestamp, falling back to created_at if punch_time is invalid/prior to 2024
+function getBestTimestamp(log: any): string {
+  const pt = log.punch_time ? new Date(log.punch_time) : null;
+  if (!pt || isNaN(pt.getTime()) || pt.getFullYear() < 2024) {
+    return log.created_at;
+  }
+  return log.punch_time;
+}
+
+// Helper: Enrich raw logs with member data and alternate punch types dynamically
+async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
+  const supabase = await createClient();
+  
+  // Fetch all members with biometric user IDs for matching
+  const { data: members, error: membersError } = await supabase
+    .from('members')
+    .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo, biometric_user_id');
+    
+  if (membersError) {
+    console.error('Error fetching members for matching:', membersError);
+    return [];
+  }
+
+  // Create lookup map (key: clean biometric ID digits, value: member object)
+  const membersMap = new Map<string, any>();
+  members.forEach((member: any) => {
+    if (member.biometric_user_id) {
+      const cleanId = cleanBiometricId(member.biometric_user_id);
+      if (cleanId) {
+        membersMap.set(cleanId, member);
+      }
+    }
+  });
+
+  // Sort raw logs chronologically (ascending) to accurately alternate check-in/check-out
+  const sortedRaw = [...rawLogs].sort((a, b) => 
+    new Date(a.created_at || a.punch_time).getTime() - new Date(b.created_at || b.punch_time).getTime()
+  );
+  
+  const punchCounts: Record<string, number> = {};
+  
+  const enrichedSorted = sortedRaw.map((log) => {
+    const rawBiometricId = log.member_id || '';
+    const cleanId = cleanBiometricId(rawBiometricId);
+    
+    // Match member
+    const member = membersMap.get(cleanId) || null;
+    
+    // Alternate punch types per member per calendar day
+    const timestamp = getBestTimestamp(log);
+    const dateStr = new Date(timestamp).toDateString();
+    const punchKey = `${cleanId || rawBiometricId}_${dateStr}`;
+    const punchIndex = punchCounts[punchKey] || 0;
+    punchCounts[punchKey] = punchIndex + 1;
+    const punch_type = punchIndex % 2 === 0 ? 'checkin' : 'checkout';
+    
+    return {
+      id: log.id,
+      member_id: member ? member.id : rawBiometricId,
+      member_name: member ? member.full_name : `Unknown Member (${rawBiometricId})`,
+      biometric_user_id: cleanId || rawBiometricId,
+      device_id: log.device_id,
+      punch_time: timestamp,
+      punch_type,
+      created_at: log.created_at,
+      member: member ? {
+        id: member.id,
+        full_name: member.full_name,
+        phone: member.phone,
+        email: member.email,
+        membership_plan: member.membership_plan,
+        join_date: member.join_date,
+        status: member.status,
+        profile_photo: member.profile_photo,
+        biometric_user_id: member.biometric_user_id
+      } : undefined
+    };
+  });
+
+  // Sort back to descending (newest first) for UI presentation
+  const finalLogs = enrichedSorted.sort((a, b) => 
+    new Date(b.punch_time).getTime() - new Date(a.punch_time).getTime()
+  );
+
+  // DEBUG LOGGING (Requirement 9)
+  const matchCount = finalLogs.filter(l => l.member).length;
+  const unmatchedIds = Array.from(new Set(
+    finalLogs.filter(l => !l.member).map(l => l.biometric_user_id)
+  ));
+  
+  console.log(`[DEBUG Attendance Enrich]
+    Total raw records fetched: ${rawLogs.length}
+    Successfully matched members: ${matchCount}
+    Unmatched records: ${rawLogs.length - matchCount}
+    Unmatched Biometric IDs:`, unmatchedIds
+  );
+
+  return finalLogs as AttendanceLog[];
+}
+
+// Fetch all attendance logs for the current calendar day (using created_at)
 export async function getTodayAttendanceLogs(): Promise<AttendanceLog[]> {
   const supabase = await createClient();
   const startOfDay = getStartOfTodayIST();
@@ -28,14 +134,15 @@ export async function getTodayAttendanceLogs(): Promise<AttendanceLog[]> {
   const { data, error } = await supabase
     .from('attendance_logs')
     .select('*')
-    .gte('punch_time', startOfDay.toISOString())
-    .order('punch_time', { ascending: false });
+    .gte('created_at', startOfDay.toISOString())
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error in getTodayAttendanceLogs:', error);
     throw error;
   }
-  return data as AttendanceLog[];
+  
+  return enrichLogs(data || []);
 }
 
 // Fetch general attendance history with filters
@@ -48,52 +155,62 @@ export async function getAttendanceHistory(filters?: {
   let query = supabase.from('attendance_logs').select('*');
 
   if (filters?.member_id) {
-    query = query.eq('member_id', filters.member_id);
+    // If the filter is passing member_id as a UUID, find that member first
+    const { data: member } = await supabase
+      .from('members')
+      .select('biometric_user_id')
+      .eq('id', filters.member_id)
+      .single();
+      
+    if (member?.biometric_user_id) {
+      query = query.or(`member_id.eq.${member.biometric_user_id},member_id.ilike.%PIN=${member.biometric_user_id}`);
+    } else {
+      return [];
+    }
   }
+  
   if (filters?.startDate) {
-    query = query.gte('punch_time', new Date(filters.startDate).toISOString());
+    query = query.gte('created_at', new Date(filters.startDate).toISOString());
   }
   if (filters?.endDate) {
-    // Extend end date to late night
     const end = new Date(filters.endDate);
     end.setHours(23, 59, 59, 999);
-    query = query.lte('punch_time', end.toISOString());
+    query = query.lte('created_at', end.toISOString());
   }
 
-  const { data, error } = await query.order('punch_time', { ascending: false });
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error in getAttendanceHistory:', error);
     throw error;
   }
-  return data as AttendanceLog[];
+  
+  return enrichLogs(data || []);
 }
 
 // Calculate current metrics, including check-ins, check-outs, and live occupancy
 export async function getAttendanceAnalytics() {
   const supabase = await createClient();
-
   const startOfDay = getStartOfTodayIST();
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   thirtyDaysAgo.setHours(0,0,0,0);
 
-  // Fetch all attendance analytics queries in parallel to optimize DB load
+  // Fetch today's logs and past 30 days logs
   const [
-    { data: todayLogs, error: todayError },
-    { data: trendLogs, error: trendError }
+    { data: todayRawLogs, error: todayError },
+    { data: trendRawLogs, error: trendError }
   ] = await Promise.all([
     supabase
       .from('attendance_logs')
-      .select('member_id, punch_type, punch_time')
-      .gte('punch_time', startOfDay.toISOString())
-      .order('punch_time', { ascending: true }),
+      .select('*')
+      .gte('created_at', startOfDay.toISOString())
+      .order('created_at', { ascending: true }),
     supabase
       .from('attendance_logs')
-      .select('punch_time, punch_type')
-      .gte('punch_time', thirtyDaysAgo.toISOString())
-      .eq('punch_type', 'checkin')
+      .select('*')
+      .gte('created_at', thirtyDaysAgo.toISOString())
   ]);
 
   if (todayError) {
@@ -101,29 +218,31 @@ export async function getAttendanceAnalytics() {
     return { checkins: 0, checkouts: 0, occupancy: 0, dailyTrend: [], hourlyDistribution: [] };
   }
 
+  // Enrich logs to match members and calculate punch types
+  const todayLogs = await enrichLogs(todayRawLogs || []);
+  const trendLogs = await enrichLogs(trendRawLogs || []);
+
   let checkins = 0;
   let checkouts = 0;
-  todayLogs?.forEach((log: any) => {
+  todayLogs.forEach((log: any) => {
     if (log?.punch_type === 'checkin') checkins++;
     else if (log?.punch_type === 'checkout') checkouts++;
   });
 
-  // Occupancy: use ALL of today's logs (sorted ascending) to track who is currently inside
+  // Calculate live occupancy based on inside members
   const activeMembers = new Set<string>();
-  if (todayLogs) {
-    todayLogs.forEach((log: any) => {
-      if (log?.member_id) {
-        if (log.punch_type === 'checkin') {
-          activeMembers.add(log.member_id);
-        } else if (log.punch_type === 'checkout') {
-          activeMembers.delete(log.member_id);
-        }
+  todayLogs.forEach((log: any) => {
+    if (log?.member_id) {
+      if (log.punch_type === 'checkin') {
+        activeMembers.add(log.member_id);
+      } else if (log.punch_type === 'checkout') {
+        activeMembers.delete(log.member_id);
       }
-    });
-  }
+    }
+  });
   const occupancy = activeMembers.size;
 
-
+  // Daily trend calculations (last 30 days)
   const dailyCounts: Record<string, number> = {};
   for (let i = 29; i >= 0; i--) {
     const d = new Date();
@@ -132,7 +251,7 @@ export async function getAttendanceAnalytics() {
     dailyCounts[dateStr] = 0;
   }
 
-  trendLogs?.forEach((log: any) => {
+  trendLogs.forEach((log: any) => {
     const dateStr = new Date(log.punch_time).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
     if (dailyCounts[dateStr] !== undefined) {
       dailyCounts[dateStr]++;
@@ -144,15 +263,14 @@ export async function getAttendanceAnalytics() {
   // Hourly distribution for today
   const hourlyCounts: Record<number, number> = {};
   for (let i = 5; i <= 23; i++) {
-    // 5 AM to 11 PM
     hourlyCounts[i] = 0;
   }
 
-  todayLogs?.forEach((log: any) => {
+  todayLogs.forEach((log: any) => {
     if (log?.punch_type === 'checkin' && log?.punch_time) {
       const pDate = new Date(log.punch_time);
       if (!isNaN(pDate.getTime())) {
-        // Convert UTC time to IST hours for display
+        // Convert to IST hours for trend grouping
         const istHours = (pDate.getUTCHours() + 5 + Math.floor((pDate.getUTCMinutes() + 30) / 60)) % 24;
         if (hourlyCounts[istHours] !== undefined) {
           hourlyCounts[istHours]++;
@@ -183,7 +301,7 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
 
   const { data: log } = await supabase
     .from('attendance_logs')
-    .select('member_name, punch_time')
+    .select('punch_time, member_id')
     .eq('id', id)
     .single();
 
@@ -199,7 +317,7 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
 
   const punchTimeStr = log?.punch_time ? new Date(log.punch_time).toLocaleTimeString() : '';
   await logAudit(
-    `Deleted attendance check-in for: ${log?.member_name || id} ${punchTimeStr ? `at ${punchTimeStr}` : ''}`,
+    `Deleted attendance check-in for member ID: ${log?.member_id || id} ${punchTimeStr ? `at ${punchTimeStr}` : ''}`,
     'Attendance',
     user.id
   );
@@ -207,18 +325,16 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
   revalidatePath('/attendance');
 }
 
-// Fetch the 10 most recent logs of today, batch-enriching member data on the server
+// Fetch the 10 most recent logs of today, batch-enriching member data
 export async function getTodayMonitorLogs() {
   const supabase = await createClient();
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = getStartOfTodayIST();
 
-  // Fetch the 10 most recent logs of today in a single query
   const { data: logs, error: logsError } = await supabase
     .from('attendance_logs')
-    .select('id, member_id, member_name, biometric_user_id, punch_time, punch_type')
-    .gte('punch_time', startOfDay.toISOString())
-    .order('punch_time', { ascending: false })
+    .select('*')
+    .gte('created_at', startOfDay.toISOString())
+    .order('created_at', { ascending: false })
     .limit(10);
 
   if (logsError) {
@@ -226,26 +342,7 @@ export async function getTodayMonitorLogs() {
     throw logsError;
   }
 
-  if (!logs || logs.length === 0) return [];
-
-  // Batch query all associated members to avoid N+1 query overhead in client
-  const memberIds = Array.from(new Set(logs.map((log: any) => log?.member_id).filter(Boolean)));
-  const { data: members, error: membersError } = await supabase
-    .from('members')
-    .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo')
-    .in('id', memberIds);
-
-  if (membersError) {
-    console.error('Error fetching batch members for monitor:', membersError);
-    throw membersError;
-  }
-
-  const memberMap = new Map((members || []).map((m: any) => [m.id, m]));
-
-  return logs.map((log: any) => ({
-    ...log,
-    member: log?.member_id ? memberMap.get(log.member_id) || null : null
-  }));
+  return enrichLogs(logs || []);
 }
 
 export async function getSyncLogs(): Promise<BiometricSyncLog[]> {
