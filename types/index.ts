@@ -210,16 +210,14 @@ export const INVOICE_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
 
 // ── Biometric Devices & Sync Logs ────────────────────────────
 export interface BiometricDevice {
-  device_name: string;
-  device_id: string;
-  device_ip?: string | null;
-  device_port?: number | null;
-  status?: string | null;
-  users_count?: number;
-  last_seen?: string | null;
-  lastheartbeat?: string | null;
-  lastattendancereceived?: string | null;
-  latency?: string | number | null;
+  id: string;
+  name: string;
+  serial_number: string;
+  ip_address?: string | null;
+  status: 'Online' | 'Offline';
+  last_sync?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface BiometricSyncLog {
