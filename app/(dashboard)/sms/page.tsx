@@ -558,21 +558,21 @@ export default function SMSNotificationCenterPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-20 text-white select-none">
+    <div className="page page-enter pb-20 select-none text-slate-800">
       
       {/* 1. Compact Sticky Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.08] bg-slate-900/90 px-4 py-3 backdrop-blur-md">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur-md shadow-sm">
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-amber-400 flex items-center gap-1.5">
-            <Smartphone className="h-5 w-5" /> SMS Hub
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
+            <Smartphone className="h-5 w-5 text-amber-500" /> SMS Hub
           </h1>
-          <p className="text-[10px] text-slate-400">Manage member notifications and reminders</p>
+          <p className="text-[10px] text-slate-500">Manage member notifications and reminders</p>
         </div>
         <button
           type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-300 transition-all active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/60 text-slate-600 hover:text-slate-800 transition-all active:scale-95"
           title="Refresh Hub"
         >
           <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
@@ -583,97 +583,112 @@ export default function SMSNotificationCenterPage() {
         
         {/* Device Status banner */}
         {stats && (
-          <div className={cn(
-            "rounded-2xl border px-4 py-3 flex items-center justify-between transition-all",
-            stats.deviceStatus === 'Online' 
-              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
-          )}>
-            <div className="flex items-center gap-2.5">
-              <span className={cn("h-2.5 w-2.5 rounded-full", stats.deviceStatus === 'Online' ? "bg-emerald-500 animate-pulse" : "bg-amber-500")} />
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider">Device Status: {stats.deviceStatus}</p>
-                <p className="text-[9px] opacity-75 mt-0.5">Last Heartbeat: {stats.lastSync ? formatDate(stats.lastSync) : 'Never'}</p>
+          <div className="card p-4 flex flex-row items-center justify-between shadow-sm bg-white border border-slate-200">
+            <div className="space-y-1">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Device Status</h3>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold",
+                  stats.deviceStatus === 'Online' 
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                    : "bg-red-50 text-red-700 border border-red-200"
+                )}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full", stats.deviceStatus === 'Online' ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
+                  {stats.deviceStatus === 'Online' ? 'Connected' : 'Disconnected'}
+                </span>
               </div>
             </div>
-            <Phone className="h-4 w-4 opacity-75" />
+            <div className="text-right text-[11px] text-slate-500 font-medium">
+              <span className="block text-slate-400">Last Heartbeat:</span>
+              <span className="font-semibold text-slate-700 mt-0.5 block">
+                {stats.lastSync ? formatDate(stats.lastSync) : 'Never'}
+              </span>
+            </div>
           </div>
         )}
 
         {/* 2. Statistics Grid */}
         <section className="grid grid-cols-2 gap-3.5">
-          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Sent Today</span>
-              <Send className="h-4 w-4 text-emerald-500" />
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between min-h-24 transition-all hover:shadow-md hover:border-slate-300">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sent Today</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+                <Send className="h-4 w-4" />
+              </div>
             </div>
-            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{totalSent}</p>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-900 mt-2">{totalSent}</p>
           </div>
           
-          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
-              <Clock className="h-4 w-4 text-amber-500" />
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between min-h-24 transition-all hover:shadow-md hover:border-slate-300">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Pending</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+                <Clock className="h-4 w-4" />
+              </div>
             </div>
-            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{pendingCount}</p>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-900 mt-2">{pendingCount}</p>
           </div>
 
-          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Failed</span>
-              <XCircle className="h-4 w-4 text-red-500" />
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between min-h-24 transition-all hover:shadow-md hover:border-slate-300">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Failed</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+                <XCircle className="h-4 w-4" />
+              </div>
             </div>
-            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{failedCount}</p>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-900 mt-2">{failedCount}</p>
           </div>
 
-          <div className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-3.5 shadow-lg flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Queue</span>
-              <Inbox className="h-4 w-4 text-indigo-400" />
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col justify-between min-h-24 transition-all hover:shadow-md hover:border-slate-300">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Queue</span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-500">
+                <Inbox className="h-4 w-4" />
+              </div>
             </div>
-            <p className="text-2xl font-extrabold tracking-tight text-slate-100 mt-2">{totalQueue}</p>
+            <p className="text-2xl font-extrabold tracking-tight text-slate-900 mt-2">{totalQueue}</p>
           </div>
         </section>
 
         {/* 3. Quick Actions Section */}
-        <section className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
+        <section className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => openComposeWizard('Invoice')}
-              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+              className="btn btn-primary py-3 w-full font-bold text-xs shadow-sm transition-all rounded-xl flex items-center justify-center gap-2"
             >
               <FileText className="h-4 w-4" /> Send Invoice
             </button>
             <button
               type="button"
               onClick={() => openComposeWizard('Renewal')}
-              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+              className="btn btn-primary py-3 w-full font-bold text-xs shadow-sm transition-all rounded-xl flex items-center justify-center gap-2"
             >
               <RotateCcw className="h-4 w-4" /> Send Renewal
             </button>
             <button
               type="button"
               onClick={() => openComposeWizard('Welcome')}
-              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+              className="btn btn-primary py-3 w-full font-bold text-xs shadow-sm transition-all rounded-xl flex items-center justify-center gap-2"
             >
               <Sparkles className="h-4 w-4" /> Send Welcome
             </button>
             <button
               type="button"
               onClick={() => scrollToSection('activity-timeline')}
-              className="flex items-center gap-2 justify-center py-3 px-2 rounded-xl bg-slate-800 border border-white/[0.08] text-slate-200 font-bold text-xs shadow-md transition-all active:scale-[0.97]"
+              className="btn btn-secondary py-3 w-full font-bold text-xs shadow-sm transition-all rounded-xl flex items-center justify-center gap-2"
             >
-              <MessageSquare className="h-4 w-4 text-amber-400" /> View Activity
+              <MessageSquare className="h-4 w-4 text-amber-500" /> View Activity
             </button>
           </div>
         </section>
 
         {/* 4. Smart Notifications Collapsible Accordions */}
-        <section className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg space-y-3">
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Smart Notifications
+        <section className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3">
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Smart Notifications
           </h2>
 
           {[
@@ -704,19 +719,19 @@ export default function SMSNotificationCenterPage() {
           ].map((grp) => {
             const isOpen = notificationsExpanded[grp.id];
             return (
-              <div key={grp.id} className="border border-white/[0.06] rounded-xl overflow-hidden bg-slate-900/60">
+              <div key={grp.id} className="border border-slate-200/80 rounded-xl overflow-hidden bg-white shadow-sm">
                 <button
                   type="button"
                   onClick={() => setNotificationsExpanded({
                     ...notificationsExpanded,
                     [grp.id]: !isOpen
                   })}
-                  className="w-full flex items-center justify-between px-3.5 py-3 hover:bg-white/[0.02]"
+                  className="w-full flex items-center justify-between px-3.5 py-3 hover:bg-slate-50/50 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn("h-2 w-2 rounded-full", grp.urgent ? "bg-red-500 animate-pulse" : "bg-amber-400")} />
-                    <span className="text-xs font-bold text-slate-200">{grp.title}</span>
-                    <span className="rounded-full bg-slate-800 border border-white/[0.05] px-2 py-0.5 text-[9px] text-slate-400">
+                    <span className="text-xs font-bold text-slate-800">{grp.title}</span>
+                    <span className="rounded-full bg-amber-100 border border-amber-200/50 px-2 py-0.5 text-[9px] text-amber-800 font-bold">
                       {grp.members.length}
                     </span>
                   </div>
@@ -724,10 +739,10 @@ export default function SMSNotificationCenterPage() {
                 </button>
 
                 {isOpen && (
-                  <div className="px-3 pb-3 pt-1 border-t border-white/[0.03] space-y-3.5">
+                  <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/30 space-y-3.5">
                     {grp.members.length > 0 && (
-                      <div className="flex justify-between items-center bg-white/[0.02] p-2 rounded-lg border border-white/[0.04]">
-                        <span className="text-[10px] text-slate-400 font-semibold">Bulk action</span>
+                      <div className="flex justify-between items-center bg-slate-50/80 border border-slate-200/60 p-2 rounded-lg mt-2">
+                        <span className="text-[10px] text-slate-500 font-semibold">Bulk action</span>
                         <button
                           type="button"
                           onClick={() => void handleSendAllGroup(grp.members, grp.template, grp.typeName)}
@@ -738,18 +753,18 @@ export default function SMSNotificationCenterPage() {
                       </div>
                     )}
                     {grp.members.length === 0 ? (
-                      <p className="text-center text-xs text-slate-500 py-2">No members in this roster.</p>
+                      <p className="text-center text-xs text-slate-450 py-2">No members in this roster.</p>
                     ) : (
                       <div className="space-y-2.5">
                         {grp.members.map((m) => {
                           const pendingLog = findPendingLog(m.id, grp.typeName.split(' ')[0]);
                           const message = pendingLog?.message || buildMemberMessage(m, grp.template, { days_left: String(getDaysUntilExpiry(m.package_end_date)) });
                           return (
-                            <div key={m.id} className="bg-slate-950/40 border border-white/[0.04] rounded-xl p-3 flex flex-col gap-3">
+                            <div key={m.id} className="bg-white border border-slate-200/80 rounded-xl p-3 flex flex-col gap-3 shadow-sm">
                               <div>
-                                <h4 className="text-xs font-bold text-slate-200">{m.full_name}</h4>
-                                <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
-                                  <span className="font-mono">{m.phone}</span>
+                                <h4 className="text-xs font-bold text-slate-900">{m.full_name}</h4>
+                                <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">
+                                  <span className="font-mono">📱 {m.phone}</span>
                                   <span>·</span>
                                   <span>Exp: {formatDate(m.package_end_date)}</span>
                                 </div>
@@ -758,7 +773,7 @@ export default function SMSNotificationCenterPage() {
                                 <button
                                   type="button"
                                   onClick={() => void handleDismiss(m.id, grp.id, pendingLog?.id)}
-                                  className="btn btn-secondary py-1.5 px-3 text-[10px] font-semibold text-slate-300 hover:text-white"
+                                  className="btn btn-secondary py-1.5 px-3 text-[10px]"
                                 >
                                   Dismiss
                                 </button>
@@ -772,7 +787,7 @@ export default function SMSNotificationCenterPage() {
                                     messageType: grp.typeName,
                                     title: `Edit — ${m.full_name}`
                                   })}
-                                  className="btn btn-secondary py-1.5 px-3 text-[10px] font-semibold text-slate-300"
+                                  className="btn btn-secondary py-1.5 px-3 text-[10px]"
                                 >
                                   Edit
                                 </button>
@@ -797,17 +812,17 @@ export default function SMSNotificationCenterPage() {
         </section>
 
         {/* 5. Pending SMS Queue (Mobile Cards, Highest Priority) */}
-        <section id="pending-queue-section" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Inbox className="h-4 w-4 text-amber-400" /> Pending Queue
+        <section id="pending-queue-section" className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <Inbox className="h-4 w-4 text-amber-500" /> Pending Queue
             </h2>
-            <span className="text-xs font-bold text-amber-400/90">{pendingCount} pending</span>
+            <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[10px]">{pendingCount} pending</span>
           </div>
 
           {pendingCount === 0 ? (
             <EmptyState
-              icon={<Inbox className="h-6 w-6 text-slate-500" />}
+              icon={<Inbox className="h-6 w-6 text-slate-400" />}
               title="Queue is empty"
               description="ERP automations will insert alert logs here when memberships run out or invoices are pending."
             />
@@ -819,26 +834,26 @@ export default function SMSNotificationCenterPage() {
                 const isLoading = actionLoadingId === log.id;
                 
                 return (
-                  <article key={log.id} className="bg-slate-900/80 border border-white/[0.06] rounded-2xl p-4 shadow-md space-y-3">
+                  <article key={log.id} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-sm font-bold text-slate-100">{log.member?.full_name || '—'}</h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                        <h3 className="text-sm font-bold text-slate-950">{log.member?.full_name || '—'}</h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                           <span className="font-mono">📱 {phone}</span>
                           <span>·</span>
-                          <span className="font-semibold text-indigo-400">📩 {smsType}</span>
+                          <span className="font-semibold text-indigo-650 bg-indigo-50 border border-indigo-100/50 px-1.5 py-0.5 rounded">📩 {smsType}</span>
                         </div>
                       </div>
-                      <span className="badge border border-amber-500/25 bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2">
+                      <span className="badge border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2">
                         Pending
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-300 bg-slate-950/40 rounded-xl p-3 border border-white/[0.03] font-medium leading-relaxed max-h-24 overflow-y-auto whitespace-pre-wrap">
+                    <div className="text-xs text-slate-700 bg-slate-50 rounded-xl p-3 border border-slate-200/60 font-medium leading-relaxed max-h-24 overflow-y-auto whitespace-pre-wrap">
                       {log.message}
                     </div>
 
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
                       <span>Created today</span>
                       <span>
                         🕒{' '}
@@ -846,7 +861,7 @@ export default function SMSNotificationCenterPage() {
                           ? new Date(log.created_at).toLocaleTimeString('en-IN', {
                               hour: '2-digit',
                               minute: '2-digit',
-                            })
+                             })
                           : '—'}
                       </span>
                     </div>
@@ -883,19 +898,19 @@ export default function SMSNotificationCenterPage() {
         </section>
 
         {/* 6. Recent SMS Activity (Timeline Layout) */}
-        <section id="activity-timeline" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
-          <div className="border-b border-white/[0.06] pb-3 mb-4 space-y-3">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <MessageSquare className="h-4 w-4 text-amber-400" /> Recent SMS Activity
+        <section id="activity-timeline" className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+          <div className="border-b border-slate-100 pb-3 mb-4 space-y-3">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <MessageSquare className="h-4 w-4 text-amber-500" /> Recent SMS Activity
             </h2>
-            <div className="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-xl border border-white/[0.04] shadow-inner">
+            <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-inner">
               <Search className="h-3.5 w-3.5 text-slate-400 ml-1.5" />
               <input
                 type="text"
                 placeholder="Search member name or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-0 outline-none text-xs text-white placeholder-slate-500 w-full"
+                className="bg-transparent border-0 outline-none text-xs text-slate-900 placeholder-slate-400 w-full"
               />
             </div>
             
@@ -909,8 +924,8 @@ export default function SMSNotificationCenterPage() {
                   className={cn(
                     'rounded-lg border px-3.5 py-1.5 text-[10px] font-bold transition-all shrink-0 active:scale-95',
                     activityFilter === f
-                      ? 'border-amber-400 bg-amber-400 text-zinc-950 shadow-md'
-                      : 'border-white/[0.08] bg-slate-950/20 text-slate-300 hover:bg-slate-800'
+                      ? 'border-amber-400 bg-amber-400 text-zinc-950 shadow-sm'
+                      : 'border-slate-200 bg-slate-50 text-slate-650 hover:bg-slate-100'
                   )}
                 >
                   {f}
@@ -922,7 +937,7 @@ export default function SMSNotificationCenterPage() {
           {recentActivity.length === 0 ? (
             <EmptyState icon={<MessageSquare className="h-5 w-5" />} title="No activity found" />
           ) : (
-            <div className="relative pl-4 border-l border-white/[0.08] space-y-5 py-2">
+            <div className="relative pl-4 border-l border-slate-200 space-y-5 py-2">
               {recentActivity.slice(0, 20).map((log) => {
                 const phone = log.phone_number || log.phone || '—';
                 const smsType = log.message_type || log.sms_type || '—';
@@ -932,29 +947,31 @@ export default function SMSNotificationCenterPage() {
                   <article key={log.id} className="relative space-y-1.5">
                     {/* Timeline Node Point */}
                     <span className={cn(
-                      "absolute -left-[20.5px] top-1.5 h-3 w-3 rounded-full border border-slate-900 shadow",
-                      log.status === 'Sent' ? "bg-emerald-500" : log.status === 'Failed' ? "bg-red-500" : "bg-amber-500"
+                      "absolute -left-[20.5px] top-1.5 h-3 w-3 rounded-full border border-white shadow-sm",
+                      log.status === 'Sent' ? "bg-blue-500" : log.status === 'Failed' ? "bg-red-500" : log.status === 'Skipped' ? "bg-slate-400" : "bg-amber-500"
                     )} />
 
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-mono text-slate-400">
+                      <span className="text-[10px] font-mono text-slate-500">
                         {log.created_at ? formatDate(log.created_at) : '—'}
                       </span>
                       <span className={cn(
                         "text-[9px] font-bold border rounded py-0.5 px-2",
                         log.status === 'Sent' 
-                          ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' 
+                          ? 'border-blue-200 bg-blue-50 text-blue-700' 
                           : log.status === 'Failed' 
-                          ? 'border-red-500/20 bg-red-500/10 text-red-400' 
-                          : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                          ? 'border-red-200 bg-red-50 text-red-700' 
+                          : log.status === 'Skipped'
+                          ? 'border-slate-200 bg-slate-100 text-slate-600'
+                          : 'border-amber-200 bg-amber-50 text-amber-700'
                       )}>
-                        {log.status}
+                        {log.status === 'Sent' ? 'Opened' : log.status}
                       </span>
                     </div>
 
                     <div>
-                      <h4 className="text-xs font-bold text-slate-100">{log.member?.full_name || '—'}</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{smsType} · <span className="font-mono">{phone}</span></p>
+                      <h4 className="text-xs font-bold text-slate-900">{log.member?.full_name || '—'}</h4>
+                      <p className="text-[10px] text-slate-500 mt-0.5">{smsType} · <span className="font-mono">{phone}</span></p>
                     </div>
 
                     <div className="flex items-center gap-1.5 pt-1">
@@ -1000,10 +1017,10 @@ export default function SMSNotificationCenterPage() {
         </section>
 
         {/* 7. SMS Templates (Accordion Cards, only one expanded) */}
-        <section id="sms-templates" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="h-4 w-4 text-amber-400" /> Templates Directory
+        <section id="sms-templates" className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-amber-500" /> Templates Directory
             </h2>
             <button
               type="button"
@@ -1015,7 +1032,7 @@ export default function SMSNotificationCenterPage() {
               }}
               className="btn btn-secondary py-1.5 px-3 text-[10px] font-bold rounded-lg flex items-center gap-1"
             >
-              <Plus className="h-3.5 w-3.5 text-amber-400" /> Create New
+              <Plus className="h-3.5 w-3.5 text-amber-500" /> Create New
             </button>
           </div>
 
@@ -1023,19 +1040,19 @@ export default function SMSNotificationCenterPage() {
             {templatesList.map((tpl) => {
               const isExpanded = expandedTemplate === tpl.key;
               return (
-                <div key={tpl.key} className="border border-white/[0.06] rounded-xl overflow-hidden bg-slate-900/60">
+                <div key={tpl.key} className="border border-slate-200/60 rounded-xl overflow-hidden bg-white shadow-sm">
                   <button
                     type="button"
                     onClick={() => setExpandedTemplate(isExpanded ? null : tpl.key)}
-                    className="w-full flex items-center justify-between p-3.5 hover:bg-white/[0.02]"
+                    className="w-full flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors"
                   >
-                    <span className="text-xs font-bold text-slate-200">{tpl.name}</span>
+                    <span className="text-xs font-bold text-slate-800">{tpl.name}</span>
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                   </button>
 
                   {isExpanded && (
-                    <div className="px-3.5 pb-3.5 pt-1 border-t border-white/[0.03] space-y-3">
-                      <div className="text-xs font-mono bg-slate-950/40 p-3 rounded-lg border border-white/[0.03] text-slate-300 leading-relaxed whitespace-pre-wrap">
+                    <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100 space-y-3">
+                      <div className="text-xs font-mono bg-slate-50 p-3 rounded-lg border border-slate-200/60 text-slate-700 leading-relaxed whitespace-pre-wrap">
                         {tpl.text}
                       </div>
 
@@ -1048,7 +1065,7 @@ export default function SMSNotificationCenterPage() {
                               setCustomTemplates(updated);
                               localStorage.setItem('fusionfit_custom_templates', JSON.stringify(updated));
                             }}
-                            className="btn btn-secondary py-1.5 px-2.5 text-[10px] font-semibold text-red-400 hover:text-red-500"
+                            className="btn btn-secondary py-1.5 px-2.5 text-[10px] font-semibold text-red-500 hover:text-red-600 border-red-200 hover:bg-red-50"
                             title="Delete custom template"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1067,7 +1084,7 @@ export default function SMSNotificationCenterPage() {
                           className="btn btn-secondary py-1.5 px-3 text-[10px] font-bold flex items-center gap-1"
                         >
                           {copiedTemplateName === tpl.name ? (
-                            <Check className="h-3 w-3 text-emerald-400" />
+                            <Check className="h-3 w-3 text-emerald-500" />
                           ) : (
                             <Copy className="h-3 w-3" />
                           )}
@@ -1098,26 +1115,26 @@ export default function SMSNotificationCenterPage() {
               );
             })}
           </div>
-          <div className="mt-3.5 flex items-start gap-1 bg-white/[0.02] border border-white/[0.04] p-3 rounded-xl">
-            <Info className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-            <p className="text-[9px] leading-normal text-slate-400">
+          <div className="mt-3.5 flex items-start gap-1 bg-slate-50 border border-slate-200/65 p-3 rounded-xl">
+            <Info className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
+            <p className="text-[9px] leading-normal text-slate-500">
               Personalization tags: {'{{member_name}}'}, {'{{expiry_date}}'}, {'{{amount}}'}, {'{{invoice_number}}'}, {'{{invoice_link}}'}, {'{{days_left}}'}
             </p>
           </div>
         </section>
 
         {/* 8. Invoice Notifications Cards */}
-        <section id="invoice-notif" className="bg-slate-900/40 border border-white/[0.05] rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 mb-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="h-4 w-4 text-amber-400" /> Invoice Alerts
+        <section id="invoice-notif" className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-amber-500" /> Invoice Alerts
             </h2>
-            <span className="text-xs text-slate-400 font-bold">{recentInvoices.length} recent</span>
+            <span className="text-xs text-slate-650 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full text-[10px] font-bold">{recentInvoices.length} recent</span>
           </div>
 
           {recentInvoices.length === 0 ? (
             <EmptyState
-              icon={<FileText className="h-6 w-6 text-slate-500" />}
+              icon={<FileText className="h-6 w-6 text-slate-400" />}
               title="No recent invoices"
               description="Generating standard packages will register billing logs here."
             />
@@ -1133,25 +1150,25 @@ export default function SMSNotificationCenterPage() {
                 const isLoading = actionLoadingId === inv.id;
                 
                 return (
-                  <article key={inv.id} className="bg-slate-900/80 border border-white/[0.06] rounded-2xl p-4 shadow-md space-y-3.5">
+                  <article key={inv.id} className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3.5 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-xs font-bold text-slate-100">{name}</h3>
-                        <p className="text-[10px] font-mono text-slate-400 mt-1">{inv.invoice_number} · {inv.created_at ? formatDate(inv.created_at) : '—'}</p>
+                        <h3 className="text-xs font-bold text-slate-950">{name}</h3>
+                        <p className="text-[10px] font-mono text-slate-500 mt-1">{inv.invoice_number} · {inv.created_at ? formatDate(inv.created_at) : '—'}</p>
                       </div>
                       <span className={cn(
                         "badge text-[9px] font-bold uppercase tracking-wide border py-0.5 px-2",
                         inv.status === 'Paid' 
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
                       )}>
                         {inv.status}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center bg-slate-950/40 rounded-xl p-3 border border-white/[0.03] text-xs">
-                      <span className="text-slate-400 font-semibold">Total Amount</span>
-                      <span className="text-slate-100 font-extrabold">{formatCurrency(inv.amount)}</span>
+                    <div className="flex justify-between items-center bg-slate-50 rounded-xl p-3 border border-slate-200/60 text-xs">
+                      <span className="text-slate-500 font-semibold">Total Amount</span>
+                      <span className="text-slate-900 font-extrabold text-sm">{formatCurrency(inv.amount)}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1182,7 +1199,7 @@ export default function SMSNotificationCenterPage() {
       </main>
 
       {/* 9. Bottom Navigation (Mobile Only, Sticky) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 border-t border-white/[0.08] backdrop-blur-md px-2 py-1.5 flex justify-around md:hidden shadow-2xl">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 border-t border-slate-200/85 backdrop-blur-md px-2 py-1.5 flex justify-around md:hidden shadow-[0_-8px_24px_rgba(0,0,0,0.03)]">
         {[
           { label: 'Queue', icon: Inbox, id: 'pending-queue-section' },
           { label: 'Activity', icon: MessageSquare, id: 'activity-timeline' },
@@ -1193,7 +1210,7 @@ export default function SMSNotificationCenterPage() {
             key={tab.label}
             type="button"
             onClick={() => scrollToSection(tab.id)}
-            className="flex flex-col items-center gap-1.5 text-slate-400 hover:text-amber-400 py-1 transition-all active:scale-90"
+            className="flex flex-col items-center gap-1.5 text-slate-500 hover:text-amber-600 py-1 transition-all active:scale-90"
           >
             <tab.icon className="h-4.5 w-4.5" />
             <span className="text-[9px] font-bold tracking-wide">{tab.label}</span>
@@ -1204,7 +1221,7 @@ export default function SMSNotificationCenterPage() {
       {/* 10. Floating Send Button (FAB) */}
       <div className="fixed bottom-20 right-4 z-40 md:bottom-6">
         {isFabMenuOpen && (
-          <div className="absolute bottom-16 right-0 bg-slate-950 border border-white/[0.08] rounded-2xl p-2.5 shadow-2xl space-y-1.5 w-44 animate-enter">
+          <div className="absolute bottom-16 right-0 bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-xl space-y-1.5 w-44 animate-enter">
             {[
               { label: 'Invoice Reminder', type: 'Invoice' },
               { label: 'Renewal Reminder', type: 'Renewal' },
@@ -1215,7 +1232,7 @@ export default function SMSNotificationCenterPage() {
                 key={opt.label}
                 type="button"
                 onClick={() => openComposeWizard(opt.type)}
-                className="w-full text-left py-2 px-3 hover:bg-white/[0.04] rounded-lg text-xs font-bold text-slate-200 transition-colors"
+                className="w-full text-left py-2 px-3 hover:bg-slate-50 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-950 transition-colors"
               >
                 • {opt.label}
               </button>
@@ -1225,7 +1242,7 @@ export default function SMSNotificationCenterPage() {
         <button
           type="button"
           onClick={() => setIsFabMenuOpen(!isFabMenuOpen)}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 text-zinc-950 shadow-2xl transition-all active:scale-90 focus:outline-none"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 hover:bg-amber-500 text-zinc-950 shadow-lg transition-all active:scale-90 focus:outline-none"
         >
           {isFabMenuOpen ? <X className="h-5 w-5 stroke-[2.5]" /> : <Plus className="h-6 w-6 stroke-[2.5]" />}
         </button>
@@ -1234,22 +1251,24 @@ export default function SMSNotificationCenterPage() {
       {/* Compose/Send SMS Modal Wizard */}
       {composeModal && composeModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm" onClick={() => setComposeModal(null)} />
-          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-md p-5 rounded-2xl shadow-2xl space-y-4 animate-enter text-white">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
-              <h3 className="text-sm font-bold text-amber-400">Send New SMS</h3>
-              <button type="button" onClick={() => setComposeModal(null)} className="text-slate-400 hover:text-white">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setComposeModal(null)} />
+          <div className="card bg-white border border-slate-200 relative z-10 w-full max-w-md p-5 rounded-2xl shadow-xl space-y-4 animate-enter text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <SendHorizontal className="h-4.5 w-4.5 text-amber-500" /> Send New SMS
+              </h3>
+              <button type="button" onClick={() => setComposeModal(null)} className="text-slate-400 hover:text-slate-650">
                 <X className="h-4.5 w-4.5" />
               </button>
             </div>
 
             <form onSubmit={handleComposeSubmit} className="space-y-4 text-slate-800">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Select Member</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Select Member</label>
                 <select
                   value={composeModal.memberId}
                   onChange={(e) => handleComposeFieldChange(composeModal.templateType, e.target.value)}
-                  className="select-field text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950"
+                  className="input-field w-full text-xs text-slate-800 bg-white border border-slate-200 focus:border-amber-450"
                 >
                   {members.map((m) => (
                     <option key={m.id} value={m.id} className="text-slate-800 bg-white">
@@ -1260,11 +1279,11 @@ export default function SMSNotificationCenterPage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Template Type</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Template Type</label>
                 <select
                   value={composeModal.templateType}
                   onChange={(e) => handleComposeFieldChange(e.target.value, composeModal.memberId)}
-                  className="select-field text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950"
+                  className="input-field w-full text-xs text-slate-800 bg-white border border-slate-200 focus:border-amber-455"
                 >
                   <option value="Welcome" className="text-slate-800 bg-white">Welcome Template</option>
                   <option value="Renewal" className="text-slate-800 bg-white">Renewal Reminder</option>
@@ -1276,30 +1295,30 @@ export default function SMSNotificationCenterPage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Mobile Phone</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mobile Phone</label>
                 <input
                   type="text"
                   value={composeModal.phone}
                   onChange={(e) => setComposeModal({ ...composeModal, phone: e.target.value })}
-                  className="input-field text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950"
+                  className="input-field w-full text-xs text-slate-800 bg-white border border-slate-200 focus:border-amber-450"
                   required
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Personalized Message</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Personalized Message</label>
                 <textarea
                   value={composeModal.message}
                   onChange={(e) => handleComposeFieldChange(composeModal.templateType, composeModal.memberId, e.target.value)}
-                  className="input-field min-h-28 text-xs text-white bg-slate-950/60 border border-white/[0.08] focus:border-amber-400 focus:bg-slate-950 resize-none whitespace-pre-wrap leading-relaxed"
+                  className="input-field w-full min-h-28 text-xs text-slate-800 bg-white border border-slate-200 focus:border-amber-450 resize-none whitespace-pre-wrap leading-relaxed"
                   required
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  className="btn btn-secondary py-2 px-4 text-xs font-semibold text-slate-300"
+                  className="btn btn-secondary py-2 px-4 text-xs font-semibold"
                   onClick={() => setComposeModal(null)}
                 >
                   Cancel
@@ -1319,20 +1338,20 @@ export default function SMSNotificationCenterPage() {
       {/* Edit Message Modal */}
       {editModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setEditModal(null)} />
-          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-lg p-5 rounded-2xl shadow-2xl animate-enter text-white">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-amber-400">
-              <Edit3 className="h-4.5 w-4.5" />
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditModal(null)} />
+          <div className="card bg-white border border-slate-200 relative z-10 w-full max-w-lg p-5 rounded-2xl shadow-xl animate-enter text-slate-900">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Edit3 className="h-4.5 w-4.5 text-amber-500" />
               {editModal.title}
             </h3>
             <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
               <textarea
-                className="input-field bg-slate-950/60 border border-white/[0.08] text-white min-h-32 resize-none text-xs leading-relaxed"
+                className="input-field bg-white border border-slate-200 text-slate-800 min-h-32 resize-none text-xs leading-relaxed w-full"
                 value={editModal.message}
                 onChange={(e) => setEditModal({ ...editModal, message: e.target.value })}
                 required
               />
-              <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-3">
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
                 <button type="button" className="btn btn-secondary text-xs" onClick={() => setEditModal(null)}>
                   Cancel
                 </button>
@@ -1348,33 +1367,33 @@ export default function SMSNotificationCenterPage() {
       {/* Template Modal */}
       {isTemplateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsTemplateModalOpen(false)} />
-          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-lg p-5 rounded-2xl shadow-2xl animate-enter text-white">
-            <h3 className="mb-4 text-sm font-bold text-amber-400">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsTemplateModalOpen(false)} />
+          <div className="card bg-white border border-slate-200 relative z-10 w-full max-w-lg p-5 rounded-2xl shadow-xl animate-enter text-slate-900">
+            <h3 className="mb-4 text-sm font-bold text-slate-900">
               {editingTemplateName ? 'Edit Template' : 'Create Custom Template'}
             </h3>
             <form onSubmit={handleCreateTemplate} className="flex flex-col gap-4">
               <input
-                className="input-field bg-slate-950/60 border border-white/[0.08] text-white text-xs"
+                className="input-field bg-white border border-slate-200 text-slate-800 text-xs w-full"
                 placeholder="Template name"
                 value={newTemplateName}
                 onChange={(e) => setNewTemplateName(e.target.value)}
                 required
               />
               <textarea
-                className="input-field bg-slate-950/60 border border-white/[0.08] text-white min-h-28 resize-none text-xs leading-relaxed"
+                className="input-field bg-white border border-slate-200 text-slate-800 min-h-28 resize-none text-xs leading-relaxed w-full"
                 placeholder="Message body with {{variables}}"
                 value={newTemplateText}
                 onChange={(e) => setNewTemplateText(e.target.value)}
                 required
               />
               {templateSuccess && (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-400">
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-250 bg-emerald-50 p-3 text-xs text-emerald-700">
                   <CheckCircle2 className="h-4 w-4" />
                   {templateSuccess}
                 </div>
               )}
-              <div className="flex justify-end gap-2 border-t border-white/[0.06] pt-3">
+              <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
                 <button type="button" className="btn btn-secondary text-xs" onClick={() => setIsTemplateModalOpen(false)}>
                   Cancel
                 </button>
@@ -1391,18 +1410,18 @@ export default function SMSNotificationCenterPage() {
       {(previewLog || previewMessage) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => {
               setPreviewLog(null);
               setPreviewMessage(null);
             }}
           />
-          <div className="card bg-slate-900 border border-white/[0.08] relative z-10 w-full max-w-md p-5 rounded-2xl shadow-2xl animate-enter text-white">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-amber-400">
-              <Eye className="h-4.5 w-4.5" />
+          <div className="card bg-white border border-slate-200 relative z-10 w-full max-w-md p-5 rounded-2xl shadow-xl animate-enter text-slate-900">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Eye className="h-4.5 w-4.5 text-amber-500" />
               Message Preview
             </h3>
-            <div className="rounded-xl border border-white/[0.05] bg-slate-950/50 p-4 text-xs whitespace-pre-line leading-relaxed text-slate-200">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs whitespace-pre-line leading-relaxed text-slate-750">
               {previewLog?.message || previewMessage}
             </div>
             {previewLog && previewLog.status === 'Pending' && (
