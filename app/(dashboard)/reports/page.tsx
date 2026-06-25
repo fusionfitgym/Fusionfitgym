@@ -20,6 +20,7 @@ export default function ReportsPage() {
   const [memberFilter, setMemberFilter] = useState<'active' | 'expired'>('active');
 
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [attendanceDebug, setAttendanceDebug] = useState<any>(null);
   const [memberData, setMemberData] = useState<any[]>([]);
   const [revenueData, setRevenueData] = useState<any>(null);
   
@@ -30,8 +31,9 @@ export default function ReportsPage() {
     setLoading(true);
     try {
       if (activeTab === 'attendance') {
-        const data = await getAttendanceReport(attendanceTimeframe);
-        setAttendanceData(data);
+        const res = await getAttendanceReport(attendanceTimeframe);
+        setAttendanceData(res.logs);
+        setAttendanceDebug(res.debug);
       } else if (activeTab === 'members') {
         const data = await getMemberReport(memberFilter);
         setMemberData(data);
@@ -208,6 +210,40 @@ export default function ReportsPage() {
             <p className="mt-1 text-2xl font-bold text-slate-900">
               {formatCurrency(revenueData.overdueRevenue)}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnostics Debug Stats for Attendance */}
+      {activeTab === 'attendance' && attendanceDebug && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div className="card p-4 border-l-4 border-l-blue-500 bg-blue-50/5">
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Total Logs in Database</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">
+              {attendanceDebug.rawCountBeforeFilter}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Raw count in DB before filters</p>
+          </div>
+          <div className="card p-4 border-l-4 border-l-indigo-500 bg-indigo-50/5">
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Total Enriched Logs</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">
+              {attendanceDebug.totalCount}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">All matched records</p>
+          </div>
+          <div className="card p-4 border-l-4 border-l-emerald-500 bg-emerald-50/5">
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Logs in Last 7 Days</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">
+              {attendanceDebug.last7DaysCount}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Weekly activity count</p>
+          </div>
+          <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50/5">
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Logs in Last 30 Days</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">
+              {attendanceDebug.last30DaysCount}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Monthly activity count</p>
           </div>
         </div>
       )}

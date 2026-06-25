@@ -57,7 +57,7 @@ function getBestTimestamp(log: any): string {
 }
 
 // Helper: Enrich raw logs with member data and alternate punch types dynamically
-async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
+export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   const supabase = await createClient();
   
   // Fetch all members with biometric user IDs for matching

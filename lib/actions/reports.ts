@@ -2,31 +2,65 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { Member } from '@/types';
-
+import { enrichLogs } from './attendance';
 
 export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'monthly') {
   const supabase = await createClient();
 
-  const startDate = new Date();
-  if (timeframe === 'daily') {
-    startDate.setHours(0, 0, 0, 0);
-  } else if (timeframe === 'weekly') {
-    startDate.setDate(startDate.getDate() - 7);
-  } else {
-    startDate.setDate(startDate.getDate() - 30);
-  }
-
-  const { data, error } = await supabase
+  const { data: allRawLogs, error: fetchAllError } = await supabase
     .from('attendance_logs')
-    .select('id, member_name, biometric_user_id, punch_time, punch_type')
-    .gte('punch_time', startDate.toISOString())
-    .order('punch_time', { ascending: false });
+    .select('*')
+    .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching attendance report:', error);
-    throw error;
+  if (fetchAllError) {
+    console.error('Error fetching all attendance logs for report:', fetchAllError);
+    throw fetchAllError;
   }
-  return data;
+
+  const enrichedAllLogs = await enrichLogs(allRawLogs || []);
+
+  const now = new Date();
+  
+  // Daily / Today start
+  const dailyStart = new Date();
+  dailyStart.setHours(0, 0, 0, 0);
+
+  // Last 7 days start
+  const weeklyStart = new Date();
+  weeklyStart.setDate(weeklyStart.getDate() - 7);
+  weeklyStart.setHours(0, 0, 0, 0);
+
+  // Last 30 days start
+  const monthlyStart = new Date();
+  monthlyStart.setDate(monthlyStart.getDate() - 30);
+  monthlyStart.setHours(0, 0, 0, 0);
+
+  const dailyLogs = enrichedAllLogs.filter(log => new Date(log.punch_time) >= dailyStart);
+  const weeklyLogs = enrichedAllLogs.filter(log => new Date(log.punch_time) >= weeklyStart);
+  const monthlyLogs = enrichedAllLogs.filter(log => new Date(log.punch_time) >= monthlyStart);
+
+  let filteredLogs = [];
+  if (timeframe === 'daily') {
+    filteredLogs = dailyLogs;
+  } else if (timeframe === 'weekly') {
+    filteredLogs = weeklyLogs;
+  } else {
+    filteredLogs = monthlyLogs;
+  }
+
+  console.log(`[REPORTS QUERY LOG] Timeframe: ${timeframe}`);
+  console.log(`Raw row count in DB: ${allRawLogs ? allRawLogs.length : 0}`);
+  console.log(`Enriched and filtered row count: ${filteredLogs.length}`);
+
+  return {
+    logs: filteredLogs,
+    debug: {
+      totalCount: enrichedAllLogs.length,
+      last7DaysCount: weeklyLogs.length,
+      last30DaysCount: monthlyLogs.length,
+      rawCountBeforeFilter: allRawLogs ? allRawLogs.length : 0
+    }
+  };
 }
 
 export async function getMemberReport(type: 'active' | 'expired') {
