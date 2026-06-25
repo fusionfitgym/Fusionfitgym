@@ -309,10 +309,10 @@ export default async function DashboardPage() {
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             {[
-              { label: 'Messages Sent Today', value: smsStats.todaySent ?? 0, color: 'text-emerald-700' },
-              { label: 'Failed Messages', value: smsStats.failed ?? 0, color: 'text-red-600' },
-              { label: 'Sent This Month', value: smsStats.monthlySent ?? 0, color: 'text-amber-700' },
-              { label: 'Pending Queue', value: smsStats.pending ?? 0, color: 'text-blue-700' },
+              { label: 'SMS Sent Today', value: smsStats.todaySent ?? 0, color: 'text-emerald-700' },
+              { label: 'Pending SMS', value: smsStats.pending ?? 0, color: 'text-amber-700' },
+              { label: 'Sent This Month', value: smsStats.monthlySent ?? 0, color: 'text-blue-700' },
+              { label: 'Notification Queue', value: smsStats.notificationQueue ?? smsStats.pending ?? 0, color: 'text-violet-700' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-white/70 backdrop-blur-sm rounded-xl p-3 border border-slate-200/40">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{label}</span>

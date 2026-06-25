@@ -3,108 +3,64 @@
 import { createClient } from '@/lib/supabase/server';
 import { SMSLog } from '@/types';
 import { sendSMS } from '@/lib/sms';
-import { getSettings } from '@/lib/actions/settings';
+
+async function detectModernSchema(supabase: Awaited<ReturnType<typeof createClient>>) {
+  try {
+    const { error } = await supabase.from('sms_logs').select('phone_number').limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Detect schema and fetch all SMS logs mapped to the modern structure
  */
 export async function getSMSLogs(): Promise<SMSLog[]> {
   const supabase = await createClient();
-  
-  let phoneCol = 'phone';
-  let typeCol = 'sms_type';
-  let isModern = false;
-  try {
-    const { error } = await supabase.from('sms_logs').select('phone_number').limit(1);
-    if (!error) {
-      phoneCol = 'phone_number';
-      typeCol = 'message_type';
-      isModern = true;
-    }
-  } catch {}
+  const isModern = await detectModernSchema(supabase);
 
-  const selectQuery = isModern 
-    ? 'id, member_id, phone_number, message_type, message, status, device_id, sent_at, created_at, member:members(full_name)'
+  const selectQuery = isModern
+    ? 'id, member_id, phone_number, message_type, message, status, sent_at, created_at, member:members(full_name)'
     : 'id, member_id, phone, sms_type, message, status, provider_response, created_at, member:members(full_name)';
 
   const { data, error } = await supabase
     .from('sms_logs')
     .select(selectQuery)
     .order('created_at', { ascending: false });
-    
+
   if (error) {
     console.error('Failed to load SMS logs:', error);
     throw error;
   }
-  
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    member_id: row.member_id,
-    phone_number: isModern ? row.phone_number : row.phone,
-    message_type: isModern ? row.message_type : row.sms_type,
-    message: row.message,
-    status: row.status,
-    device_id: isModern ? row.device_id : null,
-    sent_at: isModern ? row.sent_at : null,
-    provider_response: isModern ? null : row.provider_response,
-    created_at: row.created_at,
-    member: row.member,
+
+  return (data || []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    member_id: row.member_id as string | null,
+    phone_number: isModern ? (row.phone_number as string) : (row.phone as string),
+    message_type: isModern ? (row.message_type as string) : (row.sms_type as string),
+    message: row.message as string,
+    status: row.status as string,
+    sent_at: isModern ? (row.sent_at as string | null) : null,
+    provider_response: isModern ? null : (row.provider_response as string | null),
+    created_at: row.created_at as string,
+    member: row.member as SMSLog['member'],
   })) as SMSLog[];
 }
 
 /**
- * Fetch connected device from DB or return a fallback mock device if table doesn't exist
- */
-export async function getSMSDevice() {
-  const supabase = await createClient();
-  try {
-    const { data, error } = await supabase
-      .from('sms_devices')
-      .select('*')
-      .order('last_heartbeat', { ascending: false })
-      .limit(1);
-
-    if (!error && data && data.length > 0) {
-      return {
-        ...data[0],
-        is_mock: false,
-      };
-    }
-  } catch {}
-
-  // Fallback / Mock Device if migration not run yet
-  return {
-    id: 'mock-device-id',
-    name: 'SMS Gateway Device',
-    device_model: 'Samsung Galaxy S23 Ultra',
-    android_version: 'Android 14',
-    sim_number: '+91 98765 43210',
-    battery_percentage: 85,
-    signal_strength: 'Excellent',
-    last_heartbeat: new Date().toISOString(),
-    is_mock: true,
-  };
-}
-
-/**
- * Calculate dashboard and page metrics for Communication Center
+ * Dashboard metrics for the SMS Notification Center
  */
 export async function getSMSStats() {
   const supabase = await createClient();
-  
+
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Detect schema for renewal reminder filter
-  let isModern = false;
-  try {
-    const { error } = await supabase.from('sms_logs').select('phone_number').limit(1);
-    if (!error) isModern = true;
-  } catch {}
-
+  const isModern = await detectModernSchema(supabase);
   const renewalFilter = isModern
     ? 'message_type.eq.Renewal,message_type.ilike.Expiry Warning%'
     : 'sms_type.eq.Renewal,sms_type.ilike.Expiry Warning%';
@@ -115,6 +71,7 @@ export async function getSMSStats() {
     { count: failedCount },
     { count: pendingCount },
     { count: renewalRemindersSent },
+    { count: notificationQueue },
   ] = await Promise.all([
     supabase
       .from('sms_logs')
@@ -139,11 +96,11 @@ export async function getSMSStats() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'Sent')
       .or(renewalFilter),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['Pending', 'Failed']),
   ]);
-
-  const device = await getSMSDevice();
-  const lastHeartbeatDate = device?.last_heartbeat ? new Date(device.last_heartbeat) : null;
-  const isOnline = lastHeartbeatDate ? (now.getTime() - lastHeartbeatDate.getTime() < 5 * 60 * 1000) : false;
 
   return {
     todaySent: todaySent ?? 0,
@@ -151,32 +108,95 @@ export async function getSMSStats() {
     failed: failedCount ?? 0,
     pending: pendingCount ?? 0,
     renewalRemindersSent: renewalRemindersSent ?? 0,
-    deviceStatus: isOnline ? 'Online' : 'Offline',
-    lastSync: device?.last_heartbeat ?? null,
+    notificationQueue: notificationQueue ?? 0,
   };
 }
 
-/**
- * Re-queue a failed SMS for delivery
- */
-export async function retrySMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+/** Pending SMS count for navigation badge */
+export async function getPendingSMSCount(): Promise<number> {
   const supabase = await createClient();
-  const logs = await getSMSLogs();
-  const log = logs.find((l) => l.id === logId);
-  if (!log) {
-    return { success: false, message: 'SMS log not found.' };
-  }
-  if (log.status !== 'Failed') {
-    return { success: false, message: 'Only failed messages can be retried.' };
-  }
-  const phone = log.phone_number || log.phone || '';
-  const messageType = log.message_type || log.sms_type || 'Custom Communication';
-  return sendSMSAction(log.member_id, phone, log.message, messageType);
+  const { count } = await supabase
+    .from('sms_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'Pending');
+  return count ?? 0;
 }
 
 /**
- * Cancel or remove a queued SMS
+ * Queue a pending SMS notification (ERP automation or manual)
  */
+export async function queueSMSNotificationAction(
+  memberId: string | null,
+  phone: string,
+  message: string,
+  messageType: string
+): Promise<{ success: boolean; message: string; logId?: string }> {
+  try {
+    const result = await sendSMS(memberId, phone, message, messageType, true);
+    if (result.success) {
+      return { success: true, message: 'Notification queued successfully.' };
+    }
+    return { success: false, message: result.error || 'Failed to queue notification.' };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/** Mark an SMS notification as sent after the user dispatches via native SMS app */
+export async function markSMSAsSentAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('sms_logs')
+    .update({ status: 'Sent', sent_at: new Date().toISOString() })
+    .eq('id', logId);
+
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: 'Marked as sent.' };
+}
+
+/** Dismiss a notification without sending */
+export async function dismissSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('sms_logs')
+    .update({ status: 'Skipped' })
+    .eq('id', logId);
+
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: 'Notification dismissed.' };
+}
+
+/** Update the message body of a pending notification */
+export async function updateSMSMessageAction(
+  logId: string,
+  message: string
+): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.from('sms_logs').update({ message }).eq('id', logId);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: 'Message updated.' };
+}
+
+/** Re-queue a failed or sent SMS as a new pending notification */
+export async function resendSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const logs = await getSMSLogs();
+  const log = logs.find((l) => l.id === logId);
+  if (!log) return { success: false, message: 'SMS log not found.' };
+
+  const phone = log.phone_number || log.phone || '';
+  const messageType = log.message_type || log.sms_type || 'Custom Communication';
+  return queueSMSNotificationAction(log.member_id, phone, log.message, messageType);
+}
+
+/** Duplicate an SMS as a new pending notification */
+export async function duplicateSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  return resendSMSAction(logId);
+}
+
+/** Cancel or remove a queued SMS */
 export async function deleteSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
   const supabase = await createClient();
   const { data, error: fetchError } = await supabase
@@ -192,52 +212,28 @@ export async function deleteSMSAction(logId: string): Promise<{ success: boolean
   if (data.status === 'Pending') {
     const { error } = await supabase
       .from('sms_logs')
-      .update({ status: 'Cancelled' })
+      .update({ status: 'Skipped' })
       .eq('id', logId);
-    if (error) {
-      return { success: false, message: error.message };
-    }
-    return { success: true, message: 'Message cancelled successfully.' };
+    if (error) return { success: false, message: error.message };
+    return { success: true, message: 'Notification dismissed.' };
   }
 
   const { error } = await supabase.from('sms_logs').delete().eq('id', logId);
-  if (error) {
-    return { success: false, message: error.message };
-  }
-  return { success: true, message: 'Message removed successfully.' };
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: 'Record removed.' };
 }
 
-/**
- * Server action to trigger a manual SMS
- */
+/** @deprecated Use queueSMSNotificationAction — kept for member detail compatibility */
 export async function sendSMSAction(
   memberId: string | null,
   phone: string,
   message: string,
   messageType: string
 ): Promise<{ success: boolean; message: string }> {
-  try {
-    const result = await sendSMS(memberId, phone, message, messageType, true);
-    if (result.success) {
-      return { success: true, message: 'Message successfully queued for delivery.' };
-    } else {
-      return { success: false, message: `Failed to queue SMS: ${result.error}` };
-    }
-  } catch (error: any) {
-    return { success: false, message: `Error: ${error.message || String(error)}` };
-  }
+  return queueSMSNotificationAction(memberId, phone, message, messageType);
 }
 
-/**
- * Server action to trigger a test SMS
- */
-export async function sendTestSMSAction(phone: string): Promise<{ success: boolean; message: string }> {
-  return sendSMSAction(null, phone, 'FusionFit Gym - This is a test SMS message to verify your connected phone connection.', 'Test');
-}
-
-/**
- * Server action to trigger bulk SMS sending
- */
+/** @deprecated Use native SMS from client */
 export async function sendBulkSMSAction(
   targets: { memberId: string | null; phone: string; name: string }[],
   messageTemplate: string,
@@ -254,46 +250,18 @@ export async function sendBulkSMSAction(
       if (res.success) count++;
     }
     return { success: true, count };
-  } catch (error: any) {
-    return { success: false, count: 0, error: error.message || String(error) };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      count: 0,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
-/**
- * Server action to test phone connection (heartbeat update + test SMS)
- */
-export async function testConnectionAction(): Promise<{ success: boolean; message: string }> {
-  const supabase = await createClient();
-  const settings = await getSettings();
-  
-  try {
-    // 1. Update heartbeat of device in DB if table exists
-    const device = await getSMSDevice();
-    if (device && !device.is_mock) {
-      await supabase
-        .from('sms_devices')
-        .update({ last_heartbeat: new Date().toISOString() })
-        .eq('id', device.id);
-    }
-    
-    // 2. Queue a test message to the gym's own number if available
-    const testPhone = settings.gym_phone || '+91 98765 43210';
-    const res = await sendSMS(
-      null,
-      testPhone,
-      'FusionFit Gym - Connection test ping generated successfully.',
-      'Test',
-      true
-    );
-
-    if (res.success) {
-      return { success: true, message: 'Connection pinged successfully. Test SMS queued.' };
-    } else {
-      return { success: false, message: `Failed to queue test SMS: ${res.error}` };
-    }
-  } catch (error: any) {
-    return { success: false, message: `Failed to ping connection: ${error.message || String(error)}` };
-  }
+/** @deprecated Use resendSMSAction */
+export async function retrySMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  return resendSMSAction(logId);
 }
 
 /**
@@ -301,20 +269,10 @@ export async function testConnectionAction(): Promise<{ success: boolean; messag
  */
 export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
   const supabase = await createClient();
-  let phoneCol = 'phone';
-  let typeCol = 'sms_type';
-  let isModern = false;
-  try {
-    const { error } = await supabase.from('sms_logs').select('phone_number').limit(1);
-    if (!error) {
-      phoneCol = 'phone_number';
-      typeCol = 'message_type';
-      isModern = true;
-    }
-  } catch {}
+  const isModern = await detectModernSchema(supabase);
 
-  const selectQuery = isModern 
-    ? 'id, member_id, phone_number, message_type, message, status, device_id, sent_at, created_at'
+  const selectQuery = isModern
+    ? 'id, member_id, phone_number, message_type, message, status, sent_at, created_at'
     : 'id, member_id, phone, sms_type, message, status, provider_response, created_at';
 
   const { data, error } = await supabase
@@ -322,22 +280,21 @@ export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
     .select(selectQuery)
     .eq('member_id', memberId)
     .order('created_at', { ascending: false });
-    
+
   if (error) {
     console.error(`Failed to fetch SMS logs for member ${memberId}:`, error);
     throw error;
   }
-  
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    member_id: row.member_id,
-    phone_number: isModern ? row.phone_number : row.phone,
-    message_type: isModern ? row.message_type : row.sms_type,
-    message: row.message,
-    status: row.status,
-    device_id: isModern ? row.device_id : null,
-    sent_at: isModern ? row.sent_at : null,
-    provider_response: isModern ? null : row.provider_response,
-    created_at: row.created_at,
+
+  return (data || []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    member_id: row.member_id as string | null,
+    phone_number: isModern ? (row.phone_number as string) : (row.phone as string),
+    message_type: isModern ? (row.message_type as string) : (row.sms_type as string),
+    message: row.message as string,
+    status: row.status as string,
+    sent_at: isModern ? (row.sent_at as string | null) : null,
+    provider_response: isModern ? null : (row.provider_response as string | null),
+    created_at: row.created_at as string,
   })) as SMSLog[];
 }

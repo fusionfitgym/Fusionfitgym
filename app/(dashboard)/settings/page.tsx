@@ -23,18 +23,12 @@ import {
 } from '@/components/ui/Primitives';
 import { getSettings, upsertSettings } from '@/lib/actions/settings';
 import { GymSettings } from '@/types';
-import { sendTestSMSAction } from '@/lib/actions/sms';
 import { cn } from '@/lib/utils';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  
-  // Test SMS states
-  const [testPhone, setTestPhone] = useState('');
-  const [sendingTest, setSendingTest] = useState(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Logo upload states
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -58,20 +52,6 @@ export default function SettingsPage() {
     if (file) {
       setLogoFile(file);
       setLogoPreview(URL.createObjectURL(file));
-    }
-  }
-
-  async function handleSendTest() {
-    if (!testPhone) return;
-    setSendingTest(true);
-    setTestResult(null);
-    try {
-      const result = await sendTestSMSAction(testPhone);
-      setTestResult(result);
-    } catch (err: any) {
-      setTestResult({ success: false, message: err?.message || 'Failed to send test SMS.' });
-    } finally {
-      setSendingTest(false);
     }
   }
 
@@ -186,7 +166,7 @@ export default function SettingsPage() {
 
         <SectionCard
           title="SMS Automation Settings"
-          description="Enable or disable automatic SMS notifications dispatched via the gym's connected Android phone."
+          description="Configure when the ERP automatically creates pending SMS notifications for staff to send via the device SMS app."
           icon={<MessageSquare className="h-5 w-5" />}
         >
           <div className="mb-6 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -200,7 +180,7 @@ export default function SettingsPage() {
               <label htmlFor="sms_enabled" className="text-sm font-semibold text-slate-800 cursor-pointer">
                 Enable SMS Communication System
               </label>
-              <span className="text-xs text-slate-500">Enable or disable all outgoing SMS communication.</span>
+              <span className="text-xs text-slate-500">When enabled, the system queues SMS notifications for manual dispatch.</span>
             </div>
           </div>
 

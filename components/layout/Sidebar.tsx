@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePwa } from '@/components/pwa/usePwa';
 import IOSInstallPrompt from '@/components/pwa/IOSInstallPrompt';
+import { getPendingSMSCount } from '@/lib/actions/sms';
 
 interface ServerProfile {
   id: string;
@@ -74,6 +75,7 @@ function NavLink({
   active,
   collapsed,
   onClick,
+  badge,
 }: {
   href: string;
   label: string;
@@ -81,6 +83,7 @@ function NavLink({
   active: boolean;
   collapsed?: boolean;
   onClick?: () => void;
+  badge?: number;
 }) {
   return (
     <li>
@@ -99,6 +102,16 @@ function NavLink({
       >
         <Icon className="h-5 w-5 shrink-0" strokeWidth={1.8} />
         {!collapsed && <span className="truncate">{label}</span>}
+        {!collapsed && badge !== undefined && badge > 0 && (
+          <span className="ml-auto flex items-center gap-1 rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold text-zinc-950">
+            🔔 {badge}
+          </span>
+        )}
+        {collapsed && badge !== undefined && badge > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-bold text-zinc-950">
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -124,6 +137,24 @@ function NavContent({
   onInstall: () => void;
 }) {
   const { profile: authProfile, user: authUser, signOut } = useAuth();
+  const [pendingSmsCount, setPendingSmsCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadPending = () => {
+      getPendingSMSCount()
+        .then((count) => {
+          if (mounted) setPendingSmsCount(count);
+        })
+        .catch(() => {});
+    };
+    loadPending();
+    const interval = window.setInterval(loadPending, 60000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [pathname]);
 
   // Use server-provided profile immediately; fall back to AuthProvider
   const profile = serverProfile || authProfile;
@@ -196,6 +227,7 @@ function NavContent({
               active={isRouteActive(pathname, item.href)}
               collapsed={collapsed}
               onClick={onNavigate}
+              badge={item.href === '/sms' ? pendingSmsCount : undefined}
             />
           ))}
         </ul>

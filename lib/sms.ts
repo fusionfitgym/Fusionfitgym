@@ -20,11 +20,12 @@ export function renderTemplate(template: string, data: Record<string, string>): 
 }
 
 export const BUILTIN_TEMPLATES = {
-  Welcome: 'Hello {{member_name}},\nWelcome to FusionFit Gym.',
-  Renewal: 'Hi {{member_name}},\nYour membership expires on {{expiry_date}}.',
-  ExpiryWarning: 'Hi {{member_name}},\nYour membership will expire in {{days_left}} days.',
-  Payment: 'Hi {{member_name}},\nYour payment is pending.',
-  Expired: 'Hi {{member_name}},\nYour membership has expired.',
+  Welcome: 'Hello {{member_name}},\nWelcome to FusionFit Gym.\nWe are excited to be part of your fitness journey.',
+  Renewal: 'Hello {{member_name}},\nYour membership expires on {{expiry_date}}.\nPlease renew your membership to continue training without interruption.',
+  ExpiryWarning: 'Hello {{member_name}},\nYour membership will expire in {{days_left}} days.\nPlease renew to avoid interruption.',
+  Payment: 'Hello {{member_name}},\nYour payment is pending.\nPlease contact us to complete your payment.',
+  Invoice: 'Hello {{member_name}},\nInvoice #{{invoice_number}} has been generated.\nAmount: ₹{{amount}}',
+  Expired: 'Hello {{member_name}},\nYour membership has expired.\nPlease contact us to renew your membership.',
 };
 
 /**
@@ -135,18 +136,7 @@ export async function sendSMS(
     }
   }
 
-  // 5. Query default device if modern schema is present
-  let defaultDeviceId: string | null = null;
-  if (isModern) {
-    try {
-      const { data: devices } = await supabase.from('sms_devices').select('id').limit(1);
-      if (devices && devices.length > 0) {
-        defaultDeviceId = devices[0].id;
-      }
-    } catch {}
-  }
-
-  // 6. Write record to sms_logs with status 'Pending'
+  // 5. Write record to sms_logs with status 'Pending' (notification queue)
   try {
     const logData: Record<string, any> = {
       member_id: memberId,
@@ -156,12 +146,8 @@ export async function sendSMS(
     logData[phoneCol] = cleanPhone;
     logData[typeCol] = smsType;
 
-    if (isModern) {
-      if (defaultDeviceId) {
-        logData.device_id = defaultDeviceId;
-      }
-    } else {
-      logData.provider_response = 'Queued in database. Device: Android SIM Bridge';
+    if (!isModern) {
+      logData.provider_response = 'Queued for manual dispatch via device SMS app';
     }
 
     const { error: insertError } = await supabase.from('sms_logs').insert(logData);
@@ -185,9 +171,14 @@ export async function sendInvoiceSMS(
   invoiceNumber: string,
   plan: string,
   amount: number,
-  phone: string
+  phone: string,
+  memberName = 'Member'
 ) {
-  const message = `Hi, invoice ${invoiceNumber} for plan ${plan} (Amount: ₹${amount}) has been generated.`;
+  const message = renderTemplate(BUILTIN_TEMPLATES.Invoice, {
+    member_name: memberName,
+    invoice_number: invoiceNumber,
+    amount: String(amount),
+  });
   return sendSMS(memberId, phone, message, 'Invoice');
 }
 

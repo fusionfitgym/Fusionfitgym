@@ -19,6 +19,14 @@ export function openNativeSms(phone: string | null | undefined, message: string)
   return true;
 }
 
+export function renderSmsTemplate(template: string, data: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(data)) {
+    result = result.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value);
+  }
+  return result;
+}
+
 /** Generates the membership expiry reminder message */
 export function buildExpiryReminderMessage(
   memberName: string,
