@@ -93,26 +93,32 @@ export default async function DashboardPage() {
   try {
     const supabase = await createClient();
     const promises: any[] = [
-      supabase
-        .from('members')
-        .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo')
-        .order('created_at', { ascending: false })
-        .catch((err: any) => {
+      (async () => {
+        try {
+          return await supabase
+            .from('members')
+            .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo')
+            .order('created_at', { ascending: false });
+        } catch (err: any) {
           console.error("Error fetching members:", err);
-          return { data: null };
-        })
+          return { data: null, error: err };
+        }
+      })()
     ];
 
     if (showRevenueAnalytics) {
       promises.push(
-        supabase
-          .from('invoices')
-          .select('amount, status, created_at')
-          .eq('status', 'Paid')
-          .catch((err: any) => {
+        (async () => {
+          try {
+            return await supabase
+              .from('invoices')
+              .select('amount, status, created_at')
+              .eq('status', 'Paid');
+          } catch (err: any) {
             console.error("Error fetching invoices:", err);
-            return { data: null };
-          })
+            return { data: null, error: err };
+          }
+        })()
       );
     } else {
       promises.push(Promise.resolve({ data: [] }));
@@ -168,6 +174,13 @@ export default async function DashboardPage() {
   const monthlyRevenue = invoices
     .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= monthStart)
     .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+
+  // 5. Add temporary debug logging
+  const totalMembers = total;
+  const todayAttendance = attendance;
+  console.log(totalMembers);
+  console.log(todayAttendance);
+  console.log(monthlyRevenue);
 
   // Chart data formatting
   const planCounts: Record<string, number> = {};

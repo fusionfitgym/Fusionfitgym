@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getMembershipExpiry } from '@/lib/utils';
+import { revalidatePath } from 'next/cache';
 
 export async function POST(request: NextRequest) {
   try {
@@ -132,6 +133,9 @@ export async function POST(request: NextRequest) {
       console.error('Database error updating member checkin stats:', updateError);
       // Don't fail the request since attendance log is already recorded
     }
+
+    revalidatePath('/');
+    revalidatePath('/attendance');
 
     return NextResponse.json({
       success: true,
