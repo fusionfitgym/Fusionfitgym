@@ -299,20 +299,20 @@ export default async function DashboardPage() {
             <div>
               <h3 className="text-sm font-bold text-slate-950 flex items-center gap-2">
                 <Send className="h-4 w-4 text-amber-600" />
-                SMS System Summary
+                Communication System Summary
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">Real-time status of system-generated notifications and member alerts</p>
             </div>
             <Link href="/sms" className="btn btn-ghost btn-sm text-amber-700 hover:text-amber-800 self-start sm:self-auto">
-              Open SMS logs <ArrowRight className="h-3.5 w-3.5" />
+              Open Communication Center <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             {[
-              { label: 'Messages Sent Today', value: smsStats.todaySent, color: 'text-emerald-700' },
-              { label: 'Failed Messages', value: smsStats.failed, color: 'text-red-600' },
-              { label: 'Monthly SMS Cost', value: `₹${smsStats.monthlyCost.toFixed(2)}`, color: 'text-amber-700' },
-              { label: 'Delivery Success Rate', value: `${smsStats.successRate}%`, color: 'text-blue-700' },
+              { label: 'Messages Sent Today', value: smsStats.todaySent ?? 0, color: 'text-emerald-700' },
+              { label: 'Failed Messages', value: smsStats.failed ?? 0, color: 'text-red-600' },
+              { label: 'Sent This Month', value: smsStats.monthlySent ?? 0, color: 'text-amber-700' },
+              { label: 'Pending Queue', value: smsStats.pending ?? 0, color: 'text-blue-700' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-white/70 backdrop-blur-sm rounded-xl p-3 border border-slate-200/40">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{label}</span>
