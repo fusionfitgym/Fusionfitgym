@@ -63,20 +63,21 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   // Fetch all members with biometric user IDs for matching
   const { data: members, error: membersError } = await supabase
     .from('members')
-    .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo, biometric_user_id');
+    .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo, biometric_user_id, machine_type');
     
   if (membersError) {
     console.error('Error fetching members for matching:', membersError);
     return [];
   }
 
-  // Create lookup map (key: clean biometric ID digits, value: member object)
+  // Create lookup map (key: `${machine}_${cleanId}`, value: member object)
   const membersMap = new Map<string, any>();
   members.forEach((member: any) => {
-    if (member.biometric_user_id) {
+    if (member.biometric_user_id && member.machine_type) {
       const cleanId = cleanBiometricId(member.biometric_user_id);
       if (cleanId) {
-        membersMap.set(cleanId, member);
+        const key = `${member.machine_type}_${cleanId}`;
+        membersMap.set(key, member);
       }
     }
   });
@@ -97,9 +98,13 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   const enrichedSorted = sortedRaw.map((log) => {
     const rawBiometricId = log.member_id || '';
     const cleanId = cleanBiometricId(rawBiometricId);
-    
-    // Match member
-    const member = membersMap.get(cleanId) || null;
+
+    // Determine machine for this raw log
+    const logMachine = log.machine_type || log.device_id || 'Gents';
+    const machineKey = String(logMachine).startsWith('Ladies') || String(logMachine).toLowerCase().includes('ladies') ? 'Ladies' : 'Gents';
+
+    // Match member using composite key
+    const member = cleanId ? (membersMap.get(`${machineKey}_${cleanId}`) || null) : null;
     
     // Alternate punch types per member per calendar day
     const timestamp = getBestTimestamp(log);
@@ -114,6 +119,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
       member_id: member ? member.id : rawBiometricId,
       member_name: member ? member.full_name : `Unknown Member (${rawBiometricId})`,
       biometric_user_id: cleanId || rawBiometricId,
+      machine_type: machineKey,
       device_id: log.device_id,
       punch_time: timestamp,
       punch_type,
@@ -164,15 +170,21 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
 }
 
 // Fetch all attendance logs for the current calendar day (using created_at)
-export async function getTodayAttendanceLogs(): Promise<AttendanceLog[]> {
+export async function getTodayAttendanceLogs(machine?: 'Gents' | 'Ladies' | 'All'): Promise<AttendanceLog[]> {
   const supabase = await createClient();
   const startOfDay = getStartOfTodayIST();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('attendance_logs')
     .select('*')
     .gte('created_at', startOfDay.toISOString())
     .order('created_at', { ascending: false });
+
+  if (machine && machine !== 'All') {
+    query = query.eq('machine_type', machine);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error in getTodayAttendanceLogs:', error);

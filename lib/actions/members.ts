@@ -38,6 +38,20 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
     const validatedValues = memberSchema.parse(values);
     
     const supabase = await createClient();
+
+    // Server-side uniqueness check: biometric_user_id must be unique per machine
+    if (validatedValues.biometric_user_id) {
+      const { data: existing } = await supabase
+        .from('members')
+        .select('id')
+        .eq('biometric_user_id', validatedValues.biometric_user_id)
+        .eq('machine_type', validatedValues.machine_type)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        return { error: `Biometric ID ${validatedValues.biometric_user_id} already exists on ${validatedValues.machine_type} Machine.` };
+      }
+    }
+
     const { data, error } = await supabase
       .from('members')
       .insert([validatedValues])
@@ -81,6 +95,19 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
       const bioId = values.biometric_user_id;
       if (bioId && !/^\d+$/.test(bioId)) {
         throw new Error("Biometric User ID must contain numeric digits only");
+      }
+
+      // Check uniqueness when biometric_user_id or machine_type is changing
+      const targetMachine = values.machine_type || undefined;
+      if (bioId) {
+        let q = supabase.from('members').select('id');
+        q = q.eq('biometric_user_id', bioId);
+        if (targetMachine) q = q.eq('machine_type', targetMachine);
+        else q = q.eq('machine_type', (await supabase.from('members').select('machine_type').eq('id', id).single()).data?.machine_type || 'Gents');
+        const { data: existing } = await q.limit(1);
+        if (existing && existing.length > 0 && existing[0].id !== id) {
+          return { error: `Biometric ID ${bioId} already exists on ${targetMachine || 'the assigned'} Machine.` };
+        }
       }
     }
 
@@ -207,13 +234,15 @@ export async function getMembersPaginated({
   limit = 10,
   search = '',
   status = 'All',
-  plan = 'All'
+  plan = 'All',
+  machine = 'All'
 }: {
   page?: number;
   limit?: number;
   search?: string;
   status?: string;
   plan?: string;
+  machine?: string;
 } = {}): Promise<{ members: Member[]; totalCount: number }> {
   const supabase = await createClient();
   const offset = (page - 1) * limit;
@@ -237,6 +266,14 @@ export async function getMembersPaginated({
   if (plan && plan !== 'All') {
     query = query.ilike('package_name', `%${plan}%`);
   }
+
+  // Apply machine filter
+  if (machine && machine !== 'All') {
+    query = query.eq('machine_type', machine);
+  }
+
+  // Apply machine filter if provided via the `plan` param overload (legacy) or explicit machine param
+  // NOTE: to keep backward compatibility, callers should pass `plan` and `machine` separately in future.
 
   // Sorting and pagination ranges
   query = query
@@ -262,12 +299,30 @@ export async function getMemberByBiometricId(biometricId: string): Promise<Membe
   const cleanId = biometricId.replace(/[^0-9]/g, '');
   if (!cleanId) return null;
   
-  const { data, error } = await supabase
+  // Try to find by Gents machine first, then Ladies (caller should ideally pass machine)
+  const { data: gentsData, error: gentsErr } = await supabase
     .from('members')
     .select('*')
     .eq('biometric_user_id', cleanId)
+    .eq('machine_type', 'Gents')
     .limit(1)
     .maybeSingle();
+  if (gentsErr) {
+    console.error('Error in getMemberByBiometricId (Gents):', gentsErr);
+  }
+  if (gentsData) return gentsData as Member;
+
+  const { data: ladiesData, error: ladiesErr } = await supabase
+    .from('members')
+    .select('*')
+    .eq('biometric_user_id', cleanId)
+    .eq('machine_type', 'Ladies')
+    .limit(1)
+    .maybeSingle();
+  if (ladiesErr) {
+    console.error('Error in getMemberByBiometricId (Ladies):', ladiesErr);
+  }
+  if (ladiesData) return ladiesData as Member;
     
   if (error) {
     console.error('Error in getMemberByBiometricId:', error);

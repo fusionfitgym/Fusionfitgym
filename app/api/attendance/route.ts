@@ -14,15 +14,20 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse payload
     const body = await request.json();
-    const { device_user_id, member_id, timestamp, event_type } = body;
+    const { device_user_id, member_id, timestamp, event_type, machine_type } = body;
 
     const rawBiometricUserId = member_id ?? device_user_id;
+    const machineType = machine_type || body.machine || body.device_type;
 
     if (!rawBiometricUserId) {
       return NextResponse.json(
         { error: 'Missing member_id or device_user_id in request payload' },
         { status: 400 }
       );
+    }
+
+    if (!machineType || (machineType !== 'Gents' && machineType !== 'Ladies')) {
+      return NextResponse.json({ error: 'Missing or invalid machine_type (Gents or Ladies) in payload' }, { status: 400 });
     }
 
     const biometricUserIdRaw = String(rawBiometricUserId).trim();
@@ -52,11 +57,12 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 3. Match member by biometric_user_id
+    // 3. Match member by machine_type + biometric_user_id
     const { data: member, error: fetchError } = await supabase
       .from('members')
       .select('id, full_name, package_start_date, package_end_date, status, duration')
       .eq('biometric_user_id', biometricUserId)
+      .eq('machine_type', machineType)
       .maybeSingle();
 
     if (fetchError) {
@@ -68,8 +74,9 @@ export async function POST(request: NextRequest) {
       // Log lookup diagnostics failure
       await supabase.from('biometric_sync_logs').insert({
         biometric_user_id: biometricUserId,
+        machine_type: machineType,
         status: 'Failed',
-        message: `No member mapped to Biometric User ID '${biometricUserId}'`
+        message: `No member mapped to Biometric User ID '${biometricUserId}' on ${machineType} Machine`
       });
 
       return NextResponse.json(
@@ -81,8 +88,9 @@ export async function POST(request: NextRequest) {
     // Log lookup diagnostics success
     await supabase.from('biometric_sync_logs').insert({
       biometric_user_id: biometricUserId,
+      machine_type: machineType,
       status: 'Success',
-      message: `Biometric User ID ${biometricUserId} matched to ${member.full_name}`
+      message: `Biometric User ID ${biometricUserId} matched to ${member.full_name} on ${machineType} Machine`
     });
 
     // 4. Determine membership status based on expiration (Bypassed for Daily Pass)
@@ -113,6 +121,7 @@ export async function POST(request: NextRequest) {
         member_id: member.id,
         member_name: member.full_name,
         biometric_user_id: biometricUserId,
+        machine_type: machineType,
         punch_time: punchTime,
         punch_type: punchType,
       });

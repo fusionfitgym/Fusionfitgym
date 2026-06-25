@@ -54,6 +54,7 @@ const defaultValues: MemberFormValues = {
   membership_fee: 1000,
   parq_purchased: false,
   parq_fee: 0,
+  machine_type: 'Gents',
 };
 
 interface MemberFormProps {
@@ -93,6 +94,7 @@ export function MemberForm({
     membership_fee: initialValues?.membership_fee ?? legacyInitial?.membership_fee ?? 1000,
     parq_purchased: initialValues?.parq_purchased ?? legacyInitial?.parq_purchased ?? false,
     parq_fee: initialValues?.parq_fee ?? legacyInitial?.parq_fee ?? 0,
+    machine_type: initialValues?.machine_type || legacyInitial?.machine_type || 'Gents',
     package_name: initialValues?.package_name || (legacyInitial?.membership_plan ? `${legacyInitial.membership_plan} Plan` : 'Gents - 1 Month - Weight Training Only'),
     package_duration: initialValues?.package_duration || (legacyInitial?.membership_plan ? (
       legacyInitial.membership_plan === 'Monthly' ? '1 Month' :
@@ -117,26 +119,23 @@ export function MemberForm({
     defaultValues: { ...defaultValues, ...parsedInitialValues },
   });
 
-  const [existingBiometricIds, setExistingBiometricIds] = useState<string[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
 
   useEffect(() => {
     getMembers().then((membersList) => {
-      const currentMemberId = (initialValues as any)?.id;
-      const filtered = membersList
-        .filter((m) => !currentMemberId || m.id !== currentMemberId)
-        .map((m) => m.biometric_user_id)
-        .filter((id): id is string => !!id);
-      setExistingBiometricIds(filtered);
+      setAllMembers(membersList);
 
       // Auto-suggest next ID only on Add form (when no initial biometric_user_id)
       const currentBiometricId = initialValues?.biometric_user_id || (initialValues as any)?.device_user_id;
       if (!currentBiometricId && submitLabel === 'Save member') {
+        const selectedMachine = parsedInitialValues.machine_type || 'Gents';
         const numericIds = membersList
+          .filter((m) => m.machine_type === selectedMachine)
           .map((m) => m.biometric_user_id)
           .filter((id): id is string => !!id && /^\d+$/.test(id))
           .map((id) => parseInt(id, 10));
         
-        const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 101;
+        const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
         setValue('biometric_user_id', String(nextId), { shouldValidate: true });
       }
     }).catch(console.error);
@@ -145,12 +144,14 @@ export function MemberForm({
   const handleAutoGenerate = async () => {
     try {
       const membersList = await getMembers();
+      const selectedMachine = watch('machine_type') || 'Gents';
       const numericIds = membersList
+        .filter((m) => m.machine_type === selectedMachine)
         .map((m) => m.biometric_user_id)
         .filter((id): id is string => !!id && /^\d+$/.test(id))
         .map((id) => parseInt(id, 10));
 
-      const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 101;
+      const nextId = numericIds.length > 0 ? Math.max(...numericIds) + 1 : 1;
       setValue('biometric_user_id', String(nextId), { shouldValidate: true });
     } catch (err) {
       console.error('Failed to auto-generate biometric user ID:', err);
@@ -158,12 +159,22 @@ export function MemberForm({
   };
 
   const handleFormSubmit = handleSubmit((data) => {
-    if (data.biometric_user_id && existingBiometricIds.includes(data.biometric_user_id)) {
-      setError('biometric_user_id', {
-        type: 'manual',
-        message: 'This Biometric User ID is already assigned to another member',
-      });
-      return;
+    if (data.biometric_user_id) {
+      const currentMemberId = (initialValues as any)?.id;
+      const duplicate = allMembers.find(
+        (m) =>
+          m.id !== currentMemberId &&
+          m.biometric_user_id === data.biometric_user_id &&
+          m.machine_type === data.machine_type
+      );
+      if (duplicate) {
+        const machineName = data.machine_type === 'Gents' ? 'Gents Machine' : 'Ladies Machine';
+        setError('biometric_user_id', {
+          type: 'manual',
+          message: `Biometric ID ${data.biometric_user_id} already exists on ${machineName}.`,
+        });
+        return;
+      }
     }
     onSubmit(data, photoFile);
   });
@@ -172,6 +183,7 @@ export function MemberForm({
   const duration = watch('duration');
   const trainingType = watch('training_type');
   const parqPurchased = watch('parq_purchased');
+  const machineType = watch('machine_type');
   const startDate = watch('package_start_date');
 
   // Auto-calculate end date
@@ -609,6 +621,26 @@ export function MemberForm({
             </FormField>
 
             <FormField
+              label="Machine"
+              htmlFor="machine_type"
+              required
+              error={errors.machine_type?.message}
+            >
+              <select
+                id="machine_type"
+                className="select-field"
+                aria-invalid={Boolean(errors.machine_type)}
+                {...register('machine_type')}
+              >
+                <option value="Gents">Gents Machine</option>
+                <option value="Ladies">Ladies Machine</option>
+              </select>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Select which fingerprint machine this member is assigned to.
+              </p>
+            </FormField>
+
+            <FormField
               label="Biometric User ID"
               htmlFor="biometric_user_id"
               error={errors.biometric_user_id?.message}
@@ -635,7 +667,7 @@ export function MemberForm({
                 </button>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                This is the User ID stored in the biometric machine for this member. Example: 101, 102, 103.
+                This ID is unique per machine. The same ID can exist on both Gents and Ladies machines.
               </p>
             </FormField>
           </div>

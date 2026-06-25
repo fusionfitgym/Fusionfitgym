@@ -20,6 +20,7 @@ export interface Member {
   membership_fee: number;
   parq_purchased: boolean;
   parq_fee: number;
+  machine_type: 'Gents' | 'Ladies';
   // Legacy fields
   membership_plan?: 'Monthly' | 'Quarterly' | 'Biannual' | 'Annual' | null;
   join_date?: string | null;
@@ -57,6 +58,7 @@ export const memberSchema = z.object({
   membership_fee: z.coerce.number().min(0),
   parq_purchased: z.boolean(),
   parq_fee: z.coerce.number().min(0),
+  machine_type: z.enum(['Gents', 'Ladies']),
 });
 
 export type MemberFormValues = z.infer<typeof memberSchema>;
@@ -67,6 +69,7 @@ export interface AttendanceLog {
   member_id: string;
   member_name: string;
   biometric_user_id: string;
+  machine_type?: 'Gents' | 'Ladies';
   device_id?: string;
   punch_time: string;
   punch_type: 'checkin' | 'checkout';
@@ -251,6 +254,7 @@ export interface BiometricDevice {
 export interface BiometricSyncLog {
   id: string;
   biometric_user_id: string;
+  machine_type?: 'Gents' | 'Ladies';
   status: 'Success' | 'Failed';
   message: string;
   punch_time: string;

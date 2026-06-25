@@ -20,6 +20,7 @@ export default function MembersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [planFilter, setPlanFilter] = useState('All');
+  const [machineFilter, setMachineFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -39,7 +40,7 @@ export default function MembersPage() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, planFilter]);
+  }, [statusFilter, planFilter, machineFilter]);
 
   // Fetch paginated members list
   useEffect(() => {
@@ -49,7 +50,8 @@ export default function MembersPage() {
       limit,
       search: debouncedSearch,
       status: statusFilter,
-      plan: planFilter
+      plan: planFilter,
+      machine: machineFilter
     })
       .then((data) => {
         setMembers(data.members);
@@ -117,6 +119,17 @@ export default function MembersPage() {
             <option value="All">All plans</option>
             {MEMBERSHIP_PLANS.map((plan) => <option key={plan}>{plan}</option>)}
           </select>
+
+          <select
+            value={machineFilter}
+            onChange={(event) => setMachineFilter(event.target.value)}
+            className="select-field md:w-44"
+            aria-label="Filter by machine"
+          >
+            <option value="All">All Members</option>
+            <option value="Gents">Gents Machine</option>
+            <option value="Ladies">Ladies Machine</option>
+          </select>
         </div>
       </section>
 
@@ -152,6 +165,7 @@ export default function MembersPage() {
                   <th className="hidden md:table-cell">Phone</th>
                   <th className="hidden lg:table-cell">Membership</th>
                   <th className="hidden md:table-cell">Biometric User ID</th>
+                  <th className="hidden md:table-cell">Machine</th>
                   <th>Status</th>
                   <th className="text-right">Actions</th>
                 </tr>
@@ -173,6 +187,7 @@ export default function MembersPage() {
                     <td className="hidden md:table-cell font-mono text-xs font-semibold text-slate-600">
                       {member.biometric_user_id || '—'}
                     </td>
+                    <td className="hidden md:table-cell">{member.machine_type || 'Gents'}</td>
                     <td><StatusBadge variant={member.status} /></td>
                     <td>
                       <div className="table-actions">
@@ -219,7 +234,7 @@ export default function MembersPage() {
                   </div>
                   <StatusBadge variant={member.status} />
                 </div>
-                <div className="mobile-record-meta">
+                    <div className="mobile-record-meta">
                   <div>
                     <p className="metric-label">Membership</p>
                     <p className="mt-1 text-sm font-semibold text-slate-900">{member.package_name}</p>
@@ -229,6 +244,8 @@ export default function MembersPage() {
                     <p className="mt-1 font-mono text-xs font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded inline-block">
                       {member.biometric_user_id || '—'}
                     </p>
+                        <p className="metric-label">Machine</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">{member.machine_type || 'Gents'}</p>
                   </div>
                 </div>
                 <div className="mobile-record-actions">

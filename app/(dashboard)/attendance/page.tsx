@@ -44,6 +44,7 @@ function AttendancePageContent() {
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState(deviceIdParam || '');
+  const [machineFilter, setMachineFilter] = useState<'All' | 'Gents' | 'Ladies'>('All');
 
   useEffect(() => {
     if (deviceIdParam) {
@@ -55,7 +56,7 @@ function AttendancePageContent() {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const fetchAttendanceData = () => {
-    Promise.all([getTodayAttendanceLogs(), getAttendanceAnalytics()])
+    Promise.all([getTodayAttendanceLogs(machineFilter === 'All' ? undefined : machineFilter), getAttendanceAnalytics()])
       .then(([logsData, analyticsData]) => {
         setLogs(logsData);
         setAnalytics(analyticsData);
@@ -70,6 +71,10 @@ function AttendancePageContent() {
     const interval = setInterval(fetchAttendanceData, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    fetchAttendanceData();
+  }, [machineFilter]);
 
   // Fetch diagnostics sync logs
   useEffect(() => {
@@ -260,7 +265,14 @@ function AttendancePageContent() {
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="section-title">Today's activity log</h2>
-                <p className="section-description">Real-time punch records from the eSSL X200B biometric machine</p>
+                <p className="section-description">Real-time punch records from the biometric machines</p>
+              </div>
+              <div className="flex gap-2">
+                <select value={machineFilter} onChange={(e) => setMachineFilter(e.target.value as any)} className="select-field md:w-44">
+                  <option value="All">All Members</option>
+                  <option value="Gents">Gents Machine</option>
+                  <option value="Ladies">Ladies Machine</option>
+                </select>
               </div>
               <div className="input-with-icon max-w-xs">
                 <Search className="h-4 w-4" />
@@ -312,7 +324,10 @@ function AttendancePageContent() {
                               </div>
                             </td>
                             <td>
-                              <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{biometricUserId}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{biometricUserId}</span>
+                                <span className="text-xs text-slate-500">{log.machine_type || 'Gents'}</span>
+                              </div>
                             </td>
                             <td>
                               <div className="flex items-center gap-1.5 text-xs text-slate-700">
