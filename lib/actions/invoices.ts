@@ -80,9 +80,30 @@ export async function regenerateInvoiceToken(invoiceId: string): Promise<string>
 export async function createInvoice(values: InvoiceFormValues): Promise<Invoice> {
   const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
   const supabase = await createClient();
+
+  // Retrieve member details to split amounts historically
+  const { data: memberData } = await supabase
+    .from('members')
+    .select('membership_fee, parq_fee, package_price')
+    .eq('id', values.member_id)
+    .single();
+
+  let membership_fee = values.amount;
+  let parq_fee = 0;
+
+  if (memberData) {
+    if (Number(values.amount) === Number(memberData.package_price)) {
+      membership_fee = memberData.membership_fee;
+      parq_fee = memberData.parq_fee;
+    } else {
+      membership_fee = values.amount;
+      parq_fee = 0;
+    }
+  }
+
   const { data, error } = await supabase
     .from('invoices')
-    .insert([{ ...values, invoice_number: '' }])
+    .insert([{ ...values, membership_fee, parq_fee, invoice_number: '' }])
     .select('*, member:members(full_name, phone, package_name)')
     .single();
   if (error) throw error;

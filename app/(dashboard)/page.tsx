@@ -97,7 +97,7 @@ export default async function DashboardPage() {
         try {
           return await supabase
             .from('members')
-            .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo')
+            .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo, duration, training_type')
             .order('created_at', { ascending: false });
         } catch (err: any) {
           console.error("Error fetching members:", err);
@@ -175,9 +175,15 @@ export default async function DashboardPage() {
     .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= monthStart)
     .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
 
+  const dailyPassMembers = members.filter((m) => m && m.duration === 'Daily Pass' && m.status === 'Active').length;
+  const activeMonthlyMembers = members.filter((m) => m && m.duration !== 'Daily Pass' && m.status === 'Active').length;
+  const weightTrainingOnlyMembers = members.filter((m) => m && m.training_type === 'Weight Training Only' && m.status === 'Active').length;
+  const cardioStrengthMembers = members.filter((m) => m && (m.training_type === 'Weight Training + Cardio' || m.training_type === 'Weight Training + Strength Training') && m.status === 'Active').length;
+
   // 5. Add temporary debug logging
   const totalMembers = total;
   const todayAttendance = attendance;
+  console.log('Daily Pass:', dailyPassMembers, 'Monthly Active:', activeMonthlyMembers);
   console.log(totalMembers);
   console.log(todayAttendance);
   console.log(monthlyRevenue);
@@ -290,6 +296,34 @@ export default async function DashboardPage() {
             subtitle="Paid invoices this month"
           />
         )}
+      </div>
+
+      {/* Redesigned Gym Package Analytics Grid */}
+      <div className="grid grid-cols-2 gap-4 mt-6 lg:grid-cols-4">
+        <StatCard
+          title="Daily Pass Members"
+          value={dailyPassMembers}
+          icon={<Users className="h-5 w-5 text-amber-500" />}
+          subtitle="Active daily visitors"
+        />
+        <StatCard
+          title="Active Monthly Members"
+          value={activeMonthlyMembers}
+          icon={<Users className="h-5 w-5 text-emerald-500" />}
+          subtitle="Active package subscribers"
+        />
+        <StatCard
+          title="Weight Training Only"
+          value={weightTrainingOnlyMembers}
+          icon={<Dumbbell className="h-5 w-5 text-blue-500" />}
+          subtitle="Active weight training members"
+        />
+        <StatCard
+          title="Cardio / Strength"
+          value={cardioStrengthMembers}
+          icon={<Activity className="h-5 w-5 text-indigo-500" />}
+          subtitle="Active cardio or strength training"
+        />
       </div>
 
       {/* SMS Summary Card */}

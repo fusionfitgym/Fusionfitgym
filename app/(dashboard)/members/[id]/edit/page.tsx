@@ -76,6 +76,12 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
           status: member.status,
           profile_photo: member.profile_photo ?? '',
           biometric_user_id: member.biometric_user_id ?? '',
+          gender: member.gender,
+          duration: member.duration,
+          training_type: member.training_type,
+          membership_fee: member.membership_fee,
+          parq_purchased: member.parq_purchased,
+          parq_fee: member.parq_fee,
         } as any}
         submitting={submitting}
         error={error}

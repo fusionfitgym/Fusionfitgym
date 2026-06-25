@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // 2. Fetch all members who are currently Active or Expired
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, full_name, phone, package_start_date, package_end_date, status')
+      .select('id, full_name, phone, package_start_date, package_end_date, status, duration')
       .in('status', ['Active', 'Expired']);
 
     if (fetchError) {
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     };
 
     for (const member of members) {
+      if (member.duration === 'Daily Pass') continue;
       if (!member.phone) continue;
 
       const expiry = new Date(member.package_end_date);

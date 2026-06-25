@@ -397,13 +397,45 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </Card>
 
-          <div className="rounded-2xl border border-amber-300 bg-amber-300 p-5 text-zinc-950 shadow-[0_12px_30px_rgba(196,145,2,0.16)]">
-            <p className="text-xs font-semibold text-black/55">Package Plan</p>
-            <p className="mt-1 text-xl font-bold tracking-tight">{member.package_name}</p>
-            <p className="mt-1 text-sm font-semibold text-black/75">{formatCurrency(member.package_price)} / {member.package_duration}</p>
-            <div className="mt-4 flex items-center gap-2 border-t border-black/10 pt-3">
-              <Calendar className="h-4 w-4 text-black/55" />
-              <p className="text-xs font-medium text-black/65">Expires {formatDate(expiry)}</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-800 shadow-md">
+            <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 mb-3">Membership Package</h3>
+            <div className="space-y-2.5 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Package Type</span>
+                <span className="font-bold text-slate-900 text-right">{member.package_name}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Duration</span>
+                <span className="font-bold text-slate-900 text-right">{member.duration || member.package_duration}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Training Type</span>
+                <span className="font-bold text-slate-900 text-right">{member.training_type || '—'}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Membership Fee</span>
+                <span className="font-bold text-slate-900 text-right">{formatCurrency(member.membership_fee || member.package_price)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">PAR-Q Status</span>
+                <span className="font-bold text-slate-900 text-right">
+                  {member.parq_purchased ? (
+                    <span className="text-emerald-600 font-bold">Purchased (₹{member.parq_fee || 3000})</span>
+                  ) : (
+                    <span className="text-slate-500">Not Purchased</span>
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-slate-100 pt-2.5 gap-4">
+                <span className="text-slate-400 font-semibold">Expiry Date</span>
+                <span className="font-bold text-slate-900 text-right">
+                  {member.duration === 'Daily Pass' ? (
+                    <span className="text-amber-600 font-bold">No Expiry (Daily Pass)</span>
+                  ) : (
+                    formatDate(expiry)
+                  )}
+                </span>
+              </div>
             </div>
           </div>
 

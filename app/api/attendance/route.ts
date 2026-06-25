@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // 3. Match member by biometric_user_id
     const { data: member, error: fetchError } = await supabase
       .from('members')
-      .select('id, full_name, package_start_date, package_end_date, status')
+      .select('id, full_name, package_start_date, package_end_date, status, duration')
       .eq('biometric_user_id', biometricUserId)
       .maybeSingle();
 
@@ -85,17 +85,25 @@ export async function POST(request: NextRequest) {
       message: `Biometric User ID ${biometricUserId} matched to ${member.full_name}`
     });
 
-    // 4. Determine membership status based on expiration
-    const expiry = new Date(member.package_end_date);
-    const now = new Date();
-    const isExpired = expiry < now;
-    
-    // Status resolution logic
+    // 4. Determine membership status based on expiration (Bypassed for Daily Pass)
     let resolvedStatus = member.status;
-    if (member.status === 'Active' && isExpired) {
-      resolvedStatus = 'Expired';
-    } else if (member.status === 'Expired' && !isExpired) {
-      resolvedStatus = 'Active';
+    let expiryStr = 'N/A';
+
+    if (member.duration === 'Daily Pass') {
+      if (resolvedStatus === 'Expired') {
+        resolvedStatus = 'Active';
+      }
+    } else if (member.package_end_date) {
+      const expiry = new Date(member.package_end_date);
+      const now = new Date();
+      const isExpired = expiry < now;
+      
+      if (member.status === 'Active' && isExpired) {
+        resolvedStatus = 'Expired';
+      } else if (member.status === 'Expired' && !isExpired) {
+        resolvedStatus = 'Active';
+      }
+      expiryStr = expiry.toISOString().split('T')[0];
     }
 
     // 5. Create attendance log
@@ -143,7 +151,7 @@ export async function POST(request: NextRequest) {
         id: member.id,
         full_name: member.full_name,
         status: resolvedStatus,
-        expiry: expiry.toISOString().split('T')[0],
+        expiry: expiryStr,
       },
       log: {
         punch_time: punchTime,

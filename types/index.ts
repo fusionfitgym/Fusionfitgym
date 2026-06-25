@@ -14,6 +14,12 @@ export interface Member {
   package_price: number;
   package_start_date: string;
   package_end_date: string;
+  gender: 'Gents' | 'Ladies';
+  duration: 'Daily Pass' | '1 Month' | '3 Months' | '6 Months';
+  training_type: 'Weight Training Only' | 'Weight Training + Cardio' | 'Weight Training + Strength Training';
+  membership_fee: number;
+  parq_purchased: boolean;
+  parq_fee: number;
   // Legacy fields
   membership_plan?: 'Monthly' | 'Quarterly' | 'Biannual' | 'Annual' | null;
   join_date?: string | null;
@@ -45,6 +51,12 @@ export const memberSchema = z.object({
       message: "Biometric User ID must contain numeric digits only",
     }),
   membership_status: z.string().optional().or(z.literal('')),
+  gender: z.enum(['Gents', 'Ladies']),
+  duration: z.enum(['Daily Pass', '1 Month', '3 Months', '6 Months']),
+  training_type: z.enum(['Weight Training Only', 'Weight Training + Cardio', 'Weight Training + Strength Training']),
+  membership_fee: z.coerce.number().min(0),
+  parq_purchased: z.boolean(),
+  parq_fee: z.coerce.number().min(0),
 });
 
 export type MemberFormValues = z.infer<typeof memberSchema>;
@@ -158,6 +170,8 @@ export interface Invoice {
   invoice_token?: string | null;
   notes?: string | null;
   created_at: string;
+  membership_fee?: number;
+  parq_fee?: number;
   member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'package_name' | 'package_duration' | 'package_price' | 'package_start_date' | 'package_end_date'>;
 }
 
@@ -217,7 +231,7 @@ export interface SMSLog {
 }
 
 
-export const MEMBERSHIP_PLANS = ['Monthly', 'Quarterly', 'Biannual', 'Annual'] as const;
+export const MEMBERSHIP_PLANS = ['Daily Pass', '1 Month', '3 Months', '6 Months'] as const;
 export const MEMBER_STATUSES = ['Active', 'Inactive', 'Expired', 'Frozen'] as const;
 export const INVOICE_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
 

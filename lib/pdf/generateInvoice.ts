@@ -330,17 +330,31 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   });
 
   // ── Items Table ──────────────────────────────────────────────
+  const membershipFee = invoice.membership_fee || invoice.amount;
+  const parqFee = invoice.parq_fee || 0;
+
+  const tableBody = [
+    [
+      `Membership Fee — ${member?.package_name ?? 'Gym'} Package`,
+      '1',
+      formatCurrency(membershipFee),
+      formatCurrency(membershipFee)
+    ]
+  ];
+
+  if (parqFee > 0) {
+    tableBody.push([
+      `PAR-Q Fee`,
+      '1',
+      formatCurrency(parqFee),
+      formatCurrency(parqFee)
+    ]);
+  }
+
   autoTable(doc, {
     startY: 114,
     head: [['Description', 'Qty', 'Unit Price', 'Amount']],
-    body: [
-      [
-        `Membership Fee — ${member?.package_name ?? 'Gym'} Package\nGym Membership & Cardio Access`,
-        '1',
-        formatCurrency(invoice.amount),
-        formatCurrency(invoice.amount)
-      ]
-    ],
+    body: tableBody,
     headStyles: {
       fillColor: [11, 13, 18], // Rich Black
       textColor: [212, 175, 55], // Gold
