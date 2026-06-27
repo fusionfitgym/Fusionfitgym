@@ -106,6 +106,12 @@ export default function PublicInvoiceView({ invoice, settings }: PublicInvoiceDa
                   <span className="font-semibold text-slate-900">{formatCurrency(invoice.parq_fee)}</span>
                 </div>
               ) : null}
+              {invoice.trainer_fee && invoice.trainer_fee > 0 ? (
+                <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm">
+                  <span className="text-slate-600">Trainer Fee</span>
+                  <span className="font-semibold text-slate-900">{formatCurrency(invoice.trainer_fee)}</span>
+                </div>
+              ) : null}
               {invoice.admission_fee && invoice.admission_fee > 0 ? (
                 <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm">
                   <span className="text-slate-600">Admission Fee</span>

@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { getSettings } from '@/lib/actions/settings';
 import { getMembers } from '@/lib/actions/members';
 import { GymSettings } from '@/types';
+import { calculatePackagePrice } from '@/lib/pricing';
 
 const defaultValues: MemberFormValues = {
   full_name: '',
@@ -55,6 +56,8 @@ const defaultValues: MemberFormValues = {
   membership_fee: 1000,
   parq_purchased: false,
   parq_fee: 0,
+  trainer_package: false,
+  trainer_fee: 0,
   admission_fee: 0,
   machine_type: 'Gents',
 };
@@ -96,6 +99,8 @@ export function MemberForm({
     membership_fee: initialValues?.membership_fee ?? legacyInitial?.membership_fee ?? 1000,
     parq_purchased: initialValues?.parq_purchased ?? legacyInitial?.parq_purchased ?? false,
     parq_fee: initialValues?.parq_fee ?? legacyInitial?.parq_fee ?? 0,
+    trainer_package: initialValues?.trainer_package ?? legacyInitial?.trainer_package ?? false,
+    trainer_fee: initialValues?.trainer_fee ?? legacyInitial?.trainer_fee ?? 0,
     admission_fee: initialValues?.admission_fee ?? legacyInitial?.admission_fee ?? 0,
     machine_type: initialValues?.machine_type || legacyInitial?.machine_type || 'Gents',
     package_name: initialValues?.package_name || (legacyInitial?.membership_plan ? `${legacyInitial.membership_plan} Plan` : 'Gents - 1 Month - Weight Training Only'),
@@ -186,6 +191,7 @@ export function MemberForm({
   const duration = watch('duration');
   const trainingType = watch('training_type');
   const parqPurchased = watch('parq_purchased');
+  const trainerPackage = watch('trainer_package');
   const machineType = watch('machine_type');
   const startDate = watch('package_start_date');
   const admissionFee = watch('admission_fee') || 0;
@@ -217,40 +223,27 @@ export function MemberForm({
   useEffect(() => {
     if (!gender || !duration || !trainingType) return;
     
-    let fee = 0;
-    if (duration === 'Daily Pass') {
-      fee = 50;
-    } else if (gender === 'Ladies') {
-      if (duration === '1 Month') {
-        fee = trainingType === 'Weight Training Only' ? 1000 : 1300;
-      } else if (duration === '3 Months') {
-        fee = trainingType === 'Weight Training Only' ? 2750 : 3600;
-      } else if (duration === '6 Months') {
-        fee = trainingType === 'Weight Training Only' ? 5800 : 7300;
-      }
-    } else { // Gents
-      if (duration === '1 Month') {
-        fee = trainingType === 'Weight Training Only' ? 1000 : 1300;
-      } else if (duration === '3 Months') {
-        fee = trainingType === 'Weight Training Only' ? 2850 : 3750;
-      } else if (duration === '6 Months') {
-        fee = trainingType === 'Weight Training Only' ? 5750 : 7500;
-      }
-    }
-    setValue('membership_fee', fee, { shouldDirty: true, shouldValidate: true });
+    const result = calculatePackagePrice({
+      gender,
+      duration,
+      trainingType,
+      admissionFee,
+      addOnSelections: {
+        parq_purchased: parqPurchased,
+        trainer_package: trainerPackage,
+      },
+    });
 
-    // PAR-Q Fee = 3000, applicable ONLY for membership packages, Daily Pass is exempt
+    setValue('membership_fee', result.membershipFee, { shouldDirty: true, shouldValidate: true });
+    setValue('parq_fee', result.addOnFees['parq_purchased'], { shouldDirty: true, shouldValidate: true });
+    setValue('trainer_fee', result.addOnFees['trainer_package'], { shouldDirty: true, shouldValidate: true });
+    setValue('package_price', result.total, { shouldDirty: true, shouldValidate: true });
+
     const isDailyPass = duration === 'Daily Pass';
-    const pFee = (!isDailyPass && parqPurchased) ? 3000 : 0;
-    setValue('parq_fee', pFee, { shouldDirty: true, shouldValidate: true });
-
-    const totalVal = fee + pFee + Number(admissionFee);
-    setValue('package_price', totalVal, { shouldDirty: true, shouldValidate: true });
-
     const name = isDailyPass ? 'Daily Pass' : `${gender} - ${duration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
     setValue('package_duration', duration, { shouldDirty: true, shouldValidate: true });
-  }, [gender, duration, trainingType, parqPurchased, admissionFee, setValue]);
+  }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, setValue]);
 
   useEffect(() => {
     return () => {
@@ -521,6 +514,22 @@ export function MemberForm({
               </FormField>
 
               <FormField
+                label="Trainer Package Status"
+                htmlFor="trainer_package"
+                className="flex items-center gap-2 pt-6"
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    id="trainer_package"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 disabled:opacity-50"
+                    {...register('trainer_package')}
+                  />
+                  <span className="text-sm font-semibold text-slate-700">Personal Trainer Package (₹3000)</span>
+                </div>
+              </FormField>
+
+              <FormField
                 label="Membership Fee (INR)"
                 htmlFor="membership_fee"
               >
@@ -543,6 +552,19 @@ export function MemberForm({
                   disabled
                   className="input-field bg-slate-50 opacity-75 font-semibold text-slate-800"
                   {...register('parq_fee')}
+                />
+              </FormField>
+
+              <FormField
+                label="Trainer Fee (INR)"
+                htmlFor="trainer_fee"
+              >
+                <input
+                  id="trainer_fee"
+                  type="text"
+                  disabled
+                  className="input-field bg-slate-50 opacity-75 font-semibold text-slate-800"
+                  {...register('trainer_fee')}
                 />
               </FormField>
 

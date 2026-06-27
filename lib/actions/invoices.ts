@@ -84,29 +84,32 @@ export async function createInvoice(values: InvoiceFormValues): Promise<Invoice>
   // Retrieve member details to split amounts historically
   const { data: memberData } = await supabase
     .from('members')
-    .select('membership_fee, parq_fee, admission_fee, package_price')
+    .select('membership_fee, parq_fee, admission_fee, trainer_fee, package_price')
     .eq('id', values.member_id)
     .single();
 
   let membership_fee = values.amount;
   let parq_fee = 0;
   let admission_fee = 0;
+  let trainer_fee = 0;
 
   if (memberData) {
     if (Number(values.amount) === Number(memberData.package_price)) {
       membership_fee = memberData.membership_fee;
       parq_fee = memberData.parq_fee;
       admission_fee = memberData.admission_fee || 0;
+      trainer_fee = memberData.trainer_fee || 0;
     } else {
       membership_fee = values.amount;
       parq_fee = 0;
       admission_fee = 0;
+      trainer_fee = 0;
     }
   }
 
   const { data, error } = await supabase
     .from('invoices')
-    .insert([{ ...values, membership_fee, parq_fee, admission_fee, invoice_number: '' }])
+    .insert([{ ...values, membership_fee, parq_fee, admission_fee, trainer_fee, invoice_number: '' }])
     .select('*, member:members(full_name, phone, package_name)')
     .single();
   if (error) throw error;

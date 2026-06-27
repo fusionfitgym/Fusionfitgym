@@ -82,6 +82,8 @@ export default function EditMemberPage({ params }: { params: Promise<{ id: strin
           membership_fee: member.membership_fee,
           parq_purchased: member.parq_purchased,
           parq_fee: member.parq_fee,
+          trainer_package: member.trainer_package,
+          trainer_fee: member.trainer_fee,
           admission_fee: member.admission_fee,
         } as any}
         submitting={submitting}

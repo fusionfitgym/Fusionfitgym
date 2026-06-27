@@ -433,6 +433,16 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   )}
                 </span>
               </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Trainer Package</span>
+                <span className="font-bold text-slate-900 text-right">
+                  {member.trainer_package ? (
+                    <span className="text-emerald-600 font-bold">Purchased (₹{member.trainer_fee || 3000})</span>
+                  ) : (
+                    <span className="text-slate-500">Not Purchased</span>
+                  )}
+                </span>
+              </div>
               <div className="flex justify-between border-t border-slate-100 pt-2.5 gap-4">
                 <span className="text-slate-400 font-semibold">Expiry Date</span>
                 <span className="font-bold text-slate-900 text-right">
