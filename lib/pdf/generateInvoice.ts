@@ -332,6 +332,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   // ── Items Table ──────────────────────────────────────────────
   const membershipFee = invoice.membership_fee || invoice.amount;
   const parqFee = invoice.parq_fee || 0;
+  const admissionFee = (invoice as any).admission_fee || 0;
 
   const tableBody = [
     [
@@ -348,6 +349,15 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
       '1',
       formatCurrency(parqFee),
       formatCurrency(parqFee)
+    ]);
+  }
+
+  if (admissionFee > 0) {
+    tableBody.push([
+      `Admission Fee`,
+      '1',
+      formatCurrency(admissionFee),
+      formatCurrency(admissionFee)
     ]);
   }
 

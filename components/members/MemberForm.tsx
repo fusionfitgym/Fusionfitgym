@@ -27,6 +27,7 @@ import {
   memberSchema,
   MemberFormValues,
   MEMBER_STATUSES,
+  Member,
 } from '@/types';
 import { cn } from '@/lib/utils';
 import { getSettings } from '@/lib/actions/settings';
@@ -54,6 +55,7 @@ const defaultValues: MemberFormValues = {
   membership_fee: 1000,
   parq_purchased: false,
   parq_fee: 0,
+  admission_fee: 0,
   machine_type: 'Gents',
 };
 
@@ -94,6 +96,7 @@ export function MemberForm({
     membership_fee: initialValues?.membership_fee ?? legacyInitial?.membership_fee ?? 1000,
     parq_purchased: initialValues?.parq_purchased ?? legacyInitial?.parq_purchased ?? false,
     parq_fee: initialValues?.parq_fee ?? legacyInitial?.parq_fee ?? 0,
+    admission_fee: initialValues?.admission_fee ?? legacyInitial?.admission_fee ?? 0,
     machine_type: initialValues?.machine_type || legacyInitial?.machine_type || 'Gents',
     package_name: initialValues?.package_name || (legacyInitial?.membership_plan ? `${legacyInitial.membership_plan} Plan` : 'Gents - 1 Month - Weight Training Only'),
     package_duration: initialValues?.package_duration || (legacyInitial?.membership_plan ? (
@@ -185,6 +188,7 @@ export function MemberForm({
   const parqPurchased = watch('parq_purchased');
   const machineType = watch('machine_type');
   const startDate = watch('package_start_date');
+  const admissionFee = watch('admission_fee') || 0;
 
   // Auto-calculate end date
   useEffect(() => {
@@ -240,13 +244,13 @@ export function MemberForm({
     const pFee = (!isDailyPass && parqPurchased) ? 3000 : 0;
     setValue('parq_fee', pFee, { shouldDirty: true, shouldValidate: true });
 
-    const totalVal = fee + pFee;
+    const totalVal = fee + pFee + Number(admissionFee);
     setValue('package_price', totalVal, { shouldDirty: true, shouldValidate: true });
 
     const name = isDailyPass ? 'Daily Pass' : `${gender} - ${duration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
     setValue('package_duration', duration, { shouldDirty: true, shouldValidate: true });
-  }, [gender, duration, trainingType, parqPurchased, setValue]);
+  }, [gender, duration, trainingType, parqPurchased, admissionFee, setValue]);
 
   useEffect(() => {
     return () => {
@@ -539,6 +543,19 @@ export function MemberForm({
                   disabled
                   className="input-field bg-slate-50 opacity-75 font-semibold text-slate-800"
                   {...register('parq_fee')}
+                />
+              </FormField>
+
+              <FormField
+                label="Admission Fee (INR)"
+                htmlFor="admission_fee"
+                error={errors.admission_fee?.message}
+              >
+                <input
+                  id="admission_fee"
+                  type="number"
+                  className="input-field font-semibold text-slate-800"
+                  {...register('admission_fee', { valueAsNumber: true })}
                 />
               </FormField>
 

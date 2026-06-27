@@ -20,6 +20,7 @@ export interface Member {
   membership_fee: number;
   parq_purchased: boolean;
   parq_fee: number;
+  admission_fee: number;
   machine_type: 'Gents' | 'Ladies';
   // Legacy fields
   membership_plan?: 'Monthly' | 'Quarterly' | 'Biannual' | 'Annual' | null;
@@ -58,6 +59,7 @@ export const memberSchema = z.object({
   membership_fee: z.coerce.number().min(0),
   parq_purchased: z.boolean(),
   parq_fee: z.coerce.number().min(0),
+  admission_fee: z.coerce.number().min(0),
   machine_type: z.enum(['Gents', 'Ladies']),
 });
 
@@ -176,6 +178,7 @@ export interface Invoice {
   created_at: string;
   membership_fee?: number;
   parq_fee?: number;
+  admission_fee?: number;
   member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'package_name' | 'package_duration' | 'package_price' | 'package_start_date' | 'package_end_date'>;
 }
 

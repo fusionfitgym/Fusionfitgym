@@ -324,10 +324,6 @@ export async function getMemberByBiometricId(biometricId: string): Promise<Membe
   }
   if (ladiesData) return ladiesData as Member;
     
-  if (error) {
-    console.error('Error in getMemberByBiometricId:', error);
-    return null;
-  }
-  return data as Member;
+  return null;
 }
 

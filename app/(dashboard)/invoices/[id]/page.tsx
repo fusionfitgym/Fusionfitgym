@@ -225,6 +225,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   <span className="font-semibold text-slate-950">{formatCurrency(invoice.parq_fee)}</span>
                 </div>
               ) : null}
+              {invoice.admission_fee && invoice.admission_fee > 0 ? (
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 border-t border-slate-100 px-4 py-3.5 text-sm">
+                  <span className="text-slate-700 font-medium">Admission Fee</span>
+                  <span className="font-semibold text-slate-950">{formatCurrency(invoice.admission_fee)}</span>
+                </div>
+              ) : null}
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-amber-300 bg-amber-300 px-4 py-4">
                 <span className="text-sm font-bold text-zinc-950">Total due</span>
                 <span className="text-lg font-bold text-zinc-950">{formatCurrency(invoice.amount)}</span>

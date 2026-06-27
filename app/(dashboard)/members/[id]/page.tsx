@@ -417,6 +417,12 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <span className="text-slate-400 font-semibold">Membership Fee</span>
                 <span className="font-bold text-slate-900 text-right">{formatCurrency(member.membership_fee || member.package_price)}</span>
               </div>
+              {member.admission_fee && member.admission_fee > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-400 font-semibold">Admission Fee</span>
+                  <span className="font-bold text-slate-900 text-right">{formatCurrency(member.admission_fee)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-4">
                 <span className="text-slate-400 font-semibold">PAR-Q Status</span>
                 <span className="font-bold text-slate-900 text-right">
