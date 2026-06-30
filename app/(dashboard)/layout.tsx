@@ -1,7 +1,9 @@
 import Sidebar from '@/components/layout/Sidebar';
 import { getCurrentUserProfile } from '@/lib/actions/auth';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
+import { DemoStateProvider } from '@/components/auth/DemoStateProvider';
+import DemoBanner from '@/components/auth/DemoBanner';
 
 export default async function DashboardLayout({
   children,
@@ -57,7 +59,7 @@ export default async function DashboardLayout({
   let isAllowed = false;
 
   if (role === 'Admin') {
-    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/about'];
+    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/about', '/backup'];
     isAllowed = allowedPrefixes.some((prefix) => {
       if (prefix === '/') return pathname === '/';
       return pathname.startsWith(prefix);
@@ -85,12 +87,22 @@ export default async function DashboardLayout({
     redirect('/unauthorized');
   }
 
-  return (
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo-mode')?.value === 'true';
+
+  const content = (
     <div className="app-shell">
       <Sidebar serverProfile={serverProfile} serverUser={serverUser} />
       <main className="app-main">
+        {isDemo && <DemoBanner />}
         <div className="app-content">{children}</div>
       </main>
     </div>
+  );
+
+  return isDemo ? (
+    <DemoStateProvider>{content}</DemoStateProvider>
+  ) : (
+    content
   );
 }

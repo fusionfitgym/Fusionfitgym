@@ -1,0 +1,30 @@
+[
+  {
+    "id": "notif-1",
+    "type": "Membership Expiry",
+    "message": "Arjun Sharma's membership expires in 2 days.",
+    "date": "2026-06-28",
+    "status": "Unread"
+  },
+  {
+    "id": "notif-2",
+    "type": "Payment Reminder",
+    "message": "INV-1015 for Priya Nair is overdue by 5 days.",
+    "date": "2026-06-29",
+    "status": "Unread"
+  },
+  {
+    "id": "notif-3",
+    "type": "Birthday Reminder",
+    "message": "It's Sneha Patel's birthday today!",
+    "date": "2026-06-30",
+    "status": "Unread"
+  },
+  {
+    "id": "notif-4",
+    "type": "System Sync",
+    "message": "Biometric device sync completed successfully.",
+    "date": "2026-06-30",
+    "status": "Read"
+  }
+]

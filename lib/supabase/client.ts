@@ -40,6 +40,11 @@ function createSafeStub(error: Error) {
 let cachedClient: ReturnType<typeof createBrowserClient> | null = null;
 
 export function createClient(): ReturnType<typeof createBrowserClient> {
+  const isDemo = typeof window !== 'undefined' && document.cookie.includes('demo-mode=true');
+  if (isDemo) {
+    return createSafeStub(new Error("Supabase is disabled in Demo Mode.")) as any;
+  }
+
   if (cachedClient) return cachedClient;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

@@ -68,16 +68,24 @@ export async function middleware(request: NextRequest) {
     console.log('[Middleware] createServerClient initialized successfully.');
 
     // 3. Retrieve authenticated user state
-    console.log('[Middleware] Fetching authenticated user (getUser)...');
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    const isDemo = request.cookies.get('demo-mode')?.value === 'true';
+    let user: any = null;
 
-    if (error) {
-      console.warn('[Middleware] getUser returned auth error:', error.message);
+    if (isDemo) {
+      user = { email: 'demo@redix.media', id: 'demo-user-uuid-9999' };
     } else {
-      console.log('[Middleware] getUser completed. User authenticated:', !!user);
+      console.log('[Middleware] Fetching authenticated user (getUser)...');
+      const {
+        data: { user: authUser },
+        error,
+      } = await supabase.auth.getUser();
+      user = authUser;
+
+      if (error) {
+        console.warn('[Middleware] getUser returned auth error:', error.message);
+      } else {
+        console.log('[Middleware] getUser completed. User authenticated:', !!user);
+      }
     }
 
     const isAuthPage = pathname.startsWith('/login') ||
@@ -90,6 +98,7 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith('/pricing') ||
       pathname.startsWith('/i/') ||
       pathname.startsWith('/invoice/') ||
+      pathname.startsWith('/api/') ||
       pathname === '/sw.js' ||
       pathname === '/manifest.json' ||
       pathname === '/offline';

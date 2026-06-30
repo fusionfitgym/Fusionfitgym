@@ -9,10 +9,17 @@ import { EmptyState } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
 import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 import { formatDate, cn } from '@/lib/utils';
 import { TableSkeleton, MobileListSkeleton } from '@/components/ui/Skeleton';
 
 export default function MembersPage() {
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
+
   const [members, setMembers] = useState<Member[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -44,6 +51,21 @@ export default function MembersPage() {
 
   // Fetch paginated members list
   useEffect(() => {
+    if (isDemo) {
+      const data = demo.getMembersPaginated({
+        page,
+        limit,
+        search: debouncedSearch,
+        status: statusFilter,
+        plan: planFilter,
+        machine: machineFilter
+      });
+      setMembers(data.members);
+      setTotalCount(data.totalCount);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     getMembersPaginated({
       page,
@@ -59,11 +81,18 @@ export default function MembersPage() {
       })
       .catch((err) => console.error('Failed to load paginated members:', err))
       .finally(() => setLoading(false));
-  }, [page, debouncedSearch, statusFilter, planFilter]);
+  }, [page, debouncedSearch, statusFilter, planFilter, machineFilter, isDemo, demo.members]);
 
   async function handleDelete(id: string) {
     setDeleting(id);
     try {
+      if (isDemo) {
+        demo.deleteMember(id);
+        setMembers((current) => current.filter((member) => member.id !== id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success('Member deleted successfully (Demo Mode)');
+        return;
+      }
       await deleteMember(id);
       setMembers((current) => current.filter((member) => member.id !== id));
       setTotalCount((c) => Math.max(0, c - 1));

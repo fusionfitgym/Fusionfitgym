@@ -28,6 +28,9 @@ import {
   MEMBERSHIP_PLANS,
 } from '@/types';
 import { formatCurrency } from '@/lib/utils';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 const defaultDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   .toISOString()
@@ -36,6 +39,9 @@ const defaultDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 function NewInvoiceForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const preselectedMember = searchParams.get('member');
   const [members, setMembers] = useState<Member[]>([]);
   const [settings, setSettings] = useState<GymSettings | null>(null);
@@ -59,11 +65,16 @@ function NewInvoiceForm() {
   });
 
   useEffect(() => {
+    if (isDemo) {
+      setMembers(demo.members);
+      setSettings(demo.settings);
+      return;
+    }
     Promise.all([getMembers(), getSettings()]).then(([memberData, settingsData]) => {
       setMembers(memberData);
       setSettings(settingsData);
     });
-  }, []);
+  }, [isDemo, demo.members, demo.settings]);
 
   const selectedMemberId = useWatch({ control, name: 'member_id' });
   const selectedMember = members.find((member) => member.id === selectedMemberId);
@@ -77,6 +88,14 @@ function NewInvoiceForm() {
   async function onSubmit(data: InvoiceFormValues) {
     setSubmitting(true);
     setError(null);
+    if (isDemo) {
+      setTimeout(() => {
+        const created = demo.createInvoice(data);
+        toast.success('Invoice created successfully (Demo Mode)');
+        router.push(`/invoices/${created.id}`);
+      }, 400);
+      return;
+    }
     try {
       const invoice = await createInvoice(data);
       router.push(`/invoices/${invoice.id}`);

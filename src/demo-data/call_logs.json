@@ -1,0 +1,122 @@
+[
+  {
+    "id": "call-1",
+    "client_name": "Payal Verma",
+    "phone": "+91 919747069",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-03",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  },
+  {
+    "id": "call-2",
+    "client_name": "Karan Joshi",
+    "phone": "+91 996269713",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Interested",
+    "follow_up_date": "2026-07-07",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Amit Sharma"
+  },
+  {
+    "id": "call-3",
+    "client_name": "Komal Choudhury",
+    "phone": "+91 966499523",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Call Back",
+    "follow_up_date": "2026-07-05",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  },
+  {
+    "id": "call-4",
+    "client_name": "Arjun Pandey",
+    "phone": "+91 922091845",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Call Back",
+    "follow_up_date": "2026-07-07",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Amit Sharma"
+  },
+  {
+    "id": "call-5",
+    "client_name": "Rajesh Patel",
+    "phone": "+91 927681480",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Busy",
+    "follow_up_date": "2026-07-06",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Amit Sharma"
+  },
+  {
+    "id": "call-6",
+    "client_name": "Preeti Desai",
+    "phone": "+91 947967969",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Busy",
+    "follow_up_date": "2026-07-04",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Anjali Gupta"
+  },
+  {
+    "id": "call-7",
+    "client_name": "Swati Mishra",
+    "phone": "+91 963492681",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Interested",
+    "follow_up_date": "2026-07-09",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  },
+  {
+    "id": "call-8",
+    "client_name": "Kavya Singh",
+    "phone": "+91 910134827",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Interested",
+    "follow_up_date": "2026-07-01",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  },
+  {
+    "id": "call-9",
+    "client_name": "Payal Gaikwad",
+    "phone": "+91 914737907",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-02",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  },
+  {
+    "id": "call-10",
+    "client_name": "Abhishek Reddy",
+    "phone": "+91 916682351",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Interested",
+    "follow_up_date": "2026-07-09",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Anjali Gupta"
+  },
+  {
+    "id": "call-11",
+    "client_name": "Kavya Rao",
+    "phone": "+91 918391197",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Call Back",
+    "follow_up_date": "2026-07-09",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  },
+  {
+    "id": "call-12",
+    "client_name": "Anjali Mishra",
+    "phone": "+91 959478955",
+    "shop_name": "FusionFit Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-05",
+    "notes": "Discussed premium annual membership pricing and trainers package.",
+    "assigned_employee": "Karan Nair"
+  }
+]

@@ -27,10 +27,17 @@ import { getSMSStats } from '@/lib/actions/sms';
 import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
+import DashboardClientPage from '@/components/dashboard/DashboardClientPage';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo-mode')?.value === 'true';
+  if (isDemo) {
+    return <DashboardClientPage />;
+  }
+
   // Prevent Next.js from caching the dashboard RSC output
   noStore();
   let user = null;

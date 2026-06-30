@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Classic",
+    "duration": "1 Month",
+    "price": 1500
+  },
+  {
+    "name": "Premium",
+    "duration": "3 Months",
+    "price": 4000
+  },
+  {
+    "name": "Elite",
+    "duration": "6 Months",
+    "price": 7500
+  },
+  {
+    "name": "Daily Pass",
+    "duration": "Daily Pass",
+    "price": 200
+  }
+]

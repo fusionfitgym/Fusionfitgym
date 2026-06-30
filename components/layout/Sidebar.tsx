@@ -21,10 +21,12 @@ import {
   Info,
   Download,
   Cpu,
+  Database,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { toast } from 'sonner';
 import { usePwa } from '@/components/pwa/usePwa';
 import IOSInstallPrompt from '@/components/pwa/IOSInstallPrompt';
 import { getPendingSMSCount } from '@/lib/actions/sms';
@@ -56,6 +58,7 @@ const navItems = [
   { href: '/sms', label: 'SMS Hub', icon: MessageSquare },
   { href: '/users', label: 'User Management', icon: UserPlus },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/backup', label: 'Backup', icon: Database },
   { href: '/about', label: 'About', icon: Info },
 ];
 
@@ -82,7 +85,7 @@ function NavLink({
   icon: React.ElementType;
   active: boolean;
   collapsed?: boolean;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
   badge?: number;
 }) {
   return (
@@ -168,7 +171,7 @@ function NavContent({
     
     if (role === 'Super Admin') return true;
     if (role === 'Admin') {
-      return ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings'].includes(item.href);
+      return ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/backup'].includes(item.href);
     }
     if (role === 'Receptionist') {
       return ['/', '/members', '/attendance', '/monitor', '/invoices'].includes(item.href);
@@ -191,17 +194,29 @@ function NavContent({
       .slice(0, 2);
   };
 
+  const isDemo = typeof window !== 'undefined' && document.cookie.includes('demo-mode=true');
+
   return (
     <>
-      <div className={cn('flex h-20 items-center border-b border-white/[0.07]', collapsed ? 'justify-center px-2' : 'gap-3 px-4')}>
+      <div className={cn('relative flex h-20 items-center border-b border-white/[0.07]', collapsed ? 'justify-center px-2' : 'gap-3 px-4')}>
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-300 shadow-[0_6px_20px_rgba(244,196,48,0.2)]">
           <Dumbbell className="h-5 w-5 text-zinc-950" strokeWidth={2.2} />
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold tracking-tight text-white">FusionFit</p>
+            <p className="truncate text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
+              <span>FusionFit</span>
+              {isDemo && (
+                <span className="inline-flex items-center rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-black text-amber-300 uppercase tracking-wider border border-amber-400/30">
+                  Demo
+                </span>
+              )}
+            </p>
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Gym management</p>
           </div>
+        )}
+        {collapsed && isDemo && (
+          <div className="absolute top-4 right-4 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-[#0b0d12]" title="Demo Mode Active" />
         )}
         {onClose && (
           <button
@@ -220,16 +235,30 @@ function NavContent({
           <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Workspace</p>
         )}
         <ul className="space-y-1">
-          {finalItems.map((item) => (
-            <NavLink
-              key={item.href}
-              {...item}
-              active={isRouteActive(pathname, item.href)}
-              collapsed={collapsed}
-              onClick={onNavigate}
-              badge={item.href === '/sms' ? pendingSmsCount : undefined}
-            />
-          ))}
+          {finalItems.map((item) => {
+            const isUserManagement = item.href === '/users';
+            const handleLinkClick = (e: React.MouseEvent) => {
+              if (isDemo && isUserManagement) {
+                e.preventDefault();
+                toast.error('This feature is unavailable in Demo Mode.');
+                return;
+              }
+              if (onNavigate) {
+                onNavigate();
+              }
+            };
+
+            return (
+              <NavLink
+                key={item.href}
+                {...item}
+                active={isRouteActive(pathname, item.href)}
+                collapsed={collapsed}
+                onClick={handleLinkClick}
+                badge={item.href === '/sms' ? pendingSmsCount : undefined}
+              />
+            );
+          })}
         </ul>
       </nav>
 
@@ -321,6 +350,7 @@ export default function Sidebar({
   serverUser?: ServerUser;
 } = {}) {
   const pathname = usePathname();
+  const isDemo = typeof window !== 'undefined' && document.cookie.includes('demo-mode=true');
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isInstallable, installApp, showIOSPrompt, closeIOSPrompt } = usePwa();
 
@@ -372,7 +402,14 @@ export default function Sidebar({
             <Dumbbell className="h-5 w-5 text-zinc-950" />
           </div>
           <div>
-            <p className="text-sm font-bold tracking-tight text-slate-950">FusionFit</p>
+            <p className="text-sm font-bold tracking-tight text-slate-950 flex items-center gap-1.5">
+              <span>FusionFit</span>
+              {isDemo && (
+                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-black text-amber-700 uppercase tracking-wide border border-amber-300/30">
+                  Demo
+                </span>
+              )}
+            </p>
             <p className="text-[10px] font-medium text-slate-500">Gym management</p>
           </div>
         </div>

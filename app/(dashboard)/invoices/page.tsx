@@ -9,17 +9,27 @@ import { getInvoices } from '@/lib/actions/invoices';
 import { Invoice, INVOICE_STATUSES } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
 
 export default function InvoicesPage() {
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
 
   useEffect(() => {
+    if (isDemo) {
+      setInvoices(demo.invoices);
+      setLoading(false);
+      return;
+    }
     getInvoices()
       .then(setInvoices)
       .finally(() => setLoading(false));
-  }, []);
+  }, [isDemo, demo.invoices]);
 
   const filtered = statusFilter === 'All'
     ? invoices

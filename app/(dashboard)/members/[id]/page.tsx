@@ -53,10 +53,16 @@ import {
   getMembershipExpiry,
 } from '@/lib/utils';
 import { MessageSquare, Send, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 export default function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const [member, setMember] = useState<Member | null>(null);
   const [assessments, setAssessments] = useState<HealthAssessment[]>([]);
   const [parqs, setParqs] = useState<ParqResponse[]>([]);
@@ -88,6 +94,10 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   }, []);
 
   async function loadSmsHistory() {
+    if (isDemo) {
+      setSmsLogs(demo.getSMSLogsByMember(id));
+      return;
+    }
     try {
       const data = await getSMSLogsByMember(id);
       setSmsLogs(data);
@@ -97,6 +107,19 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   }
 
   useEffect(() => {
+    if (isDemo) {
+      const memberData = demo.getMemberById(id);
+      setMember(memberData || null);
+      setAssessments(demo.getHealthByMember(id));
+      setParqs(demo.getParqByMember(id));
+      setInvoices(demo.getInvoicesByMember(id));
+      setAttendance(demo.getAttendanceHistory({ member_id: id }));
+      setDevices(demo.devices);
+      setSmsLogs(demo.getSMSLogsByMember(id));
+      setLoading(false);
+      return;
+    }
+
     Promise.all([
       getMemberById(id),
       getHealthByMember(id),
@@ -130,6 +153,12 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   async function handleDelete() {
     setDeleting(true);
     try {
+      if (isDemo) {
+        demo.deleteMember(id);
+        toast.success('Member deleted successfully (Demo Mode)');
+        router.push('/members');
+        return;
+      }
       await deleteMember(id);
       router.push('/members');
     } catch {
@@ -940,6 +969,16 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               setSmsModalError(null);
               setSmsModalSuccess(null);
               try {
+                if (isDemo) {
+                  setTimeout(() => {
+                    setSmsModalSuccess('SMS successfully simulated in Demo Mode.');
+                    setSendMessage('');
+                    setIsSmsModalOpen(false);
+                    setSendingSms(false);
+                    toast.success('SMS simulated (Demo Mode)');
+                  }, 600);
+                  return;
+                }
                 const res = await sendSMSAction(
                   member.id,
                   member.phone || '',

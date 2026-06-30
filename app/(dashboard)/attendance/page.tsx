@@ -31,6 +31,9 @@ import {
 import { AttendanceLog, BiometricSyncLog } from '@/types';
 import { cn } from '@/lib/utils';
 import { CardSkeleton, ChartSkeleton, TableSkeleton } from '@/components/ui/Skeleton';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 // Dynamically import recharts bar chart with a loading placeholder skeleton
 const AttendancePeakChart = dynamic(() => import('@/components/dashboard/AttendancePeakChart'), {
@@ -40,6 +43,9 @@ const AttendancePeakChart = dynamic(() => import('@/components/dashboard/Attenda
 
 function AttendancePageContent() {
   const searchParams = useSearchParams();
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const deviceIdParam = searchParams.get('device_id');
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
@@ -56,6 +62,15 @@ function AttendancePageContent() {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const fetchAttendanceData = () => {
+    if (isDemo) {
+      const filteredLogs = machineFilter === 'All'
+        ? demo.attendance
+        : demo.attendance.filter((l: any) => l.machine_type === machineFilter);
+      setLogs(filteredLogs as any);
+      setAnalytics(demo.getAttendanceAnalytics());
+      setLoading(false);
+      return;
+    }
     Promise.all([getTodayAttendanceLogs(machineFilter === 'All' ? undefined : machineFilter), getAttendanceAnalytics()])
       .then(([logsData, analyticsData]) => {
         setLogs(logsData);
@@ -106,6 +121,12 @@ function AttendancePageContent() {
 
   const handleDelete = async (id: string) => {
     try {
+      if (isDemo) {
+        demo.deleteAttendanceLog(id);
+        fetchAttendanceData();
+        toast.success('Attendance log deleted (Demo Mode)');
+        return;
+      }
       await deleteAttendanceLog(id);
       fetchAttendanceData(); // Refresh UI counters, trends, and records lists
     } catch (err) {

@@ -6,24 +6,46 @@ import { Breadcrumb, LoadingSpinner, PageHeader } from '@/components/ui/Primitiv
 import { MemberForm } from '@/components/members/MemberForm';
 import { getMemberById, updateMember, uploadProfilePhoto } from '@/lib/actions/members';
 import { Member, MemberFormValues } from '@/types';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 export default function EditMemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const [member, setMember] = useState<Member | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isDemo) {
+      setMember(demo.getMemberById(id) || null);
+      setLoading(false);
+      return;
+    }
     getMemberById(id)
       .then(setMember)
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, isDemo, demo.members]);
 
   async function handleUpdate(data: MemberFormValues, photoFile: File | null) {
     setSubmitting(true);
     setError(null);
+    if (isDemo) {
+      setTimeout(() => {
+        demo.updateMember(id, {
+          ...data,
+          profile_photo: photoFile ? URL.createObjectURL(photoFile) : (member?.profile_photo ?? data.profile_photo),
+        });
+        toast.success('Member updated successfully (Demo Mode)');
+        router.push(`/members/${id}`);
+      }, 400);
+      return;
+    }
     try {
       let profilePhoto = member?.profile_photo ?? data.profile_photo;
       if (photoFile) {

@@ -6,15 +6,36 @@ import { Breadcrumb, PageHeader } from '@/components/ui/Primitives';
 import { MemberForm } from '@/components/members/MemberForm';
 import { createMember, uploadProfilePhoto } from '@/lib/actions/members';
 import { MemberFormValues } from '@/types';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 export default function AddMemberPage() {
   const router = useRouter();
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleCreate(data: MemberFormValues, photoFile: File | null) {
     setSubmitting(true);
     setError(null);
+    if (isDemo) {
+      setTimeout(() => {
+        const res = demo.createMember({
+          ...data,
+          profile_photo: photoFile ? URL.createObjectURL(photoFile) : data.profile_photo,
+        });
+        if (res.data) {
+          toast.success('Member created successfully (Demo Mode)');
+          router.push(`/members/${res.data.id}`);
+        } else {
+          toast.error(res.error || 'Failed to create member (Demo Mode)');
+        }
+      }, 400);
+      return;
+    }
     try {
       let profilePhoto = data.profile_photo;
       if (photoFile) {

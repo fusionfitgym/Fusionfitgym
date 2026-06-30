@@ -27,9 +27,15 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { buildInvoiceMessage } from '@/lib/native-sms';
 import { buildInvoicePublicUrl } from '@/lib/invoice-links';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [settings, setSettings] = useState<GymSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +44,13 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [invoiceLink, setInvoiceLink] = useState('');
 
   useEffect(() => {
+    if (isDemo) {
+      const inv = demo.invoices.find((i) => i.id === id);
+      setInvoice(inv || null);
+      setSettings(demo.settings);
+      setLoading(false);
+      return;
+    }
     Promise.all([getInvoiceById(id), getSettings()])
       .then(async ([invoiceData, settingsData]) => {
         setInvoice(invoiceData);
@@ -48,11 +61,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         }
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, isDemo, demo.invoices, demo.settings]);
 
   async function handleStatusChange(status: Invoice['status']) {
     if (!invoice) return;
     setUpdating(true);
+    if (isDemo) {
+      setTimeout(() => {
+        demo.updateInvoiceStatus(id, status);
+        setInvoice((current) => (current ? { ...current, status } : null));
+        setUpdating(false);
+        toast.success(`Invoice status updated to ${status} (Demo Mode)`);
+      }, 300);
+      return;
+    }
     try {
       await updateInvoiceStatus(id, status);
       setInvoice((current) => current ? { ...current, status } : null);

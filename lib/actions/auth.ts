@@ -6,6 +6,27 @@ import { logAudit } from './audit';
 import { verifySession, signSession } from '@/lib/session-cache';
 
 export async function getCurrentUserProfile() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo-mode')?.value === 'true';
+  if (isDemo) {
+    return {
+      user: {
+        id: 'demo-user-uuid-9999',
+        email: 'demo@redix.media',
+        last_sign_in_at: new Date().toISOString(),
+      } as any,
+      profile: {
+        id: 'demo-profile-uuid-9999',
+        auth_user_id: 'demo-user-uuid-9999',
+        full_name: 'Demo Admin',
+        email: 'demo@redix.media',
+        role: 'Super Admin',
+        status: 'Active',
+        created_at: new Date().toISOString(),
+      } as any
+    };
+  }
+
   const supabase = await createClient();
   
   // Safe way to retrieve the authenticated user
@@ -17,7 +38,6 @@ export async function getCurrentUserProfile() {
   if (userError || !user) return null;
 
   // Retrieve cached user_profile details if present and valid
-  const cookieStore = await cookies();
   const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
   const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
 
@@ -89,6 +109,13 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
     return { error: 'Email and password are required.' };
   }
 
+  if (email === 'demo@redix.media' && password === 'demo123') {
+    const cookieStore = await cookies();
+    cookieStore.set('demo-mode', 'true', { maxAge: 60 * 60 * 24 * 7, path: '/' });
+    cookieStore.set('fusionfit-session', 'demo-session', { maxAge: 60 * 60 * 24 * 7, path: '/' });
+    return { success: true };
+  }
+
   const supabase = await createClient();
 
   // 1. Rate Limiting Login Check (Max 5 attempts in the last 15 minutes)
@@ -147,6 +174,14 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
 }
 
 export async function signOutAction() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get('demo-mode')?.value === 'true';
+  if (isDemo) {
+    cookieStore.delete('demo-mode');
+    cookieStore.delete('fusionfit-session');
+    return;
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

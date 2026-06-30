@@ -12,6 +12,13 @@ import {
   Save,
   MessageSquare,
   Send,
+  Database,
+  Download,
+  Upload,
+  RefreshCw,
+  Trash2,
+  FileCode,
+  ShieldAlert,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import {
@@ -24,8 +31,14 @@ import {
 import { getSettings, upsertSettings } from '@/lib/actions/settings';
 import { GymSettings } from '@/types';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -37,6 +50,16 @@ export default function SettingsPage() {
   const { register, handleSubmit, reset } = useForm<GymSettings>();
 
   useEffect(() => {
+    if (isDemo) {
+      if (demo.settings) {
+        reset(demo.settings as any);
+        if (demo.settings.gym_logo) {
+          setLogoPreview(demo.settings.gym_logo);
+        }
+      }
+      setLoading(false);
+      return;
+    }
     getSettings()
       .then((data) => {
         reset(data);
@@ -45,7 +68,7 @@ export default function SettingsPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [reset]);
+  }, [reset, isDemo, demo.settings]);
 
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -58,6 +81,16 @@ export default function SettingsPage() {
   async function onSubmit(data: GymSettings) {
     setSaving(true);
     setSaved(false);
+    if (isDemo) {
+      setTimeout(() => {
+        demo.saveSettings({ ...data, gym_logo: logoPreview });
+        setSaved(true);
+        toast.success('Settings saved successfully (Demo Mode)');
+        window.setTimeout(() => setSaved(false), 3000);
+        setSaving(false);
+      }, 400);
+      return;
+    }
     try {
       let currentLogo = data.gym_logo;
       if (logoFile) {
@@ -212,6 +245,104 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </SectionCard>
+
+        {/* Database Administration Section */}
+        <SectionCard
+          title="Database Administration"
+          description="Manage system backups, export raw SQL snapshots, or reset production data."
+        >
+          {isDemo && (
+            <div className="mb-4 rounded-xl border border-amber-300/40 bg-amber-50/60 p-3.5 text-xs text-amber-800 flex items-center gap-2.5">
+              <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>
+                <strong>Demo Mode Protection:</strong> Database administration and backup operations are locked during public demonstration.
+              </span>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (isDemo) {
+                  toast.error('System & Database administration features are locked in Demo Mode.');
+                  return;
+                }
+                toast.info('Initiating database backup...');
+              }}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 cursor-pointer group"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:scale-105 transition-transform">
+                <Download className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-slate-900">Backup Database</span>
+                <span className="block text-xs text-slate-500 mt-0.5">Create a full archive of all records</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isDemo) {
+                  toast.error('System & Database administration features are locked in Demo Mode.');
+                  return;
+                }
+                toast.info('Select a backup file to restore...');
+              }}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 cursor-pointer group"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 group-hover:scale-105 transition-transform">
+                <Upload className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-slate-900">Restore Backup</span>
+                <span className="block text-xs text-slate-500 mt-0.5">Restore system state from archive</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isDemo) {
+                  toast.error('System & Database administration features are locked in Demo Mode.');
+                  return;
+                }
+                toast.info('Generating SQL export...');
+              }}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 cursor-pointer group"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 group-hover:scale-105 transition-transform">
+                <FileCode className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-slate-900">Export SQL Dump</span>
+                <span className="block text-xs text-slate-500 mt-0.5">Download raw SQL schema and data</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isDemo) {
+                  toast.error('System & Database administration features are locked in Demo Mode.');
+                  return;
+                }
+                if (window.confirm('Are you sure you want to erase all data and reset database?')) {
+                  toast.error('Database reset requested.');
+                }
+              }}
+              className="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50/40 p-4 text-left shadow-xs transition-all hover:border-red-200 hover:bg-red-50 cursor-pointer group"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600 group-hover:scale-105 transition-transform">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <span className="block text-sm font-bold text-red-900">Reset Database</span>
+                <span className="block text-xs text-red-600 mt-0.5">Wipe all records and reset tables</span>
+              </div>
+            </button>
           </div>
         </SectionCard>
 

@@ -39,6 +39,16 @@ function createSafeStub(error: Error) {
 }
 
 export async function createClient(): Promise<ReturnType<typeof createServerClient>> {
+  let isDemo = false;
+  try {
+    const cookieStore = await cookies();
+    isDemo = cookieStore.get('demo-mode')?.value === 'true';
+  } catch (e) {}
+
+  if (isDemo) {
+    return createSafeStub(new Error("Supabase is disabled in Demo Mode.")) as any;
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
