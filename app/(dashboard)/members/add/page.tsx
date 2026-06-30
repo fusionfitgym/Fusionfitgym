@@ -32,6 +32,7 @@ export default function AddMemberPage() {
           router.push(`/members/${res.data.id}`);
         } else {
           toast.error(res.error || 'Failed to create member (Demo Mode)');
+          setSubmitting(false);
         }
       }, 400);
       return;
