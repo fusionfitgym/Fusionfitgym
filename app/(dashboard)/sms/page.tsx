@@ -469,6 +469,80 @@ export default function SMSNotificationCenterPage() {
     }
   };
 
+  const handleResend = async (log: SMSLog) => {
+    setActionLoadingId(log.id);
+    try {
+      const phone = log.phone_number || '';
+      if (!phone || !phone.trim()) {
+        toast.error('No valid phone number available.');
+        setActionLoadingId(null);
+        return;
+      }
+
+      // 1. Update status to Pending in DB
+      const resPending = await resendSMSAction(log.id);
+      if (!resPending.success) {
+        toast.error(resPending.message || 'Failed to initialize resend.');
+        setActionLoadingId(null);
+        return;
+      }
+
+      // 2. Optimistic UI: Set log status to Pending
+      setLogs((prevLogs) =>
+        prevLogs.map((l) => (l.id === log.id ? { ...l, status: 'Pending' } : l))
+      );
+
+      // 3. Update dashboard counters to Pending
+      setStats((prevStats) => {
+        if (!prevStats) return prevStats;
+        return {
+          ...prevStats,
+          pending: prevStats.pending + 1,
+          todaySent: Math.max(0, prevStats.todaySent - 1),
+          totalSent: Math.max(0, (prevStats.totalSent ?? 0) - 1),
+        };
+      });
+
+      // 4. Open native SMS app
+      const opened = openNativeSms(phone, log.message);
+      if (!opened) {
+        toast.error('Failed to open native SMS application.');
+        setActionLoadingId(null);
+        return;
+      }
+
+      // 5. Update status back to Sent on success
+      const resSent = await markSMSAsSentAction(log.id);
+      if (resSent.success) {
+        toast.success('SMS resent successfully.');
+        
+        // Optimistically set back to Sent
+        setLogs((prevLogs) =>
+          prevLogs.map((l) => (l.id === log.id ? { ...l, status: 'Sent', sent_at: new Date().toISOString() } : l))
+        );
+
+        setStats((prevStats) => {
+          if (!prevStats) return prevStats;
+          return {
+            ...prevStats,
+            pending: Math.max(0, prevStats.pending - 1),
+            todaySent: prevStats.todaySent + 1,
+            totalSent: (prevStats.totalSent ?? 0) + 1,
+          };
+        });
+      } else {
+        toast.error(resSent.message || 'Failed to update database sent status.');
+        loadData();
+      }
+    } catch (err: unknown) {
+      console.error('Error resending SMS:', err);
+      toast.error('An unexpected error occurred during resend.');
+      loadData();
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const handleDismiss = async (memberId: string, context: string, logId?: string) => {
     if (logId) {
       setActionLoadingId(logId);
@@ -1356,15 +1430,14 @@ export default function SMSNotificationCenterPage() {
                                   type="button"
                                   className="btn btn-ghost btn-xs"
                                   disabled={isLoading}
-                                  onClick={async () => {
-                                    setActionLoadingId(log.id);
-                                    await resendSMSAction(log.id);
-                                    setActionLoadingId(null);
-                                    loadData();
-                                  }}
+                                  onClick={() => void handleResend(log)}
                                   title="Resend"
                                 >
-                                  <RotateCcw className="h-3.5 w-3.5" />
+                                  {isLoading ? (
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-3.5 w-3.5" />
+                                  )}
                                 </button>
                                 <button
                                   type="button"
@@ -1425,16 +1498,16 @@ export default function SMSNotificationCenterPage() {
                           </button>
                           <button
                             type="button"
-                            className="btn btn-secondary flex-1 min-h-[48px] font-semibold text-xs rounded-xl"
+                            className="btn btn-secondary flex-1 min-h-[48px] font-semibold text-xs rounded-xl flex items-center justify-center gap-1"
                             disabled={isLoading}
-                            onClick={async () => {
-                              setActionLoadingId(log.id);
-                              await resendSMSAction(log.id);
-                              setActionLoadingId(null);
-                              loadData();
-                            }}
+                            onClick={() => void handleResend(log)}
                           >
-                            Resend
+                            {isLoading ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            {isLoading ? 'Resending...' : 'Resend'}
                           </button>
                           <button
                             type="button"

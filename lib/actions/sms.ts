@@ -219,8 +219,23 @@ export async function updateSMSMessageAction(
   return { success: true, message: 'Message updated.' };
 }
 
-/** Re-queue a failed or sent SMS as a new pending notification */
+/** Update the status of an SMS log to Pending to trigger a resend */
 export async function resendSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('sms_logs')
+    .update({ status: 'Pending', sent_at: null })
+    .eq('id', logId);
+
+  if (error) {
+    console.error('Failed to reset SMS status to Pending:', error);
+    return { success: false, message: error.message };
+  }
+  return { success: true, message: 'SMS status set to Pending.' };
+}
+
+/** Duplicate an SMS as a new pending notification */
+export async function duplicateSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
   const logs = await getSMSLogs();
   const log = logs.find((l) => l.id === logId);
   if (!log) return { success: false, message: 'SMS log not found.' };
@@ -228,11 +243,6 @@ export async function resendSMSAction(logId: string): Promise<{ success: boolean
   const phone = log.phone_number || log.phone || '';
   const messageType = log.message_type || log.sms_type || 'Custom Communication';
   return queueSMSNotificationAction(log.member_id, phone, log.message, messageType);
-}
-
-/** Duplicate an SMS as a new pending notification */
-export async function duplicateSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
-  return resendSMSAction(logId);
 }
 
 /** Cancel or remove a queued SMS */
