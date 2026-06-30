@@ -32,6 +32,9 @@ export interface Member {
   biometric_user_id?: string | null;
   membership_status?: string | null;
   last_checkin?: string | null;
+  sms_sent?: boolean;
+  sms_sent_at?: string | null;
+  sms_status?: string | null;
   created_at?: string;
   updated_at?: string;
 }

@@ -48,6 +48,7 @@ import { openNativeSms, renderSmsTemplate } from '@/lib/native-sms';
 import { buildInvoicePublicUrl, buildInvoiceSmsMessage } from '@/lib/invoice-links';
 import { SMSLog, Member, Invoice } from '@/types';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 function getDaysUntilExpiry(endDate: string): number {
   const today = new Date();
@@ -391,29 +392,80 @@ export default function SMSNotificationCenterPage() {
     messageType?: string
   ) => {
     let activeLogId = logId;
-    if (!activeLogId && memberId && messageType) {
-      const queued = await queueSMSNotificationAction(memberId, phone, message, messageType);
-      if (!queued.success) {
-        alert(queued.message);
+    
+    // Determine a unique key for the loading state to avoid duplicate sends
+    const loadingKey = logId || (memberId ? `compose-${memberId}` : 'compose-unknown');
+    setActionLoadingId(loadingKey);
+
+    try {
+      if (!activeLogId && memberId && messageType) {
+        const queued = await queueSMSNotificationAction(memberId, phone, message, messageType);
+        if (!queued.success) {
+          toast.error(queued.message || 'Failed to queue SMS notification.');
+          setActionLoadingId(null);
+          return;
+        }
+        
+        const freshLogs = await getSMSLogs();
+        setLogs(freshLogs);
+        const created = freshLogs.find(
+          (l) => l.member_id === memberId && l.status === 'Pending' && l.message === message
+        );
+        activeLogId = created?.id;
+      }
+
+      // Check if phone number is valid
+      const cleanPhone = phone?.replace(/\s+/g, '').trim();
+      if (!cleanPhone) {
+        toast.error('No valid phone number available.');
+        setActionLoadingId(null);
         return;
       }
-      const freshLogs = await getSMSLogs();
-      setLogs(freshLogs);
-      const created = freshLogs.find(
-        (l) => l.member_id === memberId && l.status === 'Pending' && l.message === message
-      );
-      activeLogId = created?.id;
-    }
 
-    const opened = openNativeSms(phone, message);
-    if (!opened) {
-      alert('No valid phone number available.');
-      return;
-    }
+      // Trigger the native SMS application (SMS API)
+      const opened = openNativeSms(phone, message);
+      if (!opened) {
+        toast.error('Failed to open native SMS application.');
+        setActionLoadingId(null);
+        return;
+      }
 
-    if (activeLogId) {
-      await markSMSAsSentAction(activeLogId);
+      if (activeLogId) {
+        // Optimistic UI updates
+        // 1. Remove from pending queue immediately in UI state
+        setLogs((prevLogs) =>
+          prevLogs.map((l) =>
+            l.id === activeLogId ? { ...l, status: 'Sent' } : l
+          )
+        );
+
+        // 2. Update dashboard counters immediately
+        setStats((prevStats) => {
+          if (!prevStats) return prevStats;
+          return {
+            ...prevStats,
+            pending: Math.max(0, prevStats.pending - 1),
+            todaySent: prevStats.todaySent + 1,
+            totalSent: (prevStats.totalSent ?? 0) + 1,
+          };
+        });
+
+        // 3. Persist status in database
+        const res = await markSMSAsSentAction(activeLogId);
+        if (res.success) {
+          toast.success('SMS dispatched and member status updated.');
+        } else {
+          toast.error(res.message || 'Failed to update SMS status in database.');
+          // Revert optimistic updates by reloading data
+          loadData();
+        }
+      }
+    } catch (err: unknown) {
+      console.error('Error in handleNativeSend:', err);
+      toast.error(err instanceof Error ? err.message : 'An unexpected error occurred during dispatch.');
       loadData();
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -536,6 +588,7 @@ export default function SMSNotificationCenterPage() {
   const kpiCards = stats
     ? [
         { label: 'SMS Sent Today', value: stats.todaySent, icon: Send, trend: todayTrendUp },
+        { label: 'Total SMS Sent', value: stats.totalSent ?? 0, icon: MessageSquare },
         { label: 'SMS Sent This Month', value: stats.monthlySent, icon: Calendar },
         { label: 'Pending SMS', value: stats.pending, icon: Clock },
         { label: 'Failed SMS', value: stats.failed, icon: XCircle, alert: stats.failed > 0 },
@@ -597,7 +650,7 @@ export default function SMSNotificationCenterPage() {
                         <div className="flex flex-col gap-2 mt-1">
                           <button
                             type="button"
-                            disabled={actionLoadingId === pendingLog?.id}
+                            disabled={actionLoadingId === (pendingLog?.id || `compose-${member.id}`)}
                             onClick={() =>
                               void handleNativeSend(
                                 member.phone,
@@ -609,7 +662,12 @@ export default function SMSNotificationCenterPage() {
                             }
                             className="btn btn-primary w-full min-h-[48px] font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm rounded-xl"
                           >
-                            <Send className="h-3.5 w-3.5" /> Send SMS
+                            {actionLoadingId === (pendingLog?.id || `compose-${member.id}`) ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Send className="h-3.5 w-3.5" />
+                            )}
+                            {actionLoadingId === (pendingLog?.id || `compose-${member.id}`) ? 'Sending...' : 'Send SMS'}
                           </button>
                           <div className="flex gap-2">
                             <button
@@ -685,7 +743,7 @@ export default function SMSNotificationCenterPage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        disabled={actionLoadingId === pendingLog?.id}
+                        disabled={actionLoadingId === (pendingLog?.id || `compose-${member.id}`)}
                         onClick={() =>
                           void handleNativeSend(
                             member.phone,
@@ -695,10 +753,14 @@ export default function SMSNotificationCenterPage() {
                             messageType
                           )
                         }
-                        className="btn btn-primary btn-sm shadow-sm"
+                        className="btn btn-primary btn-sm shadow-sm flex items-center gap-1.5"
                       >
-                        <Send className="mr-1.5 h-3.5 w-3.5" />
-                        Send SMS
+                        {actionLoadingId === (pendingLog?.id || `compose-${member.id}`) ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="h-3.5 w-3.5" />
+                        )}
+                        {actionLoadingId === (pendingLog?.id || `compose-${member.id}`) ? 'Sending...' : 'Send SMS'}
                       </button>
                       <button
                         type="button"
@@ -755,7 +817,7 @@ export default function SMSNotificationCenterPage() {
       />
 
       {/* KPI Cards */}
-      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-3 2xl:grid-cols-7">
         {kpiCards.map(({ label, value, icon: Icon, trend, alert }) => (
           <article
             key={label}
@@ -889,6 +951,7 @@ export default function SMSNotificationCenterPage() {
                         const message = buildInvoiceMessage(inv, name);
                         const pendingLog = findPendingLog(inv.member_id, 'Invoice');
                         const isLoading = actionLoadingId === inv.id;
+                        const isSending = actionLoadingId === (pendingLog?.id || `compose-${inv.member_id}`);
                         return (
                           <tr key={inv.id} className="hover:bg-slate-50/80">
                             <td className="table-primary">{name}</td>
@@ -916,7 +979,7 @@ export default function SMSNotificationCenterPage() {
                                 <a
                                   href={link}
                                   target="_blank"
-                                  rel="noopener noreferrer"
+                                  rel="noreferrer"
                                   className="max-w-[140px] truncate text-[10px] font-mono text-amber-700 hover:underline block"
                                 >
                                   {link.replace(/^https?:\/\//, '')}
@@ -929,15 +992,19 @@ export default function SMSNotificationCenterPage() {
                               <div className="flex flex-wrap justify-end gap-1">
                                 <button
                                   type="button"
-                                  disabled={!phone || isLoading}
+                                  disabled={!phone || isLoading || isSending}
                                   onClick={() =>
                                     phone &&
                                     void handleNativeSend(phone, message, pendingLog?.id, inv.member_id, 'Invoice')
                                   }
-                                  className="btn btn-primary btn-xs"
+                                  className="btn btn-primary btn-xs flex items-center justify-center"
                                   title="Send SMS"
                                 >
-                                  <Send className="h-3 w-3" />
+                                  {isSending ? (
+                                    <RefreshCw className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Send className="h-3 w-3" />
+                                  )}
                                 </button>
                                 <button
                                   type="button"
@@ -1017,6 +1084,7 @@ export default function SMSNotificationCenterPage() {
                     const link = invoiceLinks[inv.id] || '';
                     const message = buildInvoiceMessage(inv, name);
                     const pendingLog = findPendingLog(inv.member_id, 'Invoice');
+                    const isSending = actionLoadingId === (pendingLog?.id || `compose-${inv.member_id}`);
                     return (
                       <article key={inv.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
                         <p className="font-semibold text-slate-900">{name}</p>
@@ -1034,15 +1102,19 @@ export default function SMSNotificationCenterPage() {
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
                             type="button"
-                            disabled={!phone}
+                            disabled={!phone || isSending}
                             onClick={() =>
                               phone &&
                               void handleNativeSend(phone, message, pendingLog?.id, inv.member_id, 'Invoice')
                             }
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary btn-sm flex items-center gap-1.5"
                           >
-                            <Send className="mr-1 h-3.5 w-3.5" />
-                            Send SMS
+                            {isSending ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Send className="h-3.5 w-3.5" />
+                            )}
+                            {isSending ? 'Sending...' : 'Send SMS'}
                           </button>
                           <button
                             type="button"
@@ -1134,10 +1206,14 @@ export default function SMSNotificationCenterPage() {
                                 onClick={() =>
                                   void handleNativeSend(phone, log.message, log.id, log.member_id, smsType)
                                 }
-                                className="btn btn-primary btn-xs"
+                                className="btn btn-primary btn-xs flex items-center gap-1"
                               >
-                                <Send className="mr-1 h-3 w-3" />
-                                Send SMS
+                                {isLoading ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Send className="h-3 w-3" />
+                                )}
+                                {isLoading ? 'Sending...' : 'Send SMS'}
                               </button>
                             </td>
                           </tr>
@@ -1176,8 +1252,12 @@ export default function SMSNotificationCenterPage() {
                           }
                           className="btn btn-primary w-full min-h-[48px] font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm rounded-xl"
                         >
-                          <Send className="h-3.5 w-3.5" />
-                          Send SMS
+                          {isLoading ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Send className="h-3.5 w-3.5" />
+                          )}
+                          {isLoading ? 'Sending...' : 'Send SMS'}
                         </button>
                       </article>
                     );

@@ -72,6 +72,7 @@ export async function getSMSStats() {
     { count: pendingCount },
     { count: renewalRemindersSent },
     { count: notificationQueue },
+    { count: totalSent },
   ] = await Promise.all([
     supabase
       .from('sms_logs')
@@ -100,6 +101,10 @@ export async function getSMSStats() {
       .from('sms_logs')
       .select('*', { count: 'exact', head: true })
       .in('status', ['Pending', 'Failed']),
+    supabase
+      .from('sms_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Sent'),
   ]);
 
   return {
@@ -109,6 +114,7 @@ export async function getSMSStats() {
     pending: pendingCount ?? 0,
     renewalRemindersSent: renewalRemindersSent ?? 0,
     notificationQueue: notificationQueue ?? 0,
+    totalSent: totalSent ?? 0,
   };
 }
 
@@ -148,13 +154,46 @@ export async function queueSMSNotificationAction(
 /** Mark an SMS notification as sent after the user dispatches via native SMS app */
 export async function markSMSAsSentAction(logId: string): Promise<{ success: boolean; message: string }> {
   const supabase = await createClient();
+
+  // Retrieve the log entry to get the member_id
+  const { data: log, error: fetchError } = await supabase
+    .from('sms_logs')
+    .select('member_id')
+    .eq('id', logId)
+    .single();
+
+  if (fetchError || !log) {
+    return { success: false, message: 'SMS log not found or error loading log.' };
+  }
+
   const { error } = await supabase
     .from('sms_logs')
     .update({ status: 'Sent', sent_at: new Date().toISOString() })
     .eq('id', logId);
 
   if (error) return { success: false, message: error.message };
-  return { success: true, message: 'Marked as sent.' };
+
+  // If there's an associated member, update their SMS status
+  if (log.member_id) {
+    const { error: memberError } = await supabase
+      .from('members')
+      .update({
+        sms_sent: true,
+        sms_sent_at: new Date().toISOString(),
+        sms_status: 'sent',
+      })
+      .eq('id', log.member_id);
+
+    if (memberError) {
+      console.error('Failed to update member SMS tracking info:', memberError);
+      return {
+        success: false,
+        message: `SMS marked as sent, but member record update failed: ${memberError.message}`,
+      };
+    }
+  }
+
+  return { success: true, message: 'Marked as sent and member record updated.' };
 }
 
 /** Dismiss a notification without sending */
