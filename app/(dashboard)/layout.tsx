@@ -44,21 +44,11 @@ export default async function DashboardLayout({
     last_sign_in_at: user.last_sign_in_at,
   } : undefined;
 
-  // Super Admin has full system permissions
-  if (role === 'Super Admin') {
-    return (
-      <div className="app-shell">
-        <Sidebar serverProfile={serverProfile} serverUser={serverUser} />
-        <main className="app-main">
-          <div className="app-content">{children}</div>
-        </main>
-      </div>
-    );
-  }
-
   let isAllowed = false;
 
-  if (role === 'Admin') {
+  if (role === 'Super Admin') {
+    isAllowed = true;
+  } else if (role === 'Admin') {
     const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/about', '/backup'];
     isAllowed = allowedPrefixes.some((prefix) => {
       if (prefix === '/') return pathname === '/';
@@ -79,7 +69,7 @@ export default async function DashboardLayout({
   }
 
   // /users is strictly for Super Admin
-  if (pathname.startsWith('/users')) {
+  if (pathname.startsWith('/users') && role !== 'Super Admin') {
     isAllowed = false;
   }
 
@@ -100,9 +90,5 @@ export default async function DashboardLayout({
     </div>
   );
 
-  return isDemo ? (
-    <DemoStateProvider>{content}</DemoStateProvider>
-  ) : (
-    content
-  );
+  return <DemoStateProvider>{content}</DemoStateProvider>;
 }
