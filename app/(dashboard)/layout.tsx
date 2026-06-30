@@ -2,7 +2,6 @@ import Sidebar from '@/components/layout/Sidebar';
 import { getCurrentUserProfile } from '@/lib/actions/auth';
 import { redirect } from 'next/navigation';
 import { headers, cookies } from 'next/headers';
-import { DemoStateProvider } from '@/components/auth/DemoStateProvider';
 import DemoBanner from '@/components/auth/DemoBanner';
 
 export default async function DashboardLayout({
@@ -80,7 +79,7 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const isDemo = cookieStore.get('demo-mode')?.value === 'true';
 
-  const content = (
+  return (
     <div className="app-shell">
       <Sidebar serverProfile={serverProfile} serverUser={serverUser} />
       <main className="app-main">
@@ -89,6 +88,4 @@ export default async function DashboardLayout({
       </main>
     </div>
   );
-
-  return <DemoStateProvider>{content}</DemoStateProvider>;
 }

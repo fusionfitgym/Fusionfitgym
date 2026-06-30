@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { DemoStateProvider } from '@/components/auth/DemoStateProvider';
 import PwaRegister from '@/components/pwa/PwaRegister';
 import OfflineNotification from '@/components/pwa/OfflineNotification';
 import { Analytics } from '@vercel/analytics/react';
@@ -36,7 +37,9 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body>
         <AuthProvider>
-          {children}
+          <DemoStateProvider>
+            {children}
+          </DemoStateProvider>
         </AuthProvider>
         <PwaRegister />
         <OfflineNotification />
