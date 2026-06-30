@@ -21,8 +21,8 @@ export async function getSMSLogs(): Promise<SMSLog[]> {
   const isModern = await detectModernSchema(supabase);
 
   const selectQuery = isModern
-    ? 'id, member_id, phone_number, message_type, message, status, sent_at, created_at, member:members(full_name)'
-    : 'id, member_id, phone, sms_type, message, status, provider_response, created_at, member:members(full_name)';
+    ? 'id, member_id, phone_number, message_type, message, status, sent_at, created_at, last_resend_at, resend_count, member:members(full_name)'
+    : 'id, member_id, phone, sms_type, message, status, provider_response, created_at, last_resend_at, resend_count, member:members(full_name)';
 
   const { data, error } = await supabase
     .from('sms_logs')
@@ -43,6 +43,8 @@ export async function getSMSLogs(): Promise<SMSLog[]> {
     status: row.status as string,
     sent_at: isModern ? (row.sent_at as string | null) : null,
     provider_response: isModern ? null : (row.provider_response as string | null),
+    last_resend_at: row.last_resend_at as string | null,
+    resend_count: row.resend_count ? Number(row.resend_count) : 0,
     created_at: row.created_at as string,
     member: row.member as SMSLog['member'],
   })) as SMSLog[];
@@ -219,19 +221,89 @@ export async function updateSMSMessageAction(
   return { success: true, message: 'Message updated.' };
 }
 
-/** Update the status of an SMS log to Pending to trigger a resend */
+/** Update the status of an SMS log to record a resend */
 export async function resendSMSAction(logId: string): Promise<{ success: boolean; message: string }> {
   const supabase = await createClient();
+
+  // Retrieve current resend count
+  const { data: log, error: fetchError } = await supabase
+    .from('sms_logs')
+    .select('resend_count')
+    .eq('id', logId)
+    .single();
+
+  if (fetchError || !log) {
+    return { success: false, message: 'SMS log not found.' };
+  }
+
+  const newCount = (log.resend_count ? Number(log.resend_count) : 0) + 1;
+
   const { error } = await supabase
     .from('sms_logs')
-    .update({ status: 'Pending', sent_at: null })
+    .update({
+      status: 'Sent',
+      last_resend_at: new Date().toISOString(),
+      resend_count: newCount
+    })
     .eq('id', logId);
 
   if (error) {
-    console.error('Failed to reset SMS status to Pending:', error);
+    console.error('Failed to update SMS status for resend:', error);
     return { success: false, message: error.message };
   }
-  return { success: true, message: 'SMS status set to Pending.' };
+  return { success: true, message: 'SMS resend recorded.' };
+}
+
+/** Undo a sent SMS: set status to Pending and sent_at to null */
+export async function undoSMSSentAction(logId: string): Promise<{ success: boolean; message: string }> {
+  const supabase = await createClient();
+
+  // Fetch log first to check member_id
+  const { data: log, error: fetchError } = await supabase
+    .from('sms_logs')
+    .select('member_id')
+    .eq('id', logId)
+    .single();
+
+  if (fetchError || !log) {
+    return { success: false, message: 'SMS log not found.' };
+  }
+
+  // Update log status = 'Pending', sent_at = null
+  const { error } = await supabase
+    .from('sms_logs')
+    .update({
+      status: 'Pending',
+      sent_at: null
+    })
+    .eq('id', logId);
+
+  if (error) {
+    console.error('Failed to undo sent SMS status:', error);
+    return { success: false, message: error.message };
+  }
+
+  // If there's an associated member, update their status to reflect it's pending again
+  if (log.member_id) {
+    const { error: memberError } = await supabase
+      .from('members')
+      .update({
+        sms_sent: false,
+        sms_sent_at: null,
+        sms_status: 'pending',
+      })
+      .eq('id', log.member_id);
+
+    if (memberError) {
+      console.error('Failed to update member SMS tracking info for undo:', memberError);
+      return {
+        success: false,
+        message: `SMS status updated, but member record update failed: ${memberError.message}`,
+      };
+    }
+  }
+
+  return { success: true, message: 'SMS status set back to Pending.' };
 }
 
 /** Duplicate an SMS as a new pending notification */
@@ -351,8 +423,8 @@ export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
   const isModern = await detectModernSchema(supabase);
 
   const selectQuery = isModern
-    ? 'id, member_id, phone_number, message_type, message, status, sent_at, created_at'
-    : 'id, member_id, phone, sms_type, message, status, provider_response, created_at';
+    ? 'id, member_id, phone_number, message_type, message, status, sent_at, created_at, last_resend_at, resend_count'
+    : 'id, member_id, phone, sms_type, message, status, provider_response, created_at, last_resend_at, resend_count';
 
   const { data, error } = await supabase
     .from('sms_logs')
@@ -374,6 +446,8 @@ export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
     status: row.status as string,
     sent_at: isModern ? (row.sent_at as string | null) : null,
     provider_response: isModern ? null : (row.provider_response as string | null),
+    last_resend_at: row.last_resend_at as string | null,
+    resend_count: row.resend_count ? Number(row.resend_count) : 0,
     created_at: row.created_at as string,
   })) as SMSLog[];
 }

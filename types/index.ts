@@ -239,6 +239,8 @@ export interface SMSLog {
   provider_response?: string | null;
   device_id?: string | null;
   sent_at?: string | null;
+  last_resend_at?: string | null;
+  resend_count?: number;
   created_at: string;
   member?: {
     full_name: string;

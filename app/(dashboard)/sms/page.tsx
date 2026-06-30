@@ -28,6 +28,7 @@ import {
   TrendingUp,
   X,
   XCircle,
+  Undo2,
 } from 'lucide-react';
 import { EmptyState, LoadingSpinner, PageHeader } from '@/components/ui/Primitives';
 import {
@@ -40,6 +41,7 @@ import {
   queueSMSNotificationAction,
   resendSMSAction,
   updateSMSMessageAction,
+  undoSMSSentAction,
 } from '@/lib/actions/sms';
 import { getMembers } from '@/lib/actions/members';
 import { ensureInvoiceToken, getInvoices, regenerateInvoiceToken } from '@/lib/actions/invoices';
@@ -472,27 +474,65 @@ export default function SMSNotificationCenterPage() {
   const handleResend = async (log: SMSLog) => {
     setActionLoadingId(log.id);
     try {
-      const phone = log.phone_number || '';
+      const phone = log.phone_number || log.phone || '';
       if (!phone || !phone.trim()) {
         toast.error('No valid phone number available.');
         setActionLoadingId(null);
         return;
       }
 
-      // 1. Update status to Pending in DB
-      const resPending = await resendSMSAction(log.id);
-      if (!resPending.success) {
-        toast.error(resPending.message || 'Failed to initialize resend.');
+      // 1. Trigger native SMS dispatch immediately
+      const opened = openNativeSms(phone, log.message);
+      if (!opened) {
+        toast.error('Failed to open native SMS application.');
         setActionLoadingId(null);
         return;
       }
 
-      // 2. Optimistic UI: Set log status to Pending
+      // 2. Optimistic UI update: Increment resend_count and update timestamp locally
       setLogs((prevLogs) =>
-        prevLogs.map((l) => (l.id === log.id ? { ...l, status: 'Pending' } : l))
+        prevLogs.map((l) =>
+          l.id === log.id
+            ? {
+                ...l,
+                last_resend_at: new Date().toISOString(),
+                resend_count: (l.resend_count ?? 0) + 1,
+              }
+            : l
+        )
       );
 
-      // 3. Update dashboard counters to Pending
+      // 3. Update database record via server action
+      const res = await resendSMSAction(log.id);
+      if (res.success) {
+        toast.success('SMS resent successfully.');
+      } else {
+        toast.error(res.message || 'Failed to update resend count in database.');
+        loadData();
+      }
+    } catch (err: unknown) {
+      console.error('Error in handleResend:', err);
+      toast.error('An unexpected error occurred during resend.');
+      loadData();
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUndo = async (log: SMSLog) => {
+    const confirmed = window.confirm("Move this SMS back to Pending?");
+    if (!confirmed) return;
+
+    setActionLoadingId(log.id);
+    try {
+      // 1. Optimistic UI: Update status to Pending
+      setLogs((prevLogs) =>
+        prevLogs.map((l) =>
+          l.id === log.id ? { ...l, status: 'Pending', sent_at: null } : l
+        )
+      );
+
+      // 2. Optimistic UI: Update counters
       setStats((prevStats) => {
         if (!prevStats) return prevStats;
         return {
@@ -503,40 +543,17 @@ export default function SMSNotificationCenterPage() {
         };
       });
 
-      // 4. Open native SMS app
-      const opened = openNativeSms(phone, log.message);
-      if (!opened) {
-        toast.error('Failed to open native SMS application.');
-        setActionLoadingId(null);
-        return;
-      }
-
-      // 5. Update status back to Sent on success
-      const resSent = await markSMSAsSentAction(log.id);
-      if (resSent.success) {
-        toast.success('SMS resent successfully.');
-        
-        // Optimistically set back to Sent
-        setLogs((prevLogs) =>
-          prevLogs.map((l) => (l.id === log.id ? { ...l, status: 'Sent', sent_at: new Date().toISOString() } : l))
-        );
-
-        setStats((prevStats) => {
-          if (!prevStats) return prevStats;
-          return {
-            ...prevStats,
-            pending: Math.max(0, prevStats.pending - 1),
-            todaySent: prevStats.todaySent + 1,
-            totalSent: (prevStats.totalSent ?? 0) + 1,
-          };
-        });
+      // 3. Database update via server action
+      const res = await undoSMSSentAction(log.id);
+      if (res.success) {
+        toast.success('SMS moved back to Pending.');
       } else {
-        toast.error(resSent.message || 'Failed to update database sent status.');
+        toast.error(res.message || 'Failed to undo sent status.');
         loadData();
       }
     } catch (err: unknown) {
-      console.error('Error resending SMS:', err);
-      toast.error('An unexpected error occurred during resend.');
+      console.error('Error in handleUndo:', err);
+      toast.error('An unexpected error occurred during undo.');
       loadData();
     } finally {
       setActionLoadingId(null);
@@ -1439,6 +1456,17 @@ export default function SMSNotificationCenterPage() {
                                     <RotateCcw className="h-3.5 w-3.5" />
                                   )}
                                 </button>
+                                {log.status === 'Sent' && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-xs"
+                                    disabled={isLoading}
+                                    onClick={() => void handleUndo(log)}
+                                    title="Undo"
+                                  >
+                                    <Undo2 className="h-3.5 w-3.5 text-indigo-600" />
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs"
@@ -1509,6 +1537,21 @@ export default function SMSNotificationCenterPage() {
                             )}
                             {isLoading ? 'Resending...' : 'Resend'}
                           </button>
+                          {log.status === 'Sent' && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary flex-1 min-h-[48px] font-semibold text-xs rounded-xl flex items-center justify-center gap-1"
+                              disabled={isLoading}
+                              onClick={() => void handleUndo(log)}
+                            >
+                              {isLoading ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Undo2 className="h-3.5 w-3.5" />
+                              )}
+                              {isLoading ? 'Undoing...' : 'Undo'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="btn btn-secondary flex-1 min-h-[48px] font-semibold text-xs rounded-xl"
