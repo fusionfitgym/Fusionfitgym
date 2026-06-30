@@ -12,20 +12,45 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // Helper: Random integer
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-// Names for generating 250 members
+// Kerala style names for generating 250 members
 const firstNames = [
-  'Arjun', 'Priya', 'Rahul', 'Sneha', 'Vikram', 'Kavya', 'Aditya', 'Meera', 'Rohan', 'Divya',
-  'Amit', 'Anjali', 'Karan', 'Neha', 'Sanjay', 'Pooja', 'Rajesh', 'Deepa', 'Suresh', 'Sunita',
-  'Vijay', 'Aisha', 'Abhishek', 'Ritu', 'Manish', 'Komal', 'Sandeep', 'Swati', 'Harish', 'Preeti',
-  'Ravi', 'Shalini', 'Alok', 'Tanvi', 'Vivek', 'Nisha', 'Sunil', 'Jyoti', 'Gaurav', 'Ridhi',
-  'Mohit', 'Payal', 'Rohit', 'Sakshi', 'Anil', 'Nidhi', 'Deepak', 'Aarti', 'Manoj', 'Kiran'
+  'Abhijith', 'Adithya', 'Ajay', 'Akshay', 'Anand', 'Ananthu', 'Anoop', 'Arjun', 'Ashwin', 'Athul',
+  'Bharat', 'Deepak', 'Gokul', 'Harikrishnan', 'Jithu', 'Karthik', 'Midhun', 'Manu', 'Nikhil', 'Nithin',
+  'Pranav', 'Rahul', 'Rakesh', 'Rohit', 'Sanjay', 'Sarath', 'Sreejith', 'Subin', 'Sujith', 'Vaisakh',
+  'Vineeth', 'Vishnu', 'Vibin', 'Yadhu', 'Jithin', 'Akhil', 'Sabin', 'Sooraj', 'Sachin', 'Subash',
+  'Aiswarya', 'Akhila', 'Amrutha', 'Ananya', 'Anjali', 'Anju', 'Aparna', 'Arya', 'Aswathy', 'Athira',
+  'Devika', 'Gopika', 'Haritha', 'Kavya', 'Keerthana', 'Lekshmi', 'Malavika', 'Meera', 'Nayana', 'Neethu',
+  'Nithya', 'Pooja', 'Priya', 'Remya', 'Reshma', 'Revathy', 'Sandra', 'Saranya', 'Sneha', 'Sreevidya'
 ];
 
 const lastNames = [
-  'Sharma', 'Nair', 'Verma', 'Patel', 'Singh', 'Reddy', 'Kumar', 'Joshi', 'Mehta', 'Krishnan',
-  'Gupta', 'Rao', 'Sen', 'Das', 'Mishra', 'Choudhury', 'Mukherjee', 'Bose', 'Iyer', 'Pillai',
-  'Bhatt', 'Pandey', 'Saxena', 'Kapoor', 'Malhotra', 'Mehra', 'Trivedi', 'Joshi', 'Desai', 'Kulkarni',
-  'Patil', 'Pawar', 'Shinde', 'Jadhav', 'Gaikwad', 'Naidu', 'Shetty', 'Hegde', 'Menon', 'Nambiar'
+  'Nair', 'Menon', 'Pillai', 'Panicker', 'Kurup', 'Nambiar', 'Warrier', 'Vaidyan', 'Kaimal', 'Thampi',
+  'Unnithan', 'Varma', 'Marar', 'Krishnan', 'Kumar', 'K', 'M', 'P', 'R', 'S', 'V'
+];
+
+const keralaLocations = [
+  'MG Road, Ernakulam, Kochi',
+  'Marine Drive, Ernakulam',
+  'Kaloor, Kochi',
+  'Edappally, Kochi',
+  'Vyttila, Kochi',
+  'Kakkanad, Kochi',
+  'Panampilly Nagar, Kochi',
+  'Palarivattom, Kochi',
+  'Kowdiar, Thiruvananthapuram',
+  'Vellayambalam, Thiruvananthapuram',
+  'Kazhakkoottam, Thiruvananthapuram',
+  'Statue, Thiruvananthapuram',
+  'SM Street, Kozhikode',
+  'Nadakkavu, Kozhikode',
+  'Mavoor Road, Kozhikode',
+  'Swaraj Round, Thrissur',
+  'East Fort, Thrissur',
+  'KK Road, Kottayam',
+  'Mullakkal, Alappuzha',
+  'Chinnakada, Kollam',
+  'Fort Road, Kannur',
+  'College Road, Palakkad'
 ];
 
 // Generate 250 members
@@ -96,7 +121,7 @@ for (let i = 1; i <= 250; i++) {
     full_name: fullName,
     phone: phone,
     email: email,
-    address: `${rand(10, 99)} MG Road, Bangalore`,
+    address: pick(keralaLocations),
     emergency_contact: `+91 9${rand(10000000, 99999999)}`,
     dob: dob,
     package_name: pkg.name,
@@ -258,11 +283,11 @@ const trainers = Array.from({ length: 18 }).map((_, idx) => {
 // Generate expenses.json
 // Total monthly expenses: ₹38,000
 const expenses = [
-  { id: 'exp-1', category: 'Rent', amount: 20000, description: 'Gym Facility Rent', date: '2026-06-01', status: 'Paid' },
-  { id: 'exp-2', category: 'Electricity', amount: 8000, description: 'Electricity Bill', date: '2026-06-15', status: 'Paid' },
-  { id: 'exp-3', category: 'Equipment Maintenance', amount: 4000, description: 'Treadmill repairs', date: '2026-06-18', status: 'Paid' },
-  { id: 'exp-4', category: 'Staff Salaries', amount: 5000, description: 'Cleaner salary', date: '2026-06-25', status: 'Paid' },
-  { id: 'exp-5', category: 'Water Supply', amount: 1000, description: 'Drinking water cans', date: '2026-06-20', status: 'Paid' }
+  { id: 'exp-1', category: 'Rent', amount: 20000, description: 'Gym Facility Rent - Kaloor Branch', date: '2026-06-01', status: 'Paid' },
+  { id: 'exp-2', category: 'Electricity', amount: 8000, description: 'KSEB Electricity Bill', date: '2026-06-15', status: 'Paid' },
+  { id: 'exp-3', category: 'Equipment Maintenance', amount: 4000, description: 'Treadmill repairs & servicing', date: '2026-06-18', status: 'Paid' },
+  { id: 'exp-4', category: 'Staff Salaries', amount: 5000, description: 'Cleaner & Housekeeping salary', date: '2026-06-25', status: 'Paid' },
+  { id: 'exp-5', category: 'Water Supply', amount: 1000, description: 'KWA Drinking Water cans', date: '2026-06-20', status: 'Paid' }
 ];
 
 // Generate call_logs.json
@@ -272,19 +297,19 @@ const callLogs = Array.from({ length: 12 }).map((_, idx) => {
     id: `call-${idx + 1}`,
     client_name: member.full_name,
     phone: member.phone,
-    shop_name: 'FusionFit Branch',
+    shop_name: 'FusionFit Kochi Branch',
     call_status: pick(['Interested', 'Busy', 'Call Back', 'Not Interested']),
     follow_up_date: `2026-07-0${rand(1, 9)}`,
-    notes: 'Discussed premium annual membership pricing and trainers package.',
-    assigned_employee: pick(['Amit Sharma', 'Karan Nair', 'Anjali Gupta'])
+    notes: 'Discussed elite annual membership offer and personal trainer package.',
+    assigned_employee: pick(['Midhun Nair', 'Aswathy Pillai', 'Sreejith Menon', 'Akhil Panicker'])
   };
 });
 
 // Generate notifications.json
 const notifications = [
-  { id: 'notif-1', type: 'Membership Expiry', message: 'Arjun Sharma\'s membership expires in 2 days.', date: '2026-06-28', status: 'Unread' },
-  { id: 'notif-2', type: 'Payment Reminder', message: 'INV-1015 for Priya Nair is overdue by 5 days.', date: '2026-06-29', status: 'Unread' },
-  { id: 'notif-3', type: 'Birthday Reminder', message: 'It\'s Sneha Patel\'s birthday today!', date: '2026-06-30', status: 'Unread' },
+  { id: 'notif-1', type: 'Membership Expiry', message: 'Arjun Nair\'s membership expires in 2 days.', date: '2026-06-28', status: 'Unread' },
+  { id: 'notif-2', type: 'Payment Reminder', message: 'INV-1015 for Priya Menon is overdue by 5 days.', date: '2026-06-29', status: 'Unread' },
+  { id: 'notif-3', type: 'Birthday Reminder', message: 'It\'s Sneha Pillai\'s birthday today!', date: '2026-06-30', status: 'Unread' },
   { id: 'notif-4', type: 'System Sync', message: 'Biometric device sync completed successfully.', date: '2026-06-30', status: 'Read' }
 ];
 

@@ -3,7 +3,7 @@
     "id": "exp-1",
     "category": "Rent",
     "amount": 20000,
-    "description": "Gym Facility Rent",
+    "description": "Gym Facility Rent - Kaloor Branch",
     "date": "2026-06-01",
     "status": "Paid"
   },
@@ -11,7 +11,7 @@
     "id": "exp-2",
     "category": "Electricity",
     "amount": 8000,
-    "description": "Electricity Bill",
+    "description": "KSEB Electricity Bill",
     "date": "2026-06-15",
     "status": "Paid"
   },
@@ -19,7 +19,7 @@
     "id": "exp-3",
     "category": "Equipment Maintenance",
     "amount": 4000,
-    "description": "Treadmill repairs",
+    "description": "Treadmill repairs & servicing",
     "date": "2026-06-18",
     "status": "Paid"
   },
@@ -27,7 +27,7 @@
     "id": "exp-4",
     "category": "Staff Salaries",
     "amount": 5000,
-    "description": "Cleaner salary",
+    "description": "Cleaner & Housekeeping salary",
     "date": "2026-06-25",
     "status": "Paid"
   },
@@ -35,7 +35,7 @@
     "id": "exp-5",
     "category": "Water Supply",
     "amount": 1000,
-    "description": "Drinking water cans",
+    "description": "KWA Drinking Water cans",
     "date": "2026-06-20",
     "status": "Paid"
   }

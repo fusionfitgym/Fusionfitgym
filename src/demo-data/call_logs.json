@@ -1,122 +1,122 @@
 [
   {
     "id": "call-1",
-    "client_name": "Payal Verma",
-    "phone": "+91 919747069",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Not Interested",
-    "follow_up_date": "2026-07-03",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "client_name": "Rakesh Kumar",
+    "phone": "+91 947326688",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Call Back",
+    "follow_up_date": "2026-07-04",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Aswathy Pillai"
   },
   {
     "id": "call-2",
-    "client_name": "Karan Joshi",
-    "phone": "+91 996269713",
-    "shop_name": "FusionFit Branch",
+    "client_name": "Revathy Nambiar",
+    "phone": "+91 942906451",
+    "shop_name": "FusionFit Kochi Branch",
     "call_status": "Interested",
-    "follow_up_date": "2026-07-07",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Amit Sharma"
+    "follow_up_date": "2026-07-03",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Sreejith Menon"
   },
   {
     "id": "call-3",
-    "client_name": "Komal Choudhury",
-    "phone": "+91 966499523",
-    "shop_name": "FusionFit Branch",
+    "client_name": "Sachin Kaimal",
+    "phone": "+91 935277123",
+    "shop_name": "FusionFit Kochi Branch",
     "call_status": "Call Back",
-    "follow_up_date": "2026-07-05",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "follow_up_date": "2026-07-02",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Akhil Panicker"
   },
   {
     "id": "call-4",
-    "client_name": "Arjun Pandey",
-    "phone": "+91 922091845",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Call Back",
-    "follow_up_date": "2026-07-07",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Amit Sharma"
+    "client_name": "Akhil Krishnan",
+    "phone": "+91 931304444",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-04",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Sreejith Menon"
   },
   {
     "id": "call-5",
-    "client_name": "Rajesh Patel",
-    "phone": "+91 927681480",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Busy",
-    "follow_up_date": "2026-07-06",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Amit Sharma"
+    "client_name": "Vishnu Marar",
+    "phone": "+91 949476715",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-01",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Aswathy Pillai"
   },
   {
     "id": "call-6",
-    "client_name": "Preeti Desai",
-    "phone": "+91 947967969",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Busy",
-    "follow_up_date": "2026-07-04",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Anjali Gupta"
+    "client_name": "Anand Krishnan",
+    "phone": "+91 995689897",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Interested",
+    "follow_up_date": "2026-07-09",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Midhun Nair"
   },
   {
     "id": "call-7",
-    "client_name": "Swati Mishra",
-    "phone": "+91 963492681",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Interested",
-    "follow_up_date": "2026-07-09",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "client_name": "Devika R",
+    "phone": "+91 920843476",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-02",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Aswathy Pillai"
   },
   {
     "id": "call-8",
-    "client_name": "Kavya Singh",
-    "phone": "+91 910134827",
-    "shop_name": "FusionFit Branch",
+    "client_name": "Anand R",
+    "phone": "+91 993587546",
+    "shop_name": "FusionFit Kochi Branch",
     "call_status": "Interested",
-    "follow_up_date": "2026-07-01",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "follow_up_date": "2026-07-07",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Aswathy Pillai"
   },
   {
     "id": "call-9",
-    "client_name": "Payal Gaikwad",
-    "phone": "+91 914737907",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Not Interested",
-    "follow_up_date": "2026-07-02",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "client_name": "Gokul S",
+    "phone": "+91 924223152",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Busy",
+    "follow_up_date": "2026-07-08",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Aswathy Pillai"
   },
   {
     "id": "call-10",
-    "client_name": "Abhishek Reddy",
-    "phone": "+91 916682351",
-    "shop_name": "FusionFit Branch",
+    "client_name": "Midhun Nambiar",
+    "phone": "+91 953524045",
+    "shop_name": "FusionFit Kochi Branch",
     "call_status": "Interested",
-    "follow_up_date": "2026-07-09",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Anjali Gupta"
+    "follow_up_date": "2026-07-05",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Sreejith Menon"
   },
   {
     "id": "call-11",
-    "client_name": "Kavya Rao",
-    "phone": "+91 918391197",
-    "shop_name": "FusionFit Branch",
-    "call_status": "Call Back",
-    "follow_up_date": "2026-07-09",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "client_name": "Sabin S",
+    "phone": "+91 968968781",
+    "shop_name": "FusionFit Kochi Branch",
+    "call_status": "Not Interested",
+    "follow_up_date": "2026-07-05",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Sreejith Menon"
   },
   {
     "id": "call-12",
-    "client_name": "Anjali Mishra",
-    "phone": "+91 959478955",
-    "shop_name": "FusionFit Branch",
+    "client_name": "Remya Pillai",
+    "phone": "+91 995635187",
+    "shop_name": "FusionFit Kochi Branch",
     "call_status": "Not Interested",
-    "follow_up_date": "2026-07-05",
-    "notes": "Discussed premium annual membership pricing and trainers package.",
-    "assigned_employee": "Karan Nair"
+    "follow_up_date": "2026-07-03",
+    "notes": "Discussed elite annual membership offer and personal trainer package.",
+    "assigned_employee": "Midhun Nair"
   }
 ]
