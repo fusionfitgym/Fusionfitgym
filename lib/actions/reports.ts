@@ -7,10 +7,15 @@ import { enrichLogs } from './attendance';
 export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'monthly') {
   const supabase = await createClient();
 
+  const fifteenDaysAgo = new Date();
+  fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+  fifteenDaysAgo.setHours(0, 0, 0, 0);
+
   const { data: allRawLogs, error: fetchAllError } = await supabase
     .from('attendance_logs')
     .select('*')
-    .order('created_at', { ascending: false });
+    .gte('punch_time', fifteenDaysAgo.toISOString())
+    .order('punch_time', { ascending: false });
 
   if (fetchAllError) {
     console.error('Error fetching all attendance logs for report:', fetchAllError);
@@ -19,8 +24,6 @@ export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'month
 
   const enrichedAllLogs = await enrichLogs(allRawLogs || []);
 
-  const now = new Date();
-  
   // Daily / Today start
   const dailyStart = new Date();
   dailyStart.setHours(0, 0, 0, 0);
@@ -30,10 +33,8 @@ export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'month
   weeklyStart.setDate(weeklyStart.getDate() - 7);
   weeklyStart.setHours(0, 0, 0, 0);
 
-  // Last 30 days start
-  const monthlyStart = new Date();
-  monthlyStart.setDate(monthlyStart.getDate() - 30);
-  monthlyStart.setHours(0, 0, 0, 0);
+  // Last 15 days start (capped since older is deleted/not fetched)
+  const monthlyStart = fifteenDaysAgo;
 
   const dailyLogs = enrichedAllLogs.filter(log => new Date(log.punch_time) >= dailyStart);
   const weeklyLogs = enrichedAllLogs.filter(log => new Date(log.punch_time) >= weeklyStart);
@@ -48,13 +49,51 @@ export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'month
     filteredLogs = monthlyLogs;
   }
 
+  // Ensure they are ordered newest first (since enrichLogs might have changed order to ASC)
+  filteredLogs.sort((a, b) => new Date(b.punch_time).getTime() - new Date(a.punch_time).getTime());
+
   console.log(`[REPORTS QUERY LOG] Timeframe: ${timeframe}`);
-  console.log(`Raw row count in DB: ${allRawLogs ? allRawLogs.length : 0}`);
+  console.log(`Raw row count in DB (last 15 days): ${allRawLogs ? allRawLogs.length : 0}`);
   console.log(`Enriched and filtered row count: ${filteredLogs.length}`);
+
+  // Calculate statistics based only on the last 15 days (excluding deleted/expired logs)
+  const validAllLogs = enrichedAllLogs.filter(log => log.member && log.member.status === 'Active');
+  
+  const isTodayIST = (punchTime: string) => {
+    if (!punchTime) return false;
+    const punchDate = new Date(punchTime);
+    const today = new Date();
+    return punchDate.getDate() === today.getDate() &&
+           punchDate.getMonth() === today.getMonth() &&
+           punchDate.getFullYear() === today.getFullYear();
+  };
+
+  const totalLogs15 = validAllLogs.length;
+  const todayLogs = validAllLogs.filter(log => isTodayIST(log.punch_time));
+  const todayLogsCount = todayLogs.length;
+  const checkinsToday = todayLogs.filter(log => log.punch_type === 'checkin').length;
+  const checkoutsToday = todayLogs.filter(log => log.punch_type === 'checkout').length;
+
+  // Opportunistic cleanup: ~2% of the time, delete logs older than 15 days.
+  if (Math.random() < 0.02) {
+    (async () => {
+      const { error } = await supabase
+        .from('attendance_logs')
+        .delete()
+        .lt('punch_time', fifteenDaysAgo.toISOString());
+      if (error) {
+        console.error('Opportunistic attendance log cleanup failed:', error);
+      }
+    })().catch(err => console.error('Failed to run opportunistic cleanup:', err));
+  }
 
   return {
     logs: filteredLogs,
     debug: {
+      totalLogs15,
+      todayLogsCount,
+      checkinsToday,
+      checkoutsToday,
       totalCount: enrichedAllLogs.length,
       last7DaysCount: weeklyLogs.length,
       last30DaysCount: monthlyLogs.length,

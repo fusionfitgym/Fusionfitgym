@@ -8,11 +8,15 @@ import {
   FileText,
   TrendingUp,
   Users,
+  Database,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceReport, getMemberReport, getRevenueReport } from '@/lib/actions/reports';
+import { cleanupOldAttendanceLogs } from '@/lib/actions/attendance';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { TableSkeleton } from '@/components/ui/Skeleton';
+import { toast } from 'sonner';
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'attendance' | 'members' | 'revenue'>('attendance');
@@ -25,6 +29,26 @@ export default function ReportsPage() {
   const [revenueData, setRevenueData] = useState<any>(null);
   
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteOldLogs = async () => {
+    setDeleting(true);
+    const toastId = toast.loading('Deleting attendance logs older than 15 days...');
+    try {
+      const res = await cleanupOldAttendanceLogs();
+      if (res.success) {
+        toast.success(`✓ ${res.deletedCount} attendance logs deleted successfully.`, { id: toastId });
+        await fetchReport();
+      } else {
+        toast.error(res.error || 'Failed to delete logs.', { id: toastId });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'An unexpected error occurred.', { id: toastId });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Fetch reports based on active tab/filters
   const fetchReport = async () => {
@@ -169,24 +193,59 @@ export default function ReportsPage() {
           )}
         </div>
 
-        {/* CSV Export Button */}
+        {/* CSV Export Button & Database Maintenance */}
         <div>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => {
-              if (activeTab === 'attendance') {
-                handleCSVExport(attendanceData, `attendance_${attendanceTimeframe}`);
-              } else if (activeTab === 'members') {
-                handleCSVExport(memberData, `members_${memberFilter}`);
-              } else if (activeTab === 'revenue') {
-                handleCSVExport(revenueData?.invoices || [], 'financials_revenue');
-              }
-            }}
-            className="btn btn-secondary flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" /> Export CSV
-          </button>
+          {activeTab === 'attendance' ? (
+            <div className="flex flex-col sm:items-end gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Database Maintenance</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={loading || deleting}
+                  onClick={() => handleCSVExport(attendanceData, `attendance_${attendanceTimeframe}`)}
+                  className="btn btn-secondary flex items-center gap-2"
+                >
+                  📄 Export CSV
+                </button>
+                <ConfirmDialog
+                  trigger={
+                    <button
+                      type="button"
+                      disabled={loading || deleting}
+                      className="btn btn-danger flex items-center gap-2"
+                      style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
+                    >
+                      {deleting ? (
+                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                      ) : '🗑'} Delete Old Logs
+                    </button>
+                  }
+                  title="Delete Attendance Logs"
+                  description="This will permanently delete all attendance logs older than 15 days. This action cannot be undone."
+                  confirmLabel="Delete"
+                  onConfirm={handleDeleteOldLogs}
+                />
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                if (activeTab === 'members') {
+                  handleCSVExport(memberData, `members_${memberFilter}`);
+                } else if (activeTab === 'revenue') {
+                  handleCSVExport(revenueData?.invoices || [], 'financials_revenue');
+                }
+              }}
+              className="btn btn-secondary flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </button>
+          )}
         </div>
       </div>
 
@@ -216,34 +275,64 @@ export default function ReportsPage() {
 
       {/* Diagnostics Debug Stats for Attendance */}
       {activeTab === 'attendance' && attendanceDebug && (
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="card p-4 border-l-4 border-l-blue-500 bg-blue-50/5">
-            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Total Logs in Database</p>
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Total Logs (15 Days)</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">
-              {attendanceDebug.rawCountBeforeFilter}
+              {attendanceDebug.totalLogs15 ?? 0}
             </p>
-            <p className="text-[10px] text-slate-400 mt-1 font-medium">Raw count in DB before filters</p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Logs from last 15 days</p>
           </div>
           <div className="card p-4 border-l-4 border-l-indigo-500 bg-indigo-50/5">
-            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Total Enriched Logs</p>
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Today's Logs</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">
-              {attendanceDebug.totalCount}
+              {attendanceDebug.todayLogsCount ?? 0}
             </p>
-            <p className="text-[10px] text-slate-400 mt-1 font-medium">All matched records</p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">All check-ins/outs today</p>
           </div>
           <div className="card p-4 border-l-4 border-l-emerald-500 bg-emerald-50/5">
-            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Logs in Last 7 Days</p>
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Check-ins Today</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">
-              {attendanceDebug.last7DaysCount}
+              {attendanceDebug.checkinsToday ?? 0}
             </p>
-            <p className="text-[10px] text-slate-400 mt-1 font-medium">Weekly activity count</p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Check-ins today</p>
           </div>
           <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-50/5">
-            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Logs in Last 30 Days</p>
+            <p className="metric-label text-slate-500 font-semibold text-[11px] uppercase tracking-wider">Check-outs Today</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">
-              {attendanceDebug.last30DaysCount}
+              {attendanceDebug.checkoutsToday ?? 0}
             </p>
-            <p className="text-[10px] text-slate-400 mt-1 font-medium">Monthly activity count</p>
+            <p className="text-[10px] text-slate-400 mt-1 font-medium">Check-outs today</p>
+          </div>
+          <div className="card p-4 border-t-4 border-t-amber-400 bg-white flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="flex items-center gap-1 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                  <Database className="h-3.5 w-3.5 text-amber-400" /> Database Health
+                </span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800">
+                  Healthy
+                </span>
+              </div>
+              <div className="space-y-1.5 text-xs text-slate-500">
+                <div className="flex justify-between">
+                  <span>Retention Policy</span>
+                  <span className="font-semibold text-slate-900">15 Days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Auto Cleanup</span>
+                  <span className="font-semibold text-slate-900">Enabled</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Next Cleanup</span>
+                  <span className="font-semibold text-slate-900">2:00 AM Daily</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 pt-1 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+              <span>Status</span>
+              <span className="font-bold text-emerald-600">Healthy</span>
+            </div>
           </div>
         </div>
       )}

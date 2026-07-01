@@ -203,6 +203,10 @@ export async function getAttendanceHistory(filters?: {
   const supabase = await createClient();
   let query = supabase.from('attendance_logs').select('*');
 
+  const fifteenDaysAgo = new Date();
+  fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+  fifteenDaysAgo.setHours(0, 0, 0, 0);
+
   if (filters?.member_id) {
     // If the filter is passing member_id as a UUID, find that member first
     const { data: member } = await supabase
@@ -218,9 +222,16 @@ export async function getAttendanceHistory(filters?: {
     }
   }
   
+  // Enforce query limit of last 15 days
+  let queryStartDate = fifteenDaysAgo;
   if (filters?.startDate) {
-    query = query.gte('created_at', new Date(filters.startDate).toISOString());
+    const requestedStart = new Date(filters.startDate);
+    if (requestedStart > fifteenDaysAgo) {
+      queryStartDate = requestedStart;
+    }
   }
+  query = query.gte('created_at', queryStartDate.toISOString());
+
   if (filters?.endDate) {
     const end = new Date(filters.endDate);
     end.setHours(23, 59, 59, 999);
@@ -242,11 +253,11 @@ export async function getAttendanceAnalytics() {
   const supabase = await createClient();
   const startOfDay = getStartOfTodayIST();
 
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setHours(0,0,0,0);
+  const fifteenDaysAgo = new Date();
+  fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+  fifteenDaysAgo.setHours(0,0,0,0);
 
-  // Fetch today's logs and past 30 days logs
+  // Fetch today's logs and past 15 days logs
   const [
     { data: todayRawLogs, error: todayError },
     { data: trendRawLogs, error: trendError }
@@ -259,7 +270,7 @@ export async function getAttendanceAnalytics() {
     supabase
       .from('attendance_logs')
       .select('*')
-      .gte('created_at', thirtyDaysAgo.toISOString())
+      .gte('created_at', fifteenDaysAgo.toISOString())
   ]);
 
   if (todayError) {
@@ -295,9 +306,9 @@ export async function getAttendanceAnalytics() {
   });
   const occupancy = activeMembers.size;
 
-  // Daily trend calculations (last 30 days)
+  // Daily trend calculations (last 15 days)
   const dailyCounts: Record<string, number> = {};
-  for (let i = 29; i >= 0; i--) {
+  for (let i = 14; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
@@ -411,4 +422,54 @@ export async function getSyncLogs(): Promise<BiometricSyncLog[]> {
     throw error;
   }
   return data as BiometricSyncLog[];
+}
+
+export async function cleanupOldAttendanceLogs(): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    const supabase = await createClient();
+
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    fifteenDaysAgo.setHours(0, 0, 0, 0);
+
+    // Get count of logs to delete
+    const { data: logsToDelete, error: countError } = await supabase
+      .from('attendance_logs')
+      .select('id')
+      .lt('punch_time', fifteenDaysAgo.toISOString());
+
+    if (countError) {
+      console.error('Error fetching logs to delete:', countError);
+      return { success: false, deletedCount: 0, error: countError.message };
+    }
+
+    const count = logsToDelete?.length || 0;
+
+    // Delete logs
+    const { error: deleteError } = await supabase
+      .from('attendance_logs')
+      .delete()
+      .lt('punch_time', fifteenDaysAgo.toISOString());
+
+    if (deleteError) {
+      console.error('Error performing manual logs cleanup:', deleteError);
+      return { success: false, deletedCount: 0, error: deleteError.message };
+    }
+
+    await logAudit(
+      `Manually deleted ${count} old attendance logs (older than 15 days)`,
+      'Attendance',
+      user.id
+    );
+
+    revalidatePath('/');
+    revalidatePath('/reports');
+    revalidatePath('/attendance');
+
+    return { success: true, deletedCount: count };
+  } catch (err: any) {
+    console.error('Manual attendance log cleanup failed:', err);
+    return { success: false, deletedCount: 0, error: err.message || 'Unknown error' };
+  }
 }
