@@ -124,50 +124,54 @@ export default function StaffPage() {
       />
 
       {/* Filters */}
-      <div className="card mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
-        {/* Search */}
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-          <input
-            id="staff-search"
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, employee ID, or phone…"
-            className="input pl-9 w-full"
-          />
-        </div>
+      <section className="card mb-6 overflow-hidden">
+        <div className="filter-bar">
+          {/* Search */}
+          <div className="input-with-icon">
+            <Search aria-hidden="true" />
+            <input
+              id="staff-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, employee ID, or phone…"
+              className="input-field"
+              aria-label="Search staff"
+            />
+          </div>
 
-        {/* Role filter tabs */}
-        <div className="flex rounded-xl border border-slate-200 overflow-hidden shrink-0">
-          {filterTabs.map((tab) => (
-            <button
-              key={tab.role}
-              type="button"
-              onClick={() => setRoleFilter(tab.role)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-semibold transition-colors',
-                roleFilter === tab.role
-                  ? 'bg-amber-400 text-zinc-900'
-                  : 'bg-white text-slate-600 hover:bg-slate-50'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+          {/* Role filter tabs */}
+          <div className="flex rounded-xl border border-slate-200 overflow-hidden shrink-0">
+            {filterTabs.map((tab) => (
+              <button
+                key={tab.role}
+                type="button"
+                onClick={() => setRoleFilter(tab.role)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer',
+                  roleFilter === tab.role
+                    ? 'bg-amber-400 text-zinc-900'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-        {/* Status filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="input shrink-0 w-auto"
-        >
-          <option value="All">All Statuses</option>
-          <option value="Active">Active</option>
-          <option value="Inactive">Inactive</option>
-        </select>
-      </div>
+          {/* Status filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="select-field md:w-44"
+            aria-label="Filter by status"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+      </section>
 
       {/* Table — Desktop */}
       <div className="card hidden md:block overflow-hidden">

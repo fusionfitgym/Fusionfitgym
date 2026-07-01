@@ -165,7 +165,7 @@ export function StaffForm({
           <FormField label="Role" required error={errors.role?.message}>
             <select
               {...register('role')}
-              className="input"
+              className="select-field"
             >
               <option value="Trainer">Trainer</option>
               <option value="Janitor">Janitor</option>
@@ -173,19 +173,19 @@ export function StaffForm({
           </FormField>
 
           <FormField label="Full Name" required error={errors.full_name?.message}>
-            <div className="input-icon-wrap">
-              <User className="input-icon" />
+            <div className="input-with-icon">
+              <User />
               <input
                 {...register('full_name')}
                 type="text"
                 placeholder="Enter full name"
-                className="input input-with-icon"
+                className="input-field"
               />
             </div>
           </FormField>
 
           <FormField label="Gender" error={errors.gender?.message}>
-            <select {...register('gender')} className="input">
+            <select {...register('gender')} className="select-field">
               <option value="">Select gender</option>
               {STAFF_GENDERS.map((g) => (
                 <option key={g} value={g}>{g}</option>
@@ -194,56 +194,56 @@ export function StaffForm({
           </FormField>
 
           <FormField label="Date of Birth" error={errors.dob?.message}>
-            <div className="input-icon-wrap">
-              <Calendar className="input-icon" />
-              <input {...register('dob')} type="date" className="input input-with-icon" />
+            <div className="input-with-icon">
+              <Calendar />
+              <input {...register('dob')} type="date" className="input-field" />
             </div>
           </FormField>
 
           <FormField label="Phone Number" required error={errors.phone?.message}>
-            <div className="input-icon-wrap">
-              <Phone className="input-icon" />
+            <div className="input-with-icon">
+              <Phone />
               <input
                 {...register('phone')}
                 type="tel"
                 placeholder="+91 98765 43210"
-                className="input input-with-icon"
+                className="input-field"
               />
             </div>
           </FormField>
 
           <FormField label="Email" error={errors.email?.message}>
-            <div className="input-icon-wrap">
-              <Mail className="input-icon" />
+            <div className="input-with-icon">
+              <Mail />
               <input
                 {...register('email')}
                 type="email"
                 placeholder="email@example.com"
-                className="input input-with-icon"
+                className="input-field"
               />
             </div>
           </FormField>
 
           <FormField label="Address" className="sm:col-span-2" error={errors.address?.message}>
-            <div className="input-icon-wrap">
-              <MapPin className="input-icon" />
+            <div className="input-with-icon">
+              <MapPin />
               <input
                 {...register('address')}
                 type="text"
                 placeholder="Enter address"
-                className="input input-with-icon"
+                className="input-field"
               />
             </div>
           </FormField>
 
           <FormField label="Emergency Contact" className="sm:col-span-2" error={errors.emergency_contact?.message}>
-            <div className="input-icon-wrap">
-              <Phone className="input-icon" />
+            <div className="input-with-icon">
+              <Phone />
               <input
                 {...register('emergency_contact')}
                 type="tel"
                 placeholder="Emergency contact number"
-                className="input input-with-icon"
+                className="input-field"
               />
             </div>
           </FormField>
@@ -263,32 +263,32 @@ export function StaffForm({
               {...register('employee_id')}
               type="text"
               placeholder="EMP-1001 (auto-generated)"
-              className="input"
+              className="input-field"
             />
           </FormField>
 
           <FormField label="Joining Date" required error={errors.joining_date?.message}>
-            <div className="input-icon-wrap">
-              <Calendar className="input-icon" />
-              <input {...register('joining_date')} type="date" className="input input-with-icon" />
+            <div className="input-with-icon">
+              <Calendar />
+              <input {...register('joining_date')} type="date" className="input-field" />
             </div>
           </FormField>
 
           <FormField label="Salary (₹/month)" error={errors.salary?.message}>
-            <div className="input-icon-wrap">
-              <DollarSign className="input-icon" />
+            <div className="input-with-icon">
+              <DollarSign />
               <input
                 {...register('salary')}
                 type="number"
                 min="0"
                 placeholder="25000"
-                className="input input-with-icon"
+                className="input-field"
               />
             </div>
           </FormField>
 
           <FormField label="Shift" error={errors.shift?.message}>
-            <select {...register('shift')} className="input">
+            <select {...register('shift')} className="select-field">
               <option value="">Select shift</option>
               {STAFF_SHIFTS.map((s) => (
                 <option key={s} value={s}>{s}</option>
@@ -297,7 +297,7 @@ export function StaffForm({
           </FormField>
 
           <FormField label="Status" required error={errors.status?.message}>
-            <select {...register('status')} className="input">
+            <select {...register('status')} className="select-field">
               {STAFF_STATUSES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
@@ -319,7 +319,7 @@ export function StaffForm({
                 {...register('specialization')}
                 type="text"
                 placeholder="e.g. Weight Training, CrossFit, Yoga"
-                className="input"
+                className="input-field"
               />
             </FormField>
 
@@ -329,7 +329,7 @@ export function StaffForm({
                 type="number"
                 min="0"
                 placeholder="5"
-                className="input"
+                className="input-field"
               />
             </FormField>
 
@@ -338,7 +338,7 @@ export function StaffForm({
                 {...register('certifications')}
                 type="text"
                 placeholder="e.g. ACE Certified, CPR Certified"
-                className="input"
+                className="input-field"
               />
             </FormField>
 
@@ -347,7 +347,7 @@ export function StaffForm({
                 {...register('notes')}
                 rows={3}
                 placeholder="Additional notes..."
-                className="input resize-none"
+                className="textarea-field resize-none"
               />
             </FormField>
           </div>
@@ -366,7 +366,7 @@ export function StaffForm({
                 {...register('cleaning_area')}
                 type="text"
                 placeholder="e.g. Gents Gym Floor, Locker Room"
-                className="input"
+                className="input-field"
               />
             </FormField>
 
@@ -375,7 +375,7 @@ export function StaffForm({
                 {...register('working_shift')}
                 type="text"
                 placeholder="e.g. 6:00 AM – 2:00 PM"
-                className="input"
+                className="input-field"
               />
             </FormField>
 
@@ -384,7 +384,7 @@ export function StaffForm({
                 {...register('notes')}
                 rows={3}
                 placeholder="Additional notes..."
-                className="input resize-none"
+                className="textarea-field resize-none"
               />
             </FormField>
           </div>
