@@ -6,17 +6,17 @@ const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 const supabase = createClient(url, key);
 
 async function checkColumns() {
-  console.log('Querying staff table to check columns...');
+  console.log('Querying invoices table to check columns...');
   const { data, error } = await supabase
-    .from('staff')
+    .from('invoices')
     .select('*')
     .limit(1);
 
   if (error) {
     console.error('Error:', error);
   } else {
-    console.log('Successfully fetched staff record!');
-    console.log('Columns available in staff table:', Object.keys(data[0] || {}));
+    console.log('Successfully fetched invoice record!');
+    console.log('Columns available in invoices table:', Object.keys(data[0] || {}));
   }
 }
 
