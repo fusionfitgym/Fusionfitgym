@@ -127,7 +127,7 @@ export default function StaffProfilePage() {
                 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
                 staff.role === 'Trainer' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
               )}>
-                {staff.role === 'Trainer' ? '💪' : '🧹'} {staff.role}
+                {staff.role === 'Trainer' ? '' : ''} {staff.role}
               </span>
               <span className="flex items-center gap-1">
                 <Briefcase className="h-3.5 w-3.5" /> {staff.employee_id}
