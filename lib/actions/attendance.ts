@@ -24,26 +24,26 @@ function getStartOfTodayIST(): Date {
 function cleanBiometricId(id: string | null | undefined): string {
   if (!id) return '';
   const trimmed = id.trim();
-  
+
   // Ignore any log containing "OPLOG" (Requirement 2)
   if (/oplog/i.test(trimmed)) {
     return '';
   }
-  
+
   // Handle forms like "USER PIN=106" or "FP PIN-203" or "USER PIN 203"
   const pinMatch = trimmed.match(/PIN\s*[=-]?\s*(\d+)/i);
   if (pinMatch) {
     return pinMatch[1];
   }
-  
+
   // Extract all numeric digits
   const clean = trimmed.replace(/[^0-9]/g, '');
-  
+
   // Ensure it matches only numeric biometric IDs (Requirement 1)
   if (/^\d+$/.test(clean)) {
     return clean;
   }
-  
+
   return '';
 }
 
@@ -59,12 +59,12 @@ function getBestTimestamp(log: any): string {
 // Helper: Enrich raw logs with member data and alternate punch types dynamically
 export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   const supabase = await createClient();
-  
+
   // Fetch all members with biometric user IDs for matching
   const { data: members, error: membersError } = await supabase
     .from('members')
     .select('id, full_name, phone, email, membership_plan, join_date, status, profile_photo, biometric_user_id, machine_type');
-    
+
   if (membersError) {
     console.error('Error fetching members for matching:', membersError);
     return [];
@@ -89,12 +89,12 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   });
 
   // Sort raw logs chronologically (ascending) to accurately alternate check-in/check-out
-  const sortedRaw = [...nonOplogRawLogs].sort((a, b) => 
+  const sortedRaw = [...nonOplogRawLogs].sort((a, b) =>
     new Date(a.created_at || a.punch_time).getTime() - new Date(b.created_at || b.punch_time).getTime()
   );
-  
+
   const punchCounts: Record<string, number> = {};
-  
+
   const enrichedSorted = sortedRaw.map((log) => {
     const rawBiometricId = log.member_id || '';
     const cleanId = cleanBiometricId(rawBiometricId);
@@ -105,7 +105,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
 
     // Match member using composite key
     const member = cleanId ? (membersMap.get(`${machineKey}_${cleanId}`) || null) : null;
-    
+
     // Alternate punch types per member per calendar day
     const timestamp = getBestTimestamp(log);
     const dateStr = new Date(timestamp).toDateString();
@@ -113,7 +113,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
     const punchIndex = punchCounts[punchKey] || 0;
     punchCounts[punchKey] = punchIndex + 1;
     const punch_type = punchIndex % 2 === 0 ? 'checkin' : 'checkout';
-    
+
     return {
       id: log.id,
       member_id: member ? member.id : rawBiometricId,
@@ -140,7 +140,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   });
 
   // Sort back to descending (newest first) for UI presentation
-  const finalLogs = enrichedSorted.sort((a, b) => 
+  const finalLogs = enrichedSorted.sort((a, b) =>
     new Date(b.punch_time).getTime() - new Date(a.punch_time).getTime()
   );
 
@@ -157,7 +157,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   const unmatchedIds = Array.from(new Set(
     finalLogs.filter(l => !l.member).map(l => l.biometric_user_id)
   ));
-  
+
   console.log(`[DEBUG Attendance Enrich]
     Total raw records fetched: ${rawLogs.length}
     Filtered OPLOG records: ${rawLogs.length - nonOplogRawLogs.length}
@@ -190,7 +190,7 @@ export async function getTodayAttendanceLogs(machine?: 'Gents' | 'Ladies' | 'All
     console.error('Error in getTodayAttendanceLogs:', error);
     throw error;
   }
-  
+
   return enrichLogs(data || []);
 }
 
@@ -214,14 +214,14 @@ export async function getAttendanceHistory(filters?: {
       .select('biometric_user_id')
       .eq('id', filters.member_id)
       .single();
-      
+
     if (member?.biometric_user_id) {
       query = query.or(`member_id.eq.${member.biometric_user_id},member_id.ilike.%PIN=${member.biometric_user_id}`);
     } else {
       return [];
     }
   }
-  
+
   // Enforce query limit of last 15 days
   let queryStartDate = fifteenDaysAgo;
   if (filters?.startDate) {
@@ -244,7 +244,7 @@ export async function getAttendanceHistory(filters?: {
     console.error('Error in getAttendanceHistory:', error);
     throw error;
   }
-  
+
   return enrichLogs(data || []);
 }
 
@@ -255,7 +255,7 @@ export async function getAttendanceAnalytics() {
 
   const fifteenDaysAgo = new Date();
   fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
-  fifteenDaysAgo.setHours(0,0,0,0);
+  fifteenDaysAgo.setHours(0, 0, 0, 0);
 
   // Fetch today's logs and past 15 days logs
   const [
@@ -344,8 +344,8 @@ export async function getAttendanceAnalytics() {
   });
 
   const hourlyDistribution = Object.entries(hourlyCounts).map(([hour, count]) => {
-    const displayHour = Number(hour) > 12 
-      ? `${Number(hour) - 12} PM` 
+    const displayHour = Number(hour) > 12
+      ? `${Number(hour) - 12} PM`
       : Number(hour) === 12 ? '12 PM' : `${hour} AM`;
     return { hour: displayHour, count };
   });
@@ -492,7 +492,7 @@ export async function getStaffAttendanceHistory(filters?: {
   timeframe?: 'today' | '7days' | '15days' | '30days' | 'all';
 }) {
   const supabase = await createClient();
-  
+
   let query = supabase
     .from('staff_attendance')
     .select(`
@@ -525,10 +525,10 @@ export async function getStaffAttendanceHistory(filters?: {
 
     const now = new Date();
     const targetDate = new Date(now.getTime() - (daysToSubtract * 24 * 60 * 60 * 1000) + (5.5 * 60 * 60 * 1000));
-    const dateStr = targetDate.getUTCFullYear() + '-' + 
-      String(targetDate.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+    const dateStr = targetDate.getUTCFullYear() + '-' +
+      String(targetDate.getUTCMonth() + 1).padStart(2, '0') + '-' +
       String(targetDate.getUTCDate()).padStart(2, '0');
-      
+
     query = query.gte('date', dateStr);
   }
 
@@ -564,7 +564,7 @@ export async function getStaffAttendanceHistory(filters?: {
 
   if (filters?.search) {
     const q = filters.search.toLowerCase().trim();
-    list = list.filter(item => 
+    list = list.filter((item: { full_name: any; biometric_gents_id: any; biometric_ladies_id: any; }) =>
       (item.full_name || '').toLowerCase().includes(q) ||
       (item.biometric_gents_id || '').includes(q) ||
       (item.biometric_ladies_id || '').includes(q)
@@ -572,7 +572,7 @@ export async function getStaffAttendanceHistory(filters?: {
   }
 
   if (filters?.role && filters.role !== 'All') {
-    list = list.filter(item => item.role === filters.role);
+    list = list.filter((item: { role: string | undefined; }) => item.role === filters.role);
   }
 
   return list;
