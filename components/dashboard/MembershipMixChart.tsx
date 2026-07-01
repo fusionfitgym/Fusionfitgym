@@ -9,12 +9,16 @@ import {
   Tooltip,
 } from 'recharts';
 
-const planColors: Record<string, string> = {
-  Monthly: '#f4c430',
-  Quarterly: '#f59e0b',
-  Biannual: '#64748b',
-  Annual: '#18181b',
-};
+const CHART_COLORS = [
+  '#f4c430', // Warm Gold / Yellow (Brand Primary)
+  '#6366f1', // Indigo
+  '#10b981', // Emerald
+  '#f97316', // Orange
+  '#8b5cf6', // Purple
+  '#06b6d4', // Cyan
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+];
 
 interface MembershipMixChartProps {
   data: {
@@ -46,8 +50,8 @@ export default function MembershipMixChart({ data }: MembershipMixChartProps) {
             paddingAngle={3}
             stroke="none"
           >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={planColors[entry.name] ?? '#f4c430'} />
+            {data.map((entry, index) => (
+              <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
             ))}
           </Pie>
           <Tooltip
@@ -58,7 +62,11 @@ export default function MembershipMixChart({ data }: MembershipMixChartProps) {
               fontSize: 12,
             }}
           />
-          <Legend iconSize={8} wrapperStyle={{ fontSize: 12, color: '#5e6573' }} />
+          <Legend
+            iconSize={8}
+            wrapperStyle={{ fontSize: 12 }}
+            formatter={(value) => <span style={{ color: '#5e6573', fontWeight: 500 }}>{value}</span>}
+          />
         </PieChart>
       </ResponsiveContainer>
     </div>
