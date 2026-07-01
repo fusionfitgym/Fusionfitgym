@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Breadcrumb, PageHeader } from '@/components/ui/Primitives';
 import { MemberForm } from '@/components/members/MemberForm';
@@ -17,12 +17,20 @@ type PersonType = 'Member' | 'Trainer' | 'Janitor';
 
 export default function AddMemberPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile } = useAuth();
   const isDemo = profile?.email === 'demo@redix.media';
   const demo = useDemoState();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [personType, setPersonType] = useState<PersonType>('Member');
+
+  useEffect(() => {
+    const typeParam = searchParams.get('type');
+    if (typeParam === 'Trainer' || typeParam === 'Janitor') {
+      setPersonType(typeParam);
+    }
+  }, [searchParams]);
 
   async function handleCreateMember(data: MemberFormValues, photoFile: File | null) {
     setSubmitting(true);
