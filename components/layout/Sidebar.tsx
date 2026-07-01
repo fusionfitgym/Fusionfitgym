@@ -23,6 +23,7 @@ import {
   Download,
   Cpu,
   Database,
+  ChevronDown,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -49,7 +50,14 @@ interface ServerUser {
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/members', label: 'Members', icon: Users },
-  { href: '/staff', label: 'Staff', icon: HardHat },
+  {
+    label: 'Staff',
+    icon: HardHat,
+    children: [
+      { href: '/staff', label: 'Staff List', icon: HardHat },
+      { href: '/staff/attendance', label: 'Staff Attendance', icon: Activity },
+    ],
+  },
   { href: '/attendance', label: 'Attendance', icon: Activity },
   { href: '/monitor', label: 'Live Monitor', icon: Tv },
   { href: '/devices', label: 'Device Management', icon: Cpu },
@@ -173,20 +181,41 @@ function NavContent({
   const lastSignInAt = serverUser?.last_sign_in_at ?? authUser?.last_sign_in_at;
 
   // Role-based route filtering
-  const filteredItems = navItems.filter((item) => {
+  const filteredItems = navItems.map((item) => {
+    if (item.children) {
+      const children = item.children.filter((child) => {
+        if (!profile) return false;
+        const role = profile.role;
+        if (role === 'Super Admin') return true;
+        if (role === 'Admin' || role === 'Receptionist') {
+          return ['/staff', '/staff/attendance'].includes(child.href);
+        }
+        if (role === 'Trainer') {
+          return ['/staff'].includes(child.href);
+        }
+        return false;
+      });
+      return { ...item, children };
+    }
+    return item;
+  }).filter((item) => {
     if (item.href === '/about') return true;
     if (!profile) return false;
     const role = profile.role;
-    
+
+    if (item.children) {
+      return item.children.length > 0;
+    }
+
     if (role === 'Super Admin') return true;
     if (role === 'Admin') {
-      return ['/', '/members', '/staff', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/backup'].includes(item.href);
+      return ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/backup'].includes(item.href);
     }
     if (role === 'Receptionist') {
-      return ['/', '/members', '/staff', '/attendance', '/monitor', '/invoices'].includes(item.href);
+      return ['/', '/members', '/attendance', '/monitor', '/invoices'].includes(item.href);
     }
     if (role === 'Trainer') {
-      return ['/', '/members', '/staff', '/health', '/parq'].includes(item.href);
+      return ['/', '/members', '/health', '/parq'].includes(item.href);
     }
     return false;
   });
@@ -203,7 +232,13 @@ function NavContent({
       .slice(0, 2);
   };
 
-  const isDemo = typeof window !== 'undefined' && document.cookie.includes('demo-mode=true');
+  const [staffExpanded, setStaffExpanded] = useState(pathname.startsWith('/staff'));
+
+  useEffect(() => {
+    if (pathname.startsWith('/staff')) {
+      setStaffExpanded(true);
+    }
+  }, [pathname]);
 
   return (
     <>
@@ -245,6 +280,53 @@ function NavContent({
         )}
         <ul className="space-y-1">
           {finalItems.map((item) => {
+            if (item.children) {
+              const isChildActive = item.children.some(child => isRouteActive(pathname, child.href));
+              return (
+                <div key={item.label} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setStaffExpanded(!staffExpanded)}
+                    className={cn(
+                      'group w-full flex min-h-11 items-center rounded-xl text-[13px] font-medium transition-colors duration-150 justify-between px-3 cursor-pointer',
+                      isChildActive
+                        ? 'bg-amber-300 text-zinc-950 shadow-[0_8px_24px_rgba(244,196,48,0.18)]'
+                        : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100',
+                      collapsed && 'justify-center'
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+                      {!collapsed && <span>{item.label}</span>}
+                    </div>
+                    {!collapsed && (
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 text-zinc-500 transition-transform duration-200',
+                          staffExpanded && 'rotate-180'
+                        )}
+                      />
+                    )}
+                  </button>
+                  {staffExpanded && !collapsed && (
+                    <ul className="pl-4 space-y-1 mt-1 border-l border-white/[0.07] ml-5">
+                      {item.children.map((child) => (
+                        <NavLink
+                          key={child.href}
+                          href={child.href}
+                          label={child.label}
+                          icon={child.icon}
+                          active={pathname === child.href}
+                          collapsed={collapsed}
+                          onClick={onNavigate}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            }
+
             const isUserManagement = item.href === '/users';
             const handleLinkClick = (e: React.MouseEvent) => {
               if (isDemo && isUserManagement) {

@@ -71,26 +71,160 @@ export async function POST(request: NextRequest) {
     }
 
     if (!member) {
-      // Log lookup diagnostics failure
+      // Step 2: Search the Staff table using the Biometric User ID
+      const { data: staffMember, error: staffError } = await supabase
+        .from('staff')
+        .select('id, full_name, role, shift, status')
+        .eq('biometric_user_id', biometricUserId)
+        .eq('status', 'Active')
+        .maybeSingle();
+
+      if (staffError) {
+        console.error('Database error fetching staff:', staffError);
+        return NextResponse.json({ error: 'Database lookup failed for staff' }, { status: 500 });
+      }
+
+      if (!staffMember) {
+        // Log lookup diagnostics failure for both member and staff
+        await supabase.from('biometric_sync_logs').insert({
+          biometric_user_id: biometricUserId,
+          machine_type: machineType,
+          status: 'Failed',
+          message: `No user mapped to Biometric User ID '${biometricUserId}' on ${machineType} Machine`
+        });
+
+        return NextResponse.json(
+          { error: `No member or staff mapped to Biometric User ID '${biometricUserId}'` },
+          { status: 404 }
+        );
+      }
+
+      // Step 3: If found in Staff, save/update Staff Attendance
+      // Compute IST local date
+      const punchTimeObj = new Date(punchTime);
+      const istPunch = new Date(punchTimeObj.getTime() + (5.5 * 60 * 60 * 1000));
+      const yyyy = istPunch.getUTCFullYear();
+      const mm = String(istPunch.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(istPunch.getUTCDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+
+      // Check if attendance record exists for this staff and date
+      const { data: existing, error: existingError } = await supabase
+        .from('staff_attendance')
+        .select('*')
+        .eq('staff_id', staffMember.id)
+        .eq('date', dateStr)
+        .maybeSingle();
+
+      if (existingError) {
+        console.error('Database error checking existing staff attendance:', existingError);
+        return NextResponse.json({ error: 'Database checking failed' }, { status: 500 });
+      }
+
+      if (!existing) {
+        // First punch of the day: check-in
+        let status = 'Present';
+        let lateArrivalMinutes = 0;
+
+        // Shift grace calculations (grace limit 15 min)
+        let shiftStartHour = 9;
+        let shiftStartMinute = 0;
+
+        if (staffMember.shift === 'Morning') {
+          shiftStartHour = 6;
+        } else if (staffMember.shift === 'Evening') {
+          shiftStartHour = 16;
+        } else if (staffMember.shift === 'Night') {
+          shiftStartHour = 22;
+        }
+
+        const punchHour = istPunch.getUTCHours();
+        const punchMinute = istPunch.getUTCMinutes();
+        const punchTotalMinutes = punchHour * 60 + punchMinute;
+        const shiftTotalMinutes = shiftStartHour * 60 + shiftStartMinute;
+
+        if (punchTotalMinutes > shiftTotalMinutes + 15) {
+          status = 'Late';
+          lateArrivalMinutes = punchTotalMinutes - shiftTotalMinutes;
+        }
+
+        const { error: insertErr } = await supabase
+          .from('staff_attendance')
+          .insert({
+            staff_id: staffMember.id,
+            date: dateStr,
+            check_in: punchTime,
+            status,
+            late_arrival_minutes: lateArrivalMinutes,
+            shift: staffMember.shift || 'Default',
+          });
+
+        if (insertErr) {
+          console.error('Database error creating staff attendance:', insertErr);
+          return NextResponse.json({ error: 'Failed to create staff attendance' }, { status: 500 });
+        }
+      } else {
+        // Subsequent punch of the day: check-out
+        const checkInTime = new Date(existing.check_in);
+        const checkOutTime = new Date(punchTime);
+        const diffMs = checkOutTime.getTime() - checkInTime.getTime();
+        const workingHours = Math.max(0, parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2)));
+        const overtimeHours = workingHours > 8 ? parseFloat((workingHours - 8).toFixed(2)) : 0;
+
+        let status = existing.status;
+        if (workingHours < 4) {
+          status = 'Half Day';
+        } else if (existing.status === 'Half Day' && workingHours >= 4) {
+          status = existing.late_arrival_minutes > 15 ? 'Late' : 'Present';
+        }
+
+        const { error: updateErr } = await supabase
+          .from('staff_attendance')
+          .update({
+            check_out: punchTime,
+            working_hours: workingHours,
+            overtime_hours: overtimeHours,
+            status,
+          })
+          .eq('id', existing.id);
+
+        if (updateErr) {
+          console.error('Database error updating staff attendance:', updateErr);
+          return NextResponse.json({ error: 'Failed to update staff attendance' }, { status: 500 });
+        }
+      }
+
+      // Log lookup diagnostics success for staff
       await supabase.from('biometric_sync_logs').insert({
         biometric_user_id: biometricUserId,
         machine_type: machineType,
-        status: 'Failed',
-        message: `No member mapped to Biometric User ID '${biometricUserId}' on ${machineType} Machine`
+        status: 'Success',
+        message: `Biometric User ID ${biometricUserId} matched to Staff: ${staffMember.full_name} (${staffMember.role})`
       });
 
-      return NextResponse.json(
-        { error: `No member mapped to Biometric User ID '${biometricUserId}'` },
-        { status: 404 }
-      );
+      revalidatePath('/');
+      revalidatePath('/staff/attendance');
+
+      return NextResponse.json({
+        success: true,
+        staff: {
+          id: staffMember.id,
+          full_name: staffMember.full_name,
+          role: staffMember.role,
+        },
+        log: {
+          punch_time: punchTime,
+          punch_type: punchType,
+        }
+      });
     }
 
-    // Log lookup diagnostics success
+    // Log lookup diagnostics success for members
     await supabase.from('biometric_sync_logs').insert({
       biometric_user_id: biometricUserId,
       machine_type: machineType,
       status: 'Success',
-      message: `Biometric User ID ${biometricUserId} matched to ${member.full_name} on ${machineType} Machine`
+      message: `Biometric User ID ${biometricUserId} matched to Member: ${member.full_name} on ${machineType} Machine`
     });
 
     // 4. Determine membership status based on expiration (Bypassed for Daily Pass)

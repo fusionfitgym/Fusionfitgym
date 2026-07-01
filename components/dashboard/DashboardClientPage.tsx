@@ -13,6 +13,7 @@ import {
   UserPlus,
   Users,
   Send,
+  HardHat,
 } from 'lucide-react';
 
 import { useDemoState } from '@/components/auth/DemoStateProvider';
@@ -24,7 +25,7 @@ import DashboardChartsSection from '@/components/dashboard/DashboardChartsSectio
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
 
 export default function DashboardClientPage() {
-  const { members, invoices, trainers, expenses, callLogs, notifications, attendance, getAttendanceAnalytics, getStaffStats } = useDemoState();
+  const { members, invoices, trainers, expenses, callLogs, notifications, attendance, getAttendanceAnalytics, getStaffStats, getStaffAttendanceTodayStats } = useDemoState();
 
   const analytics = useMemo(() => getAttendanceAnalytics(), [attendance, getAttendanceAnalytics]);
 
@@ -188,6 +189,7 @@ export default function DashboardClientPage() {
       {/* Staff Stats Row */}
       {(() => {
         const staffStats = getStaffStats();
+        const staffAttendanceToday = getStaffAttendanceTodayStats();
         return (
           <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="col-span-2 lg:col-span-4 flex items-center gap-2">
@@ -197,6 +199,16 @@ export default function DashboardClientPage() {
             <StatCard title="Trainers" value={staffStats.trainers} icon={<Dumbbell className="h-5 w-5 text-amber-500" />} subtitle="Registered trainers" />
             <StatCard title="Janitors" value={staffStats.janitors} icon={<Users className="h-5 w-5 text-blue-500" />} subtitle="Maintenance staff" />
             <StatCard title="Active Staff" value={staffStats.active} icon={<UserCheck className="h-5 w-5 text-emerald-500" />} subtitle="Currently active employees" />
+
+            {/* Staff Attendance Row */}
+            <div className="mt-2 col-span-2 lg:col-span-4 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-slate-400" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Staff Attendance Today</span>
+            </div>
+            <StatCard title="Staff Present Today" value={staffAttendanceToday.present} icon={<UserCheck className="h-5 w-5 text-emerald-500" />} subtitle="Staff punched in today" />
+            <StatCard title="Trainers Present" value={staffAttendanceToday.trainers} icon={<Users className="h-5 w-5 text-amber-500" />} subtitle="Trainers punched in today" />
+            <StatCard title="Janitors Present" value={staffAttendanceToday.janitors} icon={<HardHat className="h-5 w-5 text-blue-500" />} subtitle="Janitors punched in today" />
+            <StatCard title="Total Staff Attendance Today" value={`${staffAttendanceToday.present} / ${staffStats.total}`} icon={<Activity className="h-5 w-5 text-violet-500" />} subtitle="Punched in / Total active" />
           </div>
         );
       })()}

@@ -473,3 +473,234 @@ export async function cleanupOldAttendanceLogs(): Promise<{ success: boolean; de
     return { success: false, deletedCount: 0, error: err.message || 'Unknown error' };
   }
 }
+
+// ── Staff Attendance server actions ─────────────────────────────
+
+function getISTDateString(dateInput: string | Date): string {
+  const date = new Date(dateInput);
+  const istDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+export async function getStaffAttendanceHistory(filters?: {
+  search?: string;
+  role?: string;
+  status?: string;
+  timeframe?: 'today' | '7days' | '15days' | '30days' | 'all';
+}) {
+  const supabase = await createClient();
+  
+  let query = supabase
+    .from('staff_attendance')
+    .select(`
+      id,
+      date,
+      check_in,
+      check_out,
+      status,
+      working_hours,
+      overtime_hours,
+      late_arrival_minutes,
+      leave_type,
+      shift,
+      notes,
+      staff:staff_id (
+        id,
+        full_name,
+        role,
+        employee_id,
+        biometric_user_id
+      )
+    `);
+
+  if (filters?.timeframe && filters.timeframe !== 'all') {
+    let daysToSubtract = 0;
+    if (filters.timeframe === '7days') daysToSubtract = 7;
+    else if (filters.timeframe === '15days') daysToSubtract = 15;
+    else if (filters.timeframe === '30days') daysToSubtract = 30;
+
+    const now = new Date();
+    const targetDate = new Date(now.getTime() - (daysToSubtract * 24 * 60 * 60 * 1000) + (5.5 * 60 * 60 * 1000));
+    const dateStr = targetDate.getUTCFullYear() + '-' + 
+      String(targetDate.getUTCMonth() + 1).padStart(2, '0') + '-' + 
+      String(targetDate.getUTCDate()).padStart(2, '0');
+      
+    query = query.gte('date', dateStr);
+  }
+
+  if (filters?.status && filters.status !== 'All') {
+    query = query.eq('status', filters.status);
+  }
+
+  const { data, error } = await query.order('date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching staff attendance history:', error);
+    throw error;
+  }
+
+  let list = (data || []).map((row: any) => ({
+    id: row.id,
+    date: row.date,
+    check_in: row.check_in,
+    check_out: row.check_out,
+    status: row.status,
+    working_hours: row.working_hours,
+    overtime_hours: row.overtime_hours,
+    late_arrival_minutes: row.late_arrival_minutes,
+    leave_type: row.leave_type,
+    shift: row.shift,
+    notes: row.notes,
+    employee_id: row.staff?.employee_id,
+    full_name: row.staff?.full_name,
+    role: row.staff?.role,
+    biometric_user_id: row.staff?.biometric_user_id,
+  }));
+
+  if (filters?.search) {
+    const q = filters.search.toLowerCase().trim();
+    list = list.filter(item => 
+      (item.full_name || '').toLowerCase().includes(q) ||
+      (item.biometric_user_id || '').includes(q)
+    );
+  }
+
+  if (filters?.role && filters.role !== 'All') {
+    list = list.filter(item => item.role === filters.role);
+  }
+
+  return list;
+}
+
+export async function getStaffAttendanceTodayStats() {
+  const supabase = await createClient();
+  const todayStr = getISTDateString(new Date());
+
+  const { count: totalStaffCount } = await supabase
+    .from('staff')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'Active');
+
+  const { data, error } = await supabase
+    .from('staff_attendance')
+    .select('status, staff(role)')
+    .eq('date', todayStr);
+
+  if (error) {
+    console.error('Error fetching today staff attendance stats:', error);
+    return { present: 0, trainers: 0, janitors: 0, total: totalStaffCount || 0 };
+  }
+
+  let present = 0;
+  let trainers = 0;
+  let janitors = 0;
+
+  (data || []).forEach((row: any) => {
+    if (row.status !== 'Absent') {
+      present++;
+      if (row.staff?.role === 'Trainer') trainers++;
+      if (row.staff?.role === 'Janitor') janitors++;
+    }
+  });
+
+  return { present, trainers, janitors, total: totalStaffCount || 0 };
+}
+
+export async function assignBiometricId(
+  targetId: string,
+  type: 'member' | 'staff',
+  biometricUserId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    const supabase = await createClient();
+
+    if (!/^\d+$/.test(biometricUserId)) {
+      return { success: false, error: 'Biometric User ID must contain numeric digits only' };
+    }
+
+    if (type === 'member') {
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('id, full_name')
+        .eq('biometric_user_id', biometricUserId)
+        .limit(1);
+      if (existingMember && existingMember.length > 0) {
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to member ${existingMember[0].full_name}` };
+      }
+
+      const { data: existingStaff } = await supabase
+        .from('staff')
+        .select('id, full_name')
+        .eq('biometric_user_id', biometricUserId)
+        .limit(1);
+      if (existingStaff && existingStaff.length > 0) {
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to staff member ${existingStaff[0].full_name}` };
+      }
+
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({ biometric_user_id: biometricUserId })
+        .eq('id', targetId);
+
+      if (updateError) throw updateError;
+
+      await logAudit(
+        `Assigned Biometric ID ${biometricUserId} to member ${targetId}`,
+        'Members',
+        user.id
+      );
+    } else {
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('id, full_name')
+        .eq('biometric_user_id', biometricUserId)
+        .limit(1);
+      if (existingMember && existingMember.length > 0) {
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to member ${existingMember[0].full_name}` };
+      }
+
+      const { data: existingStaff } = await supabase
+        .from('staff')
+        .select('id, full_name')
+        .eq('biometric_user_id', biometricUserId)
+        .limit(1);
+      if (existingStaff && existingStaff.length > 0) {
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to staff member ${existingStaff[0].full_name}` };
+      }
+
+      const { error: updateError } = await supabase
+        .from('staff')
+        .update({ biometric_user_id: biometricUserId })
+        .eq('id', targetId);
+
+      if (updateError) throw updateError;
+
+      await logAudit(
+        `Assigned Biometric ID ${biometricUserId} to staff member ${targetId}`,
+        'Staff',
+        user.id
+      );
+    }
+
+    await supabase
+      .from('biometric_sync_logs')
+      .update({ status: 'Success', message: `Biometric ID ${biometricUserId} assigned and linked` })
+      .eq('biometric_user_id', biometricUserId)
+      .eq('status', 'Failed');
+
+    revalidatePath('/');
+    revalidatePath('/attendance');
+    revalidatePath('/staff');
+    revalidatePath('/members');
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error assigning biometric ID:', err);
+    return { success: false, error: err.message || 'Unknown error' };
+  }
+}
+

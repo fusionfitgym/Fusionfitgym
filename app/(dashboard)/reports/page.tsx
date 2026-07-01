@@ -9,24 +9,31 @@ import {
   TrendingUp,
   Users,
   Database,
+  HardHat,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceReport, getMemberReport, getRevenueReport } from '@/lib/actions/reports';
-import { cleanupOldAttendanceLogs } from '@/lib/actions/attendance';
+import { cleanupOldAttendanceLogs, getStaffAttendanceHistory } from '@/lib/actions/attendance';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { TableSkeleton } from '@/components/ui/Skeleton';
 import { toast } from 'sonner';
 
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<'attendance' | 'members' | 'revenue'>('attendance');
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
+
+  const [activeTab, setActiveTab] = useState<'attendance' | 'members' | 'revenue' | 'staff_attendance'>('attendance');
   const [attendanceTimeframe, setAttendanceTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [memberFilter, setMemberFilter] = useState<'active' | 'expired'>('active');
+  const [staffTimeframe, setStaffTimeframe] = useState<'today' | '7days' | '15days' | '30days'>('7days');
 
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [attendanceDebug, setAttendanceDebug] = useState<any>(null);
   const [memberData, setMemberData] = useState<any[]>([]);
   const [revenueData, setRevenueData] = useState<any>(null);
+  const [staffAttendanceData, setStaffAttendanceData] = useState<any[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -64,6 +71,14 @@ export default function ReportsPage() {
       } else if (activeTab === 'revenue') {
         const data = await getRevenueReport();
         setRevenueData(data);
+      } else if (activeTab === 'staff_attendance') {
+        if (isDemo) {
+          const data = demo.getStaffAttendanceHistory({ timeframe: staffTimeframe });
+          setStaffAttendanceData(data);
+        } else {
+          const data = await getStaffAttendanceHistory({ timeframe: staffTimeframe });
+          setStaffAttendanceData(data);
+        }
       }
     } catch (err) {
       console.error('Failed to load report:', err);
@@ -74,7 +89,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReport();
-  }, [activeTab, attendanceTimeframe, memberFilter]);
+  }, [activeTab, attendanceTimeframe, memberFilter, staffTimeframe, isDemo]);
 
   // Client-side CSV Exporter
   const handleCSVExport = (data: any[], filename: string) => {
@@ -126,9 +141,10 @@ export default function ReportsPage() {
       <div className="mb-6 border-b border-slate-200">
         <nav className="flex gap-4" aria-label="Report Category Tabs">
           {[
-            { id: 'attendance' as const, label: 'Attendance logs', icon: Activity },
-            { id: 'members' as const, label: 'Members audit', icon: Users },
-            { id: 'revenue' as const, label: 'Financial tallies', icon: TrendingUp },
+            { id: 'attendance' as const, label: 'Attendance Logs', icon: Activity },
+            { id: 'members' as const, label: 'Member Audit', icon: Users },
+            { id: 'revenue' as const, label: 'Financial Reports', icon: TrendingUp },
+            { id: 'staff_attendance' as const, label: 'Staff Attendance', icon: HardHat },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -184,6 +200,25 @@ export default function ReportsPage() {
             </div>
           )}
 
+          {activeTab === 'staff_attendance' && (
+            <div className="segmented-control">
+              {[
+                { id: 'today' as const, label: 'Today' },
+                { id: '7days' as const, label: 'Last 7 days' },
+                { id: '15days' as const, label: 'Last 15 days' },
+                { id: '30days' as const, label: 'Last 30 days' },
+              ].map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setStaffTimeframe(id)}
+                  className={`segment ${staffTimeframe === id ? 'segment-active' : ''}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          
           {activeTab === 'revenue' && (
             <div className="flex gap-2">
               <span className="flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
@@ -239,6 +274,24 @@ export default function ReportsPage() {
                   handleCSVExport(memberData, `members_${memberFilter}`);
                 } else if (activeTab === 'revenue') {
                   handleCSVExport(revenueData?.invoices || [], 'financials_revenue');
+                } else if (activeTab === 'staff_attendance') {
+                  handleCSVExport(
+                    staffAttendanceData.map(row => ({
+                      'Employee ID': row.employee_id || '',
+                      'Employee Name': row.full_name || '',
+                      'Role': row.role || '',
+                      'Biometric ID': row.biometric_user_id || '',
+                      'Check In': row.check_in || '',
+                      'Check Out': row.check_out || '',
+                      'Shift': row.shift || '',
+                      'Working Hours': row.working_hours || 0,
+                      'Overtime': row.overtime_hours || 0,
+                      'Date': row.date || '',
+                      'Status': row.status || '',
+                      'Notes': row.notes || ''
+                    })),
+                    `staff_attendance_${staffTimeframe}`
+                  );
                 }
               }}
               className="btn btn-secondary flex items-center gap-2"
@@ -454,6 +507,61 @@ export default function ReportsPage() {
                                 ? 'badge-active'
                                 : row.status === 'Pending'
                                 ? 'badge-expired'
+                                : 'badge-inactive'
+                            }`}
+                          >
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+          {activeTab === 'staff_attendance' && (
+            staffAttendanceData.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">No staff attendance records found.</div>
+            ) : (
+              <div className="data-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Role</th>
+                      <th>Biometric ID</th>
+                      <th>Check In</th>
+                      <th>Check Out</th>
+                      <th>Work Hours</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staffAttendanceData.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          <div>
+                            <p className="table-primary">{row.full_name}</p>
+                            <span className="text-[10px] text-slate-400 font-bold">{row.employee_id}</span>
+                          </div>
+                        </td>
+                        <td><span className="text-xs text-slate-600 font-semibold">{row.role}</span></td>
+                        <td><span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{row.biometric_user_id || '—'}</span></td>
+                        <td><span className="text-xs text-slate-800">{row.check_in ? new Date(row.check_in).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}</span></td>
+                        <td><span className="text-xs text-slate-800">{row.check_out ? new Date(row.check_out).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}</span></td>
+                        <td><span className="text-xs text-slate-800">{row.working_hours !== null && row.working_hours !== undefined ? `${row.working_hours} hrs` : '—'}</span></td>
+                        <td><span className="text-xs text-slate-500">{formatDate(row.date)}</span></td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              row.status === 'Present'
+                                ? 'badge-active'
+                                : row.status === 'Late'
+                                ? 'badge-warning'
+                                : row.status === 'Half Day'
+                                ? 'badge-orange bg-orange-100 text-orange-800 border-orange-200'
                                 : 'badge-inactive'
                             }`}
                           >

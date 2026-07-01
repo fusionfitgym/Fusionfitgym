@@ -16,6 +16,7 @@ import {
   Trash2,
   User,
   Users,
+  Fingerprint,
 } from 'lucide-react';
 import { Breadcrumb, SectionCard } from '@/components/ui/Primitives';
 import { Avatar } from '@/components/ui/Avatar';
@@ -193,6 +194,7 @@ export default function StaffProfilePage() {
           <InfoRow label="Monthly Salary" value={staff.salary ? formatCurrency(staff.salary) : null} icon={DollarSign} />
           <InfoRow label="Shift" value={staff.shift} icon={Calendar} />
           <InfoRow label="Status" value={staff.status} icon={HardHat} />
+          <InfoRow label="Biometric User ID" value={staff.biometric_user_id || '—'} icon={Fingerprint} />
         </SectionCard>
 
         {/* Trainer Details */}

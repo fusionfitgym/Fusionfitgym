@@ -129,6 +129,7 @@ export default function EditStaffPage() {
           cleaning_area: staff.cleaning_area || '',
           working_shift: staff.working_shift || '',
           notes: staff.notes || '',
+          biometric_user_id: staff.biometric_user_id || '',
         }}
         initialRole={staff.role}
         submitting={submitting}

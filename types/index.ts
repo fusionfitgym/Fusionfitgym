@@ -300,6 +300,7 @@ export interface Staff {
   working_shift?: string | null;
   // Common
   notes?: string | null;
+  biometric_user_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -324,6 +325,10 @@ export const staffSchema = z.object({
   joining_date: z.string().min(1, 'Joining date is required'),
   shift: z.enum(['Morning', 'Evening', 'Night', 'Full Day']).optional().or(z.literal('')),
   status: z.enum(['Active', 'Inactive']),
+  biometric_user_id: z.string().optional().or(z.literal(''))
+    .refine((val) => !val || /^\d+$/.test(val), {
+      message: "Biometric User ID must contain numeric digits only",
+    }),
   // Trainer-specific
   specialization: z.string().optional().or(z.literal('')),
   experience: z.coerce.number().min(0).optional().or(z.literal('')),

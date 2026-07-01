@@ -27,7 +27,10 @@ import {
   getTodayAttendanceLogs,
   deleteAttendanceLog,
   getSyncLogs,
+  assignBiometricId,
 } from '@/lib/actions/attendance';
+import { getMembers } from '@/lib/actions/members';
+import { getStaff } from '@/lib/actions/staff';
 import { AttendanceLog, BiometricSyncLog } from '@/types';
 import { cn } from '@/lib/utils';
 import { CardSkeleton, ChartSkeleton, TableSkeleton } from '@/components/ui/Skeleton';
@@ -60,6 +63,83 @@ function AttendancePageContent() {
   const [loading, setLoading] = useState(true);
   const [syncLogs, setSyncLogs] = useState<BiometricSyncLog[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  const [assignSearch, setAssignSearch] = useState('');
+  const [assignOptions, setAssignOptions] = useState<any[]>([]);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assigningLog, setAssigningLog] = useState<any | null>(null);
+  const [assignType, setAssignType] = useState<'member' | 'staff' | null>(null);
+
+  useEffect(() => {
+    if (!assigningLog || !assignType) return;
+    setAssignLoading(true);
+
+    if (isDemo) {
+      if (assignType === 'member') {
+        setAssignOptions(demo.members);
+      } else {
+        setAssignOptions(demo.staff);
+      }
+      setAssignLoading(false);
+      return;
+    }
+
+    if (assignType === 'member') {
+      getMembers()
+        .then(setAssignOptions)
+        .catch(console.error)
+        .finally(() => setAssignLoading(false));
+    } else {
+      getStaff({ page: 1, limit: 100 })
+        .then((res) => setAssignOptions(res.staff))
+        .catch(console.error)
+        .finally(() => setAssignLoading(false));
+    }
+  }, [assigningLog, assignType, isDemo]);
+
+  const filteredAssignOptions = assignOptions.filter((opt) =>
+    (opt.full_name || '').toLowerCase().includes(assignSearch.toLowerCase())
+  );
+
+  const handleConfirmAssignment = async (targetId: string) => {
+    if (!assigningLog || !assignType) return;
+    const bioId = assigningLog.biometric_user_id;
+
+    try {
+      if (isDemo) {
+        if (assignType === 'member') {
+          demo.updateMember(targetId, { biometric_user_id: bioId });
+          toast.success(`Biometric ID ${bioId} assigned to member (Demo Mode)`);
+        } else {
+          demo.updateStaff(targetId, { biometric_user_id: bioId });
+          toast.success(`Biometric ID ${bioId} assigned to staff (Demo Mode)`);
+        }
+        setAssigningLog(null);
+        setAssignType(null);
+        setAssignSearch('');
+        fetchAttendanceData();
+        return;
+      }
+
+      const res = await assignBiometricId(targetId, assignType, bioId);
+      if (!res.success) {
+        toast.error(res.error || 'Failed to assign biometric ID');
+        return;
+      }
+
+      toast.success(`Biometric ID ${bioId} linked successfully!`);
+      setAssigningLog(null);
+      setAssignType(null);
+      setAssignSearch('');
+      fetchAttendanceData();
+      if (showDiagnostics) {
+        getSyncLogs().then(setSyncLogs).catch(console.error);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('An unexpected error occurred during assignment');
+    }
+  };
 
   const fetchAttendanceData = () => {
     if (isDemo) {
@@ -256,12 +336,40 @@ function AttendancePageContent() {
                             <XCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold">{sLog.message}</p>
+                            <p className="font-semibold">
+                              {isSuccess 
+                                ? sLog.message 
+                                : `Unknown User (Biometric ID: ${sLog.biometric_user_id})`}
+                            </p>
                             <div className="mt-1 flex items-center gap-3 text-[10px] text-slate-500 font-sans">
                               <span>Biometric ID: <strong className="font-mono">{sLog.biometric_user_id}</strong></span>
                               <span>•</span>
                               <span>{new Date(sLog.punch_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                             </div>
+                            {!isSuccess && (
+                              <div className="mt-2.5 flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAssigningLog(sLog);
+                                    setAssignType('member');
+                                  }}
+                                  className="btn btn-xs bg-amber-300 text-zinc-950 hover:bg-amber-400 cursor-pointer font-bold rounded-lg px-2.5 py-1 text-[11px] border border-amber-400"
+                                >
+                                  Assign To Existing Member
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAssigningLog(sLog);
+                                    setAssignType('staff');
+                                  }}
+                                  className="btn btn-xs bg-slate-200 text-slate-800 hover:bg-slate-300 cursor-pointer font-bold rounded-lg px-2.5 py-1 text-[11px] border border-slate-300"
+                                >
+                                  Assign To Existing Staff
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -400,6 +508,69 @@ function AttendancePageContent() {
             )}
           </section>
         </>
+      )}
+      {/* Biometric Assignment Modal */}
+      {assigningLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card w-full max-w-md bg-white p-6 shadow-xl animate-enter">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              Assign Biometric ID: {assigningLog.biometric_user_id}
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">
+              Select the {assignType === 'member' ? 'member' : 'staff member'} to map this biometric machine user ID.
+            </p>
+            
+            {/* Search Input */}
+            <div className="input-with-icon mb-4">
+              <Search className="h-4 w-4" />
+              <input
+                type="text"
+                placeholder={`Search ${assignType === 'member' ? 'member' : 'staff'} by name...`}
+                className="input-field"
+                value={assignSearch}
+                onChange={(e) => setAssignSearch(e.target.value)}
+              />
+            </div>
+            
+            {/* List */}
+            <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100 mb-6">
+              {assignLoading ? (
+                <div className="p-4 text-center text-slate-400">Loading...</div>
+              ) : filteredAssignOptions.length === 0 ? (
+                <div className="p-4 text-center text-slate-400">No matches found.</div>
+              ) : (
+                filteredAssignOptions.map((opt: any) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => handleConfirmAssignment(opt.id)}
+                    className="w-full text-left p-3 hover:bg-slate-50 transition-colors flex items-center justify-between cursor-pointer"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{opt.full_name}</p>
+                      <p className="text-xs text-slate-500">{opt.phone || opt.employee_id || ''}</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                      Assign
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setAssigningLog(null);
+                  setAssignType(null);
+                  setAssignSearch('');
+                }}
+                className="btn btn-ghost"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -43,6 +43,7 @@ const defaultValues: StaffFormValues = {
   cleaning_area: '',
   working_shift: '',
   notes: '',
+  biometric_user_id: '',
 };
 
 interface StaffFormProps {
@@ -263,6 +264,16 @@ export function StaffForm({
               {...register('employee_id')}
               type="text"
               placeholder="EMP-1001 (auto-generated)"
+              className="input-field"
+            />
+          </FormField>
+
+          <FormField label="Biometric User ID" error={errors.biometric_user_id?.message}>
+            <p className="text-xs text-slate-400 mb-1">Must match numeric ID on biometric machine</p>
+            <input
+              {...register('biometric_user_id')}
+              type="text"
+              placeholder="e.g. 2050"
               className="input-field"
             />
           </FormField>

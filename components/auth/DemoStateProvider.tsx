@@ -68,6 +68,9 @@ interface DemoStateContextType {
   updateStaff: (id: string, values: any) => { data?: Staff; error?: string };
   deleteStaff: (id: string) => void;
   getStaffStats: () => { total: number; trainers: number; janitors: number; active: number };
+  staffAttendance: any[];
+  getStaffAttendanceHistory: (args?: { search?: string; role?: string; status?: string; timeframe?: string }) => any[];
+  getStaffAttendanceTodayStats: () => { present: number; trainers: number; janitors: number; total: number };
 }
 
 const DemoStateContext = createContext<DemoStateContextType | undefined>(undefined);
@@ -80,7 +83,95 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<any[]>(expensesData);
   const [callLogs, setCallLogs] = useState<any[]>(callLogsData);
   const [notifications, setNotifications] = useState<any[]>(notificationsData);
-  const [staff, setStaff] = useState<Staff[]>(staffData as Staff[]);
+  const [staff, setStaff] = useState<Staff[]>(() => {
+    const data = [...staffData] as Staff[];
+    if (data[0]) data[0].biometric_user_id = '2051';
+    if (data[1]) data[1].biometric_user_id = '2052';
+    if (data[3]) data[3].biometric_user_id = '2053';
+    return data;
+  });
+  
+  const [staffAttendance, setStaffAttendance] = useState<any[]>(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return [
+      {
+        id: 'mock-staff-att-1',
+        staff_id: 'demo-staff-uuid-0001',
+        full_name: 'Arun Krishnan',
+        role: 'Trainer',
+        biometric_user_id: '2051',
+        date: today,
+        check_in: today + 'T06:05:00.000Z',
+        check_out: today + 'T14:10:00.000Z',
+        status: 'Present',
+        working_hours: 8.08,
+        overtime_hours: 0.08,
+        late_arrival_minutes: 5,
+        shift: 'Morning'
+      },
+      {
+        id: 'mock-staff-att-2',
+        staff_id: 'demo-staff-uuid-0002',
+        full_name: 'Deepa Menon',
+        role: 'Trainer',
+        biometric_user_id: '2052',
+        date: today,
+        check_in: today + 'T16:02:00.000Z',
+        check_out: null,
+        status: 'Present',
+        working_hours: null,
+        overtime_hours: null,
+        late_arrival_minutes: 2,
+        shift: 'Evening'
+      },
+      {
+        id: 'mock-staff-att-3',
+        staff_id: 'demo-staff-uuid-0004',
+        full_name: 'Suresh Pillai',
+        role: 'Janitor',
+        biometric_user_id: '2053',
+        date: today,
+        check_in: today + 'T06:20:00.000Z',
+        check_out: today + 'T14:00:00.000Z',
+        status: 'Late',
+        working_hours: 7.67,
+        overtime_hours: 0,
+        late_arrival_minutes: 20,
+        shift: 'Morning'
+      },
+      {
+        id: 'mock-staff-att-4',
+        staff_id: 'demo-staff-uuid-0001',
+        full_name: 'Arun Krishnan',
+        role: 'Trainer',
+        biometric_user_id: '2051',
+        date: yesterday,
+        check_in: yesterday + 'T06:00:00.000Z',
+        check_out: yesterday + 'T14:00:00.000Z',
+        status: 'Present',
+        working_hours: 8.00,
+        overtime_hours: 0.00,
+        late_arrival_minutes: 0,
+        shift: 'Morning'
+      },
+      {
+        id: 'mock-staff-att-5',
+        staff_id: 'demo-staff-uuid-0002',
+        full_name: 'Deepa Menon',
+        role: 'Trainer',
+        biometric_user_id: '2052',
+        date: yesterday,
+        check_in: yesterday + 'T16:30:00.000Z',
+        check_out: yesterday + 'T22:30:00.000Z',
+        status: 'Late',
+        working_hours: 6.00,
+        overtime_hours: 0.00,
+        late_arrival_minutes: 30,
+        shift: 'Evening'
+      }
+    ];
+  });
   
   const [settings, setSettings] = useState<GymSettings>({
     gym_name: 'FusionFit Gym (Demo)',
@@ -373,6 +464,15 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const getStaffById = (id: string) => staff.find(s => s.id === id) || null;
 
   const createStaff = (values: any) => {
+    if (values.biometric_user_id) {
+      if (!/^\d+$/.test(values.biometric_user_id)) {
+        return { error: 'Biometric User ID must contain numeric digits only' };
+      }
+      const duplicate = staff.some(s => s.biometric_user_id === values.biometric_user_id);
+      if (duplicate) {
+        return { error: `Biometric ID ${values.biometric_user_id} is already assigned.` };
+      }
+    }
     const newStaff: Staff = {
       ...values,
       id: `demo-staff-uuid-${(staff.length + 1).toString().padStart(4, '0')}`,
@@ -385,6 +485,15 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateStaff = (id: string, values: any) => {
+    if (values.biometric_user_id) {
+      if (!/^\d+$/.test(values.biometric_user_id)) {
+        return { error: 'Biometric User ID must contain numeric digits only' };
+      }
+      const duplicate = staff.some(s => s.biometric_user_id === values.biometric_user_id && s.id !== id);
+      if (duplicate) {
+        return { error: `Biometric ID ${values.biometric_user_id} is already assigned.` };
+      }
+    }
     let updated: Staff | undefined;
     setStaff(prev => prev.map(s => {
       if (s.id === id) {
@@ -458,6 +567,53 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         updateStaff,
         deleteStaff,
         getStaffStats,
+        staffAttendance,
+        getStaffAttendanceHistory: (args: { search?: string; role?: string; status?: string; timeframe?: string } = {}) => {
+          const { search = '', role = 'All', status = 'All', timeframe = 'All' } = args;
+          let filtered = [...staffAttendance];
+          
+          if (search.trim()) {
+            const q = search.trim().toLowerCase();
+            filtered = filtered.filter(row => row.full_name.toLowerCase().includes(q) || (row.biometric_user_id && row.biometric_user_id.includes(q)));
+          }
+          
+          if (role && role !== 'All') {
+            filtered = filtered.filter(row => row.role === role);
+          }
+          
+          if (status && status !== 'All') {
+            filtered = filtered.filter(row => row.status === status);
+          }
+          
+          if (timeframe && timeframe !== 'All') {
+            const now = new Date();
+            now.setHours(0,0,0,0);
+            filtered = filtered.filter(row => {
+              const rowDate = new Date(row.date);
+              rowDate.setHours(0,0,0,0);
+              const diffDays = Math.floor(Math.abs(now.getTime() - rowDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (timeframe === 'daily' || timeframe === 'Today' || timeframe === 'today') return diffDays === 0;
+              if (timeframe === 'weekly' || timeframe === '7days') return diffDays >= 0 && diffDays <= 7;
+              if (timeframe === '15days') return diffDays >= 0 && diffDays <= 15;
+              if (timeframe === 'monthly' || timeframe === '30days') return diffDays >= 0 && diffDays <= 30;
+              return true;
+            });
+          }
+          
+          return filtered;
+        },
+        getStaffAttendanceTodayStats: () => {
+          const today = new Date().toISOString().split('T')[0];
+          const todayLogs = staffAttendance.filter(row => row.date === today && row.status !== 'Absent');
+          const trainers = todayLogs.filter(row => row.role === 'Trainer').length;
+          const janitors = todayLogs.filter(row => row.role === 'Janitor').length;
+          return {
+            present: todayLogs.length,
+            trainers,
+            janitors,
+            total: staff.length
+          };
+        },
       }}
     >
       {children}

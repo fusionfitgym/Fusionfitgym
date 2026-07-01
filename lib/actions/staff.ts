@@ -88,6 +88,22 @@ export async function createStaff(
     const { user } = await validateRole(['Super Admin', 'Admin']);
     const supabase = await createClient();
 
+    // Check biometric_user_id uniqueness across staff
+    if (values.biometric_user_id) {
+      const bioId = values.biometric_user_id;
+      if (!/^\d+$/.test(bioId)) {
+        return { error: "Biometric User ID must contain numeric digits only" };
+      }
+      const { data: existingStaff } = await supabase
+        .from('staff')
+        .select('id, full_name')
+        .eq('biometric_user_id', bioId)
+        .maybeSingle();
+      if (existingStaff) {
+        return { error: `Biometric ID ${bioId} is already assigned to staff member ${existingStaff.full_name}.` };
+      }
+    }
+
     // Build insert payload — strip empty strings to null for optional fields
     const payload: Record<string, unknown> = {
       full_name: values.full_name,
@@ -100,7 +116,7 @@ export async function createStaff(
 
     const optionalText = ['gender', 'dob', 'email', 'address', 'emergency_contact',
       'profile_photo', 'shift', 'specialization', 'certifications',
-      'cleaning_area', 'working_shift', 'notes'] as const;
+      'cleaning_area', 'working_shift', 'notes', 'biometric_user_id'] as const;
 
     for (const key of optionalText) {
       const val = (values as Record<string, unknown>)[key];
@@ -145,11 +161,29 @@ export async function updateStaff(
     const { user } = await validateRole(['Super Admin', 'Admin']);
     const supabase = await createClient();
 
+    // Check biometric_user_id uniqueness across staff on update
+    if (values.biometric_user_id !== undefined) {
+      const bioId = values.biometric_user_id;
+      if (bioId && !/^\d+$/.test(bioId)) {
+        return { error: "Biometric User ID must contain numeric digits only" };
+      }
+      if (bioId) {
+        const { data: existingStaff } = await supabase
+          .from('staff')
+          .select('id, full_name')
+          .eq('biometric_user_id', bioId)
+          .maybeSingle();
+        if (existingStaff && existingStaff.id !== id) {
+          return { error: `Biometric ID ${bioId} is already assigned to staff member ${existingStaff.full_name}.` };
+        }
+      }
+    }
+
     const payload: Record<string, unknown> = {};
 
     const textFields = ['full_name', 'role', 'gender', 'dob', 'phone', 'email', 'address',
       'emergency_contact', 'profile_photo', 'employee_id', 'joining_date', 'shift',
-      'status', 'specialization', 'certifications', 'cleaning_area', 'working_shift', 'notes'];
+      'status', 'specialization', 'certifications', 'cleaning_area', 'working_shift', 'notes', 'biometric_user_id'];
 
     for (const key of textFields) {
       if (key in values) {
