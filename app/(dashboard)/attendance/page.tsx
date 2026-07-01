@@ -111,8 +111,9 @@ function AttendancePageContent() {
           demo.updateMember(targetId, { biometric_user_id: bioId });
           toast.success(`Biometric ID ${bioId} assigned to member (Demo Mode)`);
         } else {
-          demo.updateStaff(targetId, { biometric_user_id: bioId });
-          toast.success(`Biometric ID ${bioId} assigned to staff (Demo Mode)`);
+          const field = assigningLog.machine_type === 'Ladies' ? 'biometric_ladies_id' : 'biometric_gents_id';
+          demo.updateStaff(targetId, { [field]: bioId });
+          toast.success(`Biometric ID ${bioId} assigned to staff ${field === 'biometric_gents_id' ? 'Gents' : 'Ladies'} (Demo Mode)`);
         }
         setAssigningLog(null);
         setAssignType(null);
@@ -121,7 +122,7 @@ function AttendancePageContent() {
         return;
       }
 
-      const res = await assignBiometricId(targetId, assignType, bioId);
+      const res = await assignBiometricId(targetId, assignType, bioId, assigningLog.machine_type);
       if (!res.success) {
         toast.error(res.error || 'Failed to assign biometric ID');
         return;

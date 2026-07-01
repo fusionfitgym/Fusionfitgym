@@ -71,11 +71,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!member) {
-      // Step 2: Search the Staff table using the Biometric User ID
+      // Step 2: Search the Staff table using the split Gents/Ladies Biometric ID
+      const targetCol = machineType === 'Gents' ? 'biometric_gents_id' : 'biometric_ladies_id';
       const { data: staffMember, error: staffError } = await supabase
         .from('staff')
         .select('id, full_name, role, shift, status')
-        .eq('biometric_user_id', biometricUserId)
+        .eq(targetCol, biometricUserId)
         .eq('status', 'Active')
         .maybeSingle();
 

@@ -512,7 +512,8 @@ export async function getStaffAttendanceHistory(filters?: {
         full_name,
         role,
         employee_id,
-        biometric_user_id
+        biometric_gents_id,
+        biometric_ladies_id
       )
     `);
 
@@ -557,14 +558,16 @@ export async function getStaffAttendanceHistory(filters?: {
     employee_id: row.staff?.employee_id,
     full_name: row.staff?.full_name,
     role: row.staff?.role,
-    biometric_user_id: row.staff?.biometric_user_id,
+    biometric_gents_id: row.staff?.biometric_gents_id,
+    biometric_ladies_id: row.staff?.biometric_ladies_id,
   }));
 
   if (filters?.search) {
     const q = filters.search.toLowerCase().trim();
     list = list.filter(item => 
       (item.full_name || '').toLowerCase().includes(q) ||
-      (item.biometric_user_id || '').includes(q)
+      (item.biometric_gents_id || '').includes(q) ||
+      (item.biometric_ladies_id || '').includes(q)
     );
   }
 
@@ -612,7 +615,8 @@ export async function getStaffAttendanceTodayStats() {
 export async function assignBiometricId(
   targetId: string,
   type: 'member' | 'staff',
-  biometricUserId: string
+  biometricUserId: string,
+  machineType?: 'Gents' | 'Ladies'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
@@ -627,18 +631,20 @@ export async function assignBiometricId(
         .from('members')
         .select('id, full_name')
         .eq('biometric_user_id', biometricUserId)
+        .eq('machine_type', machineType || 'Gents')
         .limit(1);
       if (existingMember && existingMember.length > 0) {
-        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to member ${existingMember[0].full_name}` };
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to member ${existingMember[0].full_name} on ${machineType || 'Gents'} Machine` };
       }
 
+      const targetCol = (machineType || 'Gents') === 'Gents' ? 'biometric_gents_id' : 'biometric_ladies_id';
       const { data: existingStaff } = await supabase
         .from('staff')
         .select('id, full_name')
-        .eq('biometric_user_id', biometricUserId)
+        .eq(targetCol, biometricUserId)
         .limit(1);
       if (existingStaff && existingStaff.length > 0) {
-        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to staff member ${existingStaff[0].full_name}` };
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to staff member ${existingStaff[0].full_name} on ${machineType || 'Gents'} Machine` };
       }
 
       const { error: updateError } = await supabase
@@ -654,33 +660,36 @@ export async function assignBiometricId(
         user.id
       );
     } else {
+      const targetCol = (machineType || 'Gents') === 'Gents' ? 'biometric_gents_id' : 'biometric_ladies_id';
+
       const { data: existingMember } = await supabase
         .from('members')
         .select('id, full_name')
         .eq('biometric_user_id', biometricUserId)
+        .eq('machine_type', machineType || 'Gents')
         .limit(1);
       if (existingMember && existingMember.length > 0) {
-        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to member ${existingMember[0].full_name}` };
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to member ${existingMember[0].full_name} on ${machineType || 'Gents'} Machine` };
       }
 
       const { data: existingStaff } = await supabase
         .from('staff')
         .select('id, full_name')
-        .eq('biometric_user_id', biometricUserId)
+        .eq(targetCol, biometricUserId)
         .limit(1);
       if (existingStaff && existingStaff.length > 0) {
-        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to staff member ${existingStaff[0].full_name}` };
+        return { success: false, error: `Biometric ID ${biometricUserId} is already assigned to staff member ${existingStaff[0].full_name} on ${machineType || 'Gents'} Machine` };
       }
 
       const { error: updateError } = await supabase
         .from('staff')
-        .update({ biometric_user_id: biometricUserId })
+        .update({ [targetCol]: biometricUserId })
         .eq('id', targetId);
 
       if (updateError) throw updateError;
 
       await logAudit(
-        `Assigned Biometric ID ${biometricUserId} to staff member ${targetId}`,
+        `Assigned Biometric ID ${biometricUserId} on ${machineType || 'Gents'} to staff member ${targetId}`,
         'Staff',
         user.id
       );

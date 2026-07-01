@@ -194,7 +194,8 @@ export default function StaffProfilePage() {
           <InfoRow label="Monthly Salary" value={staff.salary ? formatCurrency(staff.salary) : null} icon={DollarSign} />
           <InfoRow label="Shift" value={staff.shift} icon={Calendar} />
           <InfoRow label="Status" value={staff.status} icon={HardHat} />
-          <InfoRow label="Biometric User ID" value={staff.biometric_user_id || '—'} icon={Fingerprint} />
+          <InfoRow label="Biometric ID (Gents Machine)" value={staff.biometric_gents_id || '—'} icon={Fingerprint} />
+          <InfoRow label="Biometric ID (Ladies Machine)" value={staff.biometric_ladies_id || '—'} icon={Fingerprint} />
         </SectionCard>
 
         {/* Trainer Details */}

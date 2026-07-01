@@ -88,19 +88,53 @@ export async function createStaff(
     const { user } = await validateRole(['Super Admin', 'Admin']);
     const supabase = await createClient();
 
-    // Check biometric_user_id uniqueness across staff
-    if (values.biometric_user_id) {
-      const bioId = values.biometric_user_id;
-      if (!/^\d+$/.test(bioId)) {
-        return { error: "Biometric User ID must contain numeric digits only" };
+    // Check biometric_gents_id uniqueness across staff and Gents members
+    if (values.biometric_gents_id) {
+      const bioGents = values.biometric_gents_id;
+      if (!/^\d+$/.test(bioGents)) {
+        return { error: "Biometric Gents ID must contain numeric digits only" };
       }
       const { data: existingStaff } = await supabase
         .from('staff')
         .select('id, full_name')
-        .eq('biometric_user_id', bioId)
+        .eq('biometric_gents_id', bioGents)
         .maybeSingle();
       if (existingStaff) {
-        return { error: `Biometric ID ${bioId} is already assigned to staff member ${existingStaff.full_name}.` };
+        return { error: `Biometric Gents ID ${bioGents} is already assigned to staff member ${existingStaff.full_name}.` };
+      }
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('id, full_name')
+        .eq('biometric_user_id', bioGents)
+        .eq('machine_type', 'Gents')
+        .maybeSingle();
+      if (existingMember) {
+        return { error: `Biometric ID ${bioGents} is already assigned to Gents member ${existingMember.full_name}.` };
+      }
+    }
+
+    // Check biometric_ladies_id uniqueness across staff and Ladies members
+    if (values.biometric_ladies_id) {
+      const bioLadies = values.biometric_ladies_id;
+      if (!/^\d+$/.test(bioLadies)) {
+        return { error: "Biometric Ladies ID must contain numeric digits only" };
+      }
+      const { data: existingStaff } = await supabase
+        .from('staff')
+        .select('id, full_name')
+        .eq('biometric_ladies_id', bioLadies)
+        .maybeSingle();
+      if (existingStaff) {
+        return { error: `Biometric Ladies ID ${bioLadies} is already assigned to staff member ${existingStaff.full_name}.` };
+      }
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('id, full_name')
+        .eq('biometric_user_id', bioLadies)
+        .eq('machine_type', 'Ladies')
+        .maybeSingle();
+      if (existingMember) {
+        return { error: `Biometric ID ${bioLadies} is already assigned to Ladies member ${existingMember.full_name}.` };
       }
     }
 
@@ -116,7 +150,7 @@ export async function createStaff(
 
     const optionalText = ['gender', 'dob', 'email', 'address', 'emergency_contact',
       'profile_photo', 'shift', 'specialization', 'certifications',
-      'cleaning_area', 'working_shift', 'notes', 'biometric_user_id'] as const;
+      'cleaning_area', 'working_shift', 'notes', 'biometric_gents_id', 'biometric_ladies_id'] as const;
 
     for (const key of optionalText) {
       const val = (values as Record<string, unknown>)[key];
@@ -161,20 +195,56 @@ export async function updateStaff(
     const { user } = await validateRole(['Super Admin', 'Admin']);
     const supabase = await createClient();
 
-    // Check biometric_user_id uniqueness across staff on update
-    if (values.biometric_user_id !== undefined) {
-      const bioId = values.biometric_user_id;
-      if (bioId && !/^\d+$/.test(bioId)) {
-        return { error: "Biometric User ID must contain numeric digits only" };
+    // Check biometric_gents_id uniqueness across staff and Gents members on update
+    if (values.biometric_gents_id !== undefined) {
+      const bioGents = values.biometric_gents_id;
+      if (bioGents && !/^\d+$/.test(bioGents)) {
+        return { error: "Biometric Gents ID must contain numeric digits only" };
       }
-      if (bioId) {
+      if (bioGents) {
         const { data: existingStaff } = await supabase
           .from('staff')
           .select('id, full_name')
-          .eq('biometric_user_id', bioId)
+          .eq('biometric_gents_id', bioGents)
           .maybeSingle();
         if (existingStaff && existingStaff.id !== id) {
-          return { error: `Biometric ID ${bioId} is already assigned to staff member ${existingStaff.full_name}.` };
+          return { error: `Biometric Gents ID ${bioGents} is already assigned to staff member ${existingStaff.full_name}.` };
+        }
+        const { data: existingMember } = await supabase
+          .from('members')
+          .select('id, full_name')
+          .eq('biometric_user_id', bioGents)
+          .eq('machine_type', 'Gents')
+          .maybeSingle();
+        if (existingMember) {
+          return { error: `Biometric ID ${bioGents} is already assigned to Gents member ${existingMember.full_name}.` };
+        }
+      }
+    }
+
+    // Check biometric_ladies_id uniqueness across staff and Ladies members on update
+    if (values.biometric_ladies_id !== undefined) {
+      const bioLadies = values.biometric_ladies_id;
+      if (bioLadies && !/^\d+$/.test(bioLadies)) {
+        return { error: "Biometric Ladies ID must contain numeric digits only" };
+      }
+      if (bioLadies) {
+        const { data: existingStaff } = await supabase
+          .from('staff')
+          .select('id, full_name')
+          .eq('biometric_ladies_id', bioLadies)
+          .maybeSingle();
+        if (existingStaff && existingStaff.id !== id) {
+          return { error: `Biometric Ladies ID ${bioLadies} is already assigned to staff member ${existingStaff.full_name}.` };
+        }
+        const { data: existingMember } = await supabase
+          .from('members')
+          .select('id, full_name')
+          .eq('biometric_user_id', bioLadies)
+          .eq('machine_type', 'Ladies')
+          .maybeSingle();
+        if (existingMember) {
+          return { error: `Biometric ID ${bioLadies} is already assigned to Ladies member ${existingMember.full_name}.` };
         }
       }
     }
@@ -183,7 +253,7 @@ export async function updateStaff(
 
     const textFields = ['full_name', 'role', 'gender', 'dob', 'phone', 'email', 'address',
       'emergency_contact', 'profile_photo', 'employee_id', 'joining_date', 'shift',
-      'status', 'specialization', 'certifications', 'cleaning_area', 'working_shift', 'notes', 'biometric_user_id'];
+      'status', 'specialization', 'certifications', 'cleaning_area', 'working_shift', 'notes', 'biometric_gents_id', 'biometric_ladies_id'];
 
     for (const key of textFields) {
       if (key in values) {

@@ -85,9 +85,9 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<any[]>(notificationsData);
   const [staff, setStaff] = useState<Staff[]>(() => {
     const data = [...staffData] as Staff[];
-    if (data[0]) data[0].biometric_user_id = '2051';
-    if (data[1]) data[1].biometric_user_id = '2052';
-    if (data[3]) data[3].biometric_user_id = '2053';
+    if (data[0]) { data[0].biometric_gents_id = '2051'; data[0].biometric_ladies_id = '2051'; }
+    if (data[1]) { data[1].biometric_gents_id = '2052'; data[1].biometric_ladies_id = '2052'; }
+    if (data[3]) { data[3].biometric_gents_id = '2053'; data[3].biometric_ladies_id = '2053'; }
     return data;
   });
   
@@ -464,13 +464,22 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const getStaffById = (id: string) => staff.find(s => s.id === id) || null;
 
   const createStaff = (values: any) => {
-    if (values.biometric_user_id) {
-      if (!/^\d+$/.test(values.biometric_user_id)) {
-        return { error: 'Biometric User ID must contain numeric digits only' };
+    if (values.biometric_gents_id) {
+      if (!/^\d+$/.test(values.biometric_gents_id)) {
+        return { error: 'Biometric Gents ID must contain numeric digits only' };
       }
-      const duplicate = staff.some(s => s.biometric_user_id === values.biometric_user_id);
+      const duplicate = staff.some(s => s.biometric_gents_id === values.biometric_gents_id);
       if (duplicate) {
-        return { error: `Biometric ID ${values.biometric_user_id} is already assigned.` };
+        return { error: `Biometric Gents ID ${values.biometric_gents_id} is already assigned.` };
+      }
+    }
+    if (values.biometric_ladies_id) {
+      if (!/^\d+$/.test(values.biometric_ladies_id)) {
+        return { error: 'Biometric Ladies ID must contain numeric digits only' };
+      }
+      const duplicate = staff.some(s => s.biometric_ladies_id === values.biometric_ladies_id);
+      if (duplicate) {
+        return { error: `Biometric Ladies ID ${values.biometric_ladies_id} is already assigned.` };
       }
     }
     const newStaff: Staff = {
@@ -485,13 +494,22 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateStaff = (id: string, values: any) => {
-    if (values.biometric_user_id) {
-      if (!/^\d+$/.test(values.biometric_user_id)) {
-        return { error: 'Biometric User ID must contain numeric digits only' };
+    if (values.biometric_gents_id) {
+      if (!/^\d+$/.test(values.biometric_gents_id)) {
+        return { error: 'Biometric Gents ID must contain numeric digits only' };
       }
-      const duplicate = staff.some(s => s.biometric_user_id === values.biometric_user_id && s.id !== id);
+      const duplicate = staff.some(s => s.biometric_gents_id === values.biometric_gents_id && s.id !== id);
       if (duplicate) {
-        return { error: `Biometric ID ${values.biometric_user_id} is already assigned.` };
+        return { error: `Biometric Gents ID ${values.biometric_gents_id} is already assigned.` };
+      }
+    }
+    if (values.biometric_ladies_id) {
+      if (!/^\d+$/.test(values.biometric_ladies_id)) {
+        return { error: 'Biometric Ladies ID must contain numeric digits only' };
+      }
+      const duplicate = staff.some(s => s.biometric_ladies_id === values.biometric_ladies_id && s.id !== id);
+      if (duplicate) {
+        return { error: `Biometric Ladies ID ${values.biometric_ladies_id} is already assigned.` };
       }
     }
     let updated: Staff | undefined;
@@ -574,7 +592,11 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
           
           if (search.trim()) {
             const q = search.trim().toLowerCase();
-            filtered = filtered.filter(row => row.full_name.toLowerCase().includes(q) || (row.biometric_user_id && row.biometric_user_id.includes(q)));
+            filtered = filtered.filter(row => 
+              row.full_name.toLowerCase().includes(q) || 
+              (row.biometric_gents_id && row.biometric_gents_id.includes(q)) ||
+              (row.biometric_ladies_id && row.biometric_ladies_id.includes(q))
+            );
           }
           
           if (role && role !== 'All') {

@@ -43,7 +43,8 @@ const defaultValues: StaffFormValues = {
   cleaning_area: '',
   working_shift: '',
   notes: '',
-  biometric_user_id: '',
+  biometric_gents_id: '',
+  biometric_ladies_id: '',
 };
 
 interface StaffFormProps {
@@ -268,12 +269,22 @@ export function StaffForm({
             />
           </FormField>
 
-          <FormField label="Biometric User ID" error={errors.biometric_user_id?.message}>
-            <p className="text-xs text-slate-400 mb-1">Must match numeric ID on biometric machine</p>
+          <FormField label="Biometric ID (Gents Machine)" error={errors.biometric_gents_id?.message}>
+            <p className="text-xs text-slate-400 mb-1">Must match ID on Gents biometric machine</p>
             <input
-              {...register('biometric_user_id')}
+              {...register('biometric_gents_id')}
               type="text"
-              placeholder="e.g. 2050"
+              placeholder="e.g. 1005"
+              className="input-field"
+            />
+          </FormField>
+
+          <FormField label="Biometric ID (Ladies Machine)" error={errors.biometric_ladies_id?.message}>
+            <p className="text-xs text-slate-400 mb-1">Must match ID on Ladies biometric machine</p>
+            <input
+              {...register('biometric_ladies_id')}
+              type="text"
+              placeholder="e.g. 2005"
               className="input-field"
             />
           </FormField>
