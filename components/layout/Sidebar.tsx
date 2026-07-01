@@ -8,6 +8,7 @@ import {
   Dumbbell,
   FileSpreadsheet,
   FileText,
+  HardHat,
   HeartPulse,
   LayoutDashboard,
   Menu,
@@ -48,6 +49,7 @@ interface ServerUser {
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/members', label: 'Members', icon: Users },
+  { href: '/staff', label: 'Staff', icon: HardHat },
   { href: '/attendance', label: 'Attendance', icon: Activity },
   { href: '/monitor', label: 'Live Monitor', icon: Tv },
   { href: '/devices', label: 'Device Management', icon: Cpu },
@@ -67,6 +69,9 @@ function isRouteActive(pathname: string, href: string) {
   if (href === '/members/add') return pathname === '/members/add';
   if (href === '/members') {
     return pathname === '/members' || (pathname.startsWith('/members/') && pathname !== '/members/add');
+  }
+  if (href === '/staff') {
+    return pathname === '/staff' || pathname.startsWith('/staff/');
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -175,13 +180,13 @@ function NavContent({
     
     if (role === 'Super Admin') return true;
     if (role === 'Admin') {
-      return ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/backup'].includes(item.href);
+      return ['/', '/members', '/staff', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/backup'].includes(item.href);
     }
     if (role === 'Receptionist') {
-      return ['/', '/members', '/attendance', '/monitor', '/invoices'].includes(item.href);
+      return ['/', '/members', '/staff', '/attendance', '/monitor', '/invoices'].includes(item.href);
     }
     if (role === 'Trainer') {
-      return ['/', '/members', '/health', '/parq'].includes(item.href);
+      return ['/', '/members', '/staff', '/health', '/parq'].includes(item.href);
     }
     return false;
   });

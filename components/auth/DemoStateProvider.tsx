@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Member, Invoice, AttendanceLog, GymSettings, SMSLog, HealthAssessment, ParqResponse, BiometricDevice } from '@/types';
+import { Member, Invoice, AttendanceLog, GymSettings, SMSLog, HealthAssessment, ParqResponse, BiometricDevice, Staff } from '@/types';
 
 // Import local JSON demo data
 import dashboardData from '@/src/demo-data/dashboard.json';
@@ -13,6 +13,7 @@ import paymentsData from '@/src/demo-data/payments.json';
 import expensesData from '@/src/demo-data/expenses.json';
 import callLogsData from '@/src/demo-data/call_logs.json';
 import notificationsData from '@/src/demo-data/notifications.json';
+import staffData from '@/src/demo-data/staff.json';
 
 interface DemoStateContextType {
   members: Member[];
@@ -27,6 +28,7 @@ interface DemoStateContextType {
   smsLogs: SMSLog[];
   healthAssessments: HealthAssessment[];
   parqResponses: ParqResponse[];
+  staff: Staff[];
 
   // Mutators
   getMembers: () => Member[];
@@ -58,6 +60,14 @@ interface DemoStateContextType {
   getParqByMember: (memberId: string) => ParqResponse[];
   getParqById: (id: string) => ParqResponse | null;
   createParqResponse: (values: any) => ParqResponse;
+
+  // Staff mutators
+  getStaff: (args?: { search?: string; role?: string; status?: string; page?: number; limit?: number }) => { staff: Staff[]; totalCount: number };
+  getStaffById: (id: string) => Staff | null;
+  createStaff: (values: any) => { data?: Staff; error?: string };
+  updateStaff: (id: string, values: any) => { data?: Staff; error?: string };
+  deleteStaff: (id: string) => void;
+  getStaffStats: () => { total: number; trainers: number; janitors: number; active: number };
 }
 
 const DemoStateContext = createContext<DemoStateContextType | undefined>(undefined);
@@ -70,6 +80,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<any[]>(expensesData);
   const [callLogs, setCallLogs] = useState<any[]>(callLogsData);
   const [notifications, setNotifications] = useState<any[]>(notificationsData);
+  const [staff, setStaff] = useState<Staff[]>(staffData as Staff[]);
   
   const [settings, setSettings] = useState<GymSettings>({
     gym_name: 'FusionFit Gym (Demo)',
@@ -340,6 +351,60 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     return newParq;
   };
 
+  // Staff mutators
+  const getStaff = (args: { search?: string; role?: string; status?: string; page?: number; limit?: number } = {}) => {
+    const { search = '', role = 'All', status = 'All', page = 1, limit = 10 } = args;
+    let filtered = [...staff];
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      filtered = filtered.filter(s =>
+        s.full_name.toLowerCase().includes(q) ||
+        s.phone.toLowerCase().includes(q) ||
+        s.employee_id.toLowerCase().includes(q) ||
+        (s.email && s.email.toLowerCase().includes(q))
+      );
+    }
+    if (role && role !== 'All') filtered = filtered.filter(s => s.role === role);
+    if (status && status !== 'All') filtered = filtered.filter(s => s.status === status);
+    const offset = (page - 1) * limit;
+    return { staff: filtered.slice(offset, offset + limit), totalCount: filtered.length };
+  };
+
+  const getStaffById = (id: string) => staff.find(s => s.id === id) || null;
+
+  const createStaff = (values: any) => {
+    const newStaff: Staff = {
+      ...values,
+      id: `demo-staff-uuid-${(staff.length + 1).toString().padStart(4, '0')}`,
+      employee_id: values.employee_id || `EMP-${(1000 + staff.length + 1)}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setStaff(prev => [newStaff, ...prev]);
+    return { data: newStaff };
+  };
+
+  const updateStaff = (id: string, values: any) => {
+    let updated: Staff | undefined;
+    setStaff(prev => prev.map(s => {
+      if (s.id === id) {
+        updated = { ...s, ...values, updated_at: new Date().toISOString() };
+        return updated;
+      }
+      return s;
+    }) as Staff[]);
+    return updated ? { data: updated } : { error: 'Staff not found' };
+  };
+
+  const deleteStaff = (id: string) => setStaff(prev => prev.filter(s => s.id !== id));
+
+  const getStaffStats = () => ({
+    total: staff.length,
+    trainers: staff.filter(s => s.role === 'Trainer').length,
+    janitors: staff.filter(s => s.role === 'Janitor').length,
+    active: staff.filter(s => s.status === 'Active').length,
+  });
+
   return (
     <DemoStateContext.Provider
       value={{
@@ -355,6 +420,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         smsLogs,
         healthAssessments,
         parqResponses,
+        staff,
         
         getMembers,
         getMemberById,
@@ -384,7 +450,14 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         
         getParqByMember,
         getParqById,
-        createParqResponse
+        createParqResponse,
+
+        getStaff,
+        getStaffById,
+        createStaff,
+        updateStaff,
+        deleteStaff,
+        getStaffStats,
       }}
     >
       {children}

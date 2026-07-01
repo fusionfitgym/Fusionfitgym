@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Dumbbell,
   FileText,
+  HardHat,
   TrendingUp,
   UserCheck,
   UserPlus,
@@ -24,6 +25,7 @@ import { ExpiringMembersList } from '@/components/dashboard/ExpiringMembersList'
 import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceAnalytics } from '@/lib/actions/attendance';
 import { getSMSStats } from '@/lib/actions/sms';
+import { getStaffStats } from '@/lib/actions/staff';
 import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
@@ -95,6 +97,7 @@ export default async function DashboardPage() {
   let invoices: any[] = [];
   let attendance: any = null;
   let smsStats: any = null;
+  let staffStats: { total: number; trainers: number; janitors: number; active: number } = { total: 0, trainers: 0, janitors: 0, active: 0 };
 
   // 3. Optimized parallel fetching of data with safety boundaries
   try {
@@ -149,17 +152,25 @@ export default async function DashboardPage() {
       promises.push(Promise.resolve(null));
     }
 
+    // Staff stats (always fetch for Super Admin + Admin)
+    promises.push(getStaffStats().catch((err: any) => {
+      console.error("Error fetching staff stats:", err);
+      return { total: 0, trainers: 0, janitors: 0, active: 0 };
+    }));
+
     const [
       membersResult,
       invoicesResult,
       attendanceResult,
-      smsStatsResult
+      smsStatsResult,
+      staffStatsResult
     ] = await Promise.all(promises);
 
     members = membersResult?.data || [];
     invoices = invoicesResult?.data || [];
     attendance = attendanceResult;
     smsStats = smsStatsResult;
+    staffStats = staffStatsResult || staffStats;
   } catch (error) {
     console.error("Failed executing parallel data fetching:", error);
   }
@@ -177,9 +188,9 @@ export default async function DashboardPage() {
     return diff >= 0 && diff <= 7;
   }).length;
 
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const monthlyRevenue = invoices
-    .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= monthStart)
+    .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= thirtyDaysAgo)
     .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
 
   const dailyPassMembers = members.filter((m) => m && m.duration === 'Daily Pass' && m.status === 'Active').length;
@@ -300,7 +311,7 @@ export default async function DashboardPage() {
             title="Monthly revenue"
             value={formatCurrency(monthlyRevenue)}
             icon={<TrendingUp className="h-5 w-5" />}
-            subtitle="Paid invoices this month"
+            subtitle="Paid invoices (last 30 days)"
           />
         )}
       </div>
@@ -332,6 +343,40 @@ export default async function DashboardPage() {
           subtitle="Active cardio or strength training"
         />
       </div>
+
+      {/* Staff Statistics Row */}
+      {showRevenueAnalytics && (
+        <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="col-span-2 lg:col-span-4 flex items-center gap-2">
+            <HardHat className="h-4 w-4 text-slate-400" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Staff Overview</span>
+          </div>
+          <StatCard
+            title="Total Staff"
+            value={staffStats.total}
+            icon={<HardHat className="h-5 w-5 text-violet-500" />}
+            subtitle="All registered staff"
+          />
+          <StatCard
+            title="Trainers"
+            value={staffStats.trainers}
+            icon={<Users className="h-5 w-5 text-amber-500" />}
+            subtitle="Registered trainers"
+          />
+          <StatCard
+            title="Janitors"
+            value={staffStats.janitors}
+            icon={<HardHat className="h-5 w-5 text-blue-500" />}
+            subtitle="Maintenance staff"
+          />
+          <StatCard
+            title="Active Staff"
+            value={staffStats.active}
+            icon={<UserCheck className="h-5 w-5 text-emerald-500" />}
+            subtitle="Currently active employees"
+          />
+        </div>
+      )}
 
       {/* SMS Summary Card */}
       {showSMSAnalytics && smsStats && (

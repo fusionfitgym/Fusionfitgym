@@ -24,7 +24,7 @@ import DashboardChartsSection from '@/components/dashboard/DashboardChartsSectio
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
 
 export default function DashboardClientPage() {
-  const { members, invoices, trainers, expenses, callLogs, notifications, attendance, getAttendanceAnalytics } = useDemoState();
+  const { members, invoices, trainers, expenses, callLogs, notifications, attendance, getAttendanceAnalytics, getStaffStats } = useDemoState();
 
   const analytics = useMemo(() => getAttendanceAnalytics(), [attendance, getAttendanceAnalytics]);
 
@@ -45,11 +45,11 @@ export default function DashboardClientPage() {
   }, [members]);
 
   const monthlyRevenue = useMemo(() => {
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     return invoices
-      .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= monthStart)
+      .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= thirtyDaysAgo)
       .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
-  }, [invoices]);
+  }, [invoices, now]);
 
   const dailyPassMembers = members.filter((m) => m.duration === 'Daily Pass' && m.status === 'Active').length;
   const activeMonthlyMembers = members.filter((m) => m.duration !== 'Daily Pass' && m.status === 'Active').length;
@@ -153,7 +153,7 @@ export default function DashboardClientPage() {
           title="Monthly revenue"
           value={formatCurrency(monthlyRevenue)}
           icon={<TrendingUp className="h-5 w-5" />}
-          subtitle="Paid invoices this month"
+          subtitle="Paid invoices (last 30 days)"
         />
       </div>
 
@@ -184,6 +184,22 @@ export default function DashboardClientPage() {
           subtitle="Active cardio or strength training"
         />
       </div>
+
+      {/* Staff Stats Row */}
+      {(() => {
+        const staffStats = getStaffStats();
+        return (
+          <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div className="col-span-2 lg:col-span-4 flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">🏋️ Staff Overview</span>
+            </div>
+            <StatCard title="Total Staff" value={staffStats.total} icon={<Users className="h-5 w-5 text-violet-500" />} subtitle="All registered staff" />
+            <StatCard title="Trainers" value={staffStats.trainers} icon={<Dumbbell className="h-5 w-5 text-amber-500" />} subtitle="Registered trainers" />
+            <StatCard title="Janitors" value={staffStats.janitors} icon={<Users className="h-5 w-5 text-blue-500" />} subtitle="Maintenance staff" />
+            <StatCard title="Active Staff" value={staffStats.active} icon={<UserCheck className="h-5 w-5 text-emerald-500" />} subtitle="Currently active employees" />
+          </div>
+        );
+      })()}
 
       {/* SMS Summary Card */}
       <section className="card mt-6 p-4 sm:p-5 border-amber-200 bg-amber-50/15">

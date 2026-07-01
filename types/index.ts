@@ -273,3 +273,67 @@ export interface BiometricSyncLog {
   punch_time: string;
   created_at?: string;
 }
+
+// ── Staff (Trainers & Janitors) ──────────────────────────────
+export interface Staff {
+  id: string;
+  employee_id: string;
+  full_name: string;
+  role: 'Trainer' | 'Janitor';
+  gender?: 'Male' | 'Female' | 'Other' | null;
+  dob?: string | null;
+  phone: string;
+  email?: string | null;
+  address?: string | null;
+  emergency_contact?: string | null;
+  profile_photo?: string | null;
+  salary?: number | null;
+  joining_date: string;
+  shift?: 'Morning' | 'Evening' | 'Night' | 'Full Day' | null;
+  status: 'Active' | 'Inactive';
+  // Trainer-specific
+  specialization?: string | null;
+  experience?: number | null;
+  certifications?: string | null;
+  // Janitor-specific
+  cleaning_area?: string | null;
+  working_shift?: string | null;
+  // Common
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const STAFF_ROLES = ['Trainer', 'Janitor'] as const;
+export const STAFF_STATUSES = ['Active', 'Inactive'] as const;
+export const STAFF_SHIFTS = ['Morning', 'Evening', 'Night', 'Full Day'] as const;
+export const STAFF_GENDERS = ['Male', 'Female', 'Other'] as const;
+
+export const staffSchema = z.object({
+  full_name: z.string().min(2, 'Name must be at least 2 characters'),
+  role: z.enum(['Trainer', 'Janitor']),
+  gender: z.enum(['Male', 'Female', 'Other']).optional().or(z.literal('')),
+  dob: z.string().optional().or(z.literal('')),
+  phone: z.string().min(7, 'Enter a valid phone number'),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
+  emergency_contact: z.string().optional().or(z.literal('')),
+  profile_photo: z.string().optional().or(z.literal('')),
+  employee_id: z.string().optional().or(z.literal('')),
+  salary: z.coerce.number().min(0).optional().or(z.literal('')),
+  joining_date: z.string().min(1, 'Joining date is required'),
+  shift: z.enum(['Morning', 'Evening', 'Night', 'Full Day']).optional().or(z.literal('')),
+  status: z.enum(['Active', 'Inactive']),
+  // Trainer-specific
+  specialization: z.string().optional().or(z.literal('')),
+  experience: z.coerce.number().min(0).optional().or(z.literal('')),
+  certifications: z.string().optional().or(z.literal('')),
+  // Janitor-specific
+  cleaning_area: z.string().optional().or(z.literal('')),
+  working_shift: z.string().optional().or(z.literal('')),
+  // Common
+  notes: z.string().optional().or(z.literal('')),
+});
+
+export type StaffFormValues = z.infer<typeof staffSchema>;
+export type StaffFormInput = z.input<typeof staffSchema>;
