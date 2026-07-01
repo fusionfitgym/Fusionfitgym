@@ -52,6 +52,7 @@ function NewInvoiceForm() {
     register,
     handleSubmit,
     setValue,
+    reset,
     control,
     formState: { errors },
   } = useForm<InvoiceFormInput, unknown, InvoiceFormValues>({
@@ -92,15 +93,29 @@ function NewInvoiceForm() {
       setTimeout(() => {
         const created = demo.createInvoice(data);
         toast.success('Invoice created successfully (Demo Mode)');
+        reset();
         router.push(`/invoices/${created.id}`);
       }, 400);
       return;
     }
     try {
-      const invoice = await createInvoice(data);
-      router.push(`/invoices/${invoice.id}`);
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Failed to create invoice.');
+      const res = await createInvoice(data);
+      if (res.error) {
+        setError(res.error);
+        toast.error(res.error);
+        setSubmitting(false);
+        return;
+      }
+      if (res.data) {
+        toast.success(`Invoice ${res.data.invoice_number} created successfully!`);
+        reset();
+        router.push(`/invoices/${res.data.id}`);
+      }
+    } catch (caughtError: any) {
+      console.error('Unhandled submit exception:', caughtError);
+      const msg = caughtError?.message || 'Failed to create invoice.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
