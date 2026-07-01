@@ -449,6 +449,7 @@ export default function SMSNotificationCenterPage() {
           return {
             ...prevStats,
             pending: Math.max(0, prevStats.pending - 1),
+            notificationQueue: Math.max(0, prevStats.notificationQueue - 1),
             todaySent: prevStats.todaySent + 1,
             totalSent: (prevStats.totalSent ?? 0) + 1,
           };
@@ -458,6 +459,8 @@ export default function SMSNotificationCenterPage() {
         const res = await markSMSAsSentAction(activeLogId);
         if (res.success) {
           toast.success('SMS dispatched and member status updated.');
+          window.dispatchEvent(new CustomEvent('sms-count-changed'));
+          loadData();
         } else {
           toast.error(res.message || 'Failed to update SMS status in database.');
           // Revert optimistic updates by reloading data
@@ -540,6 +543,7 @@ export default function SMSNotificationCenterPage() {
         return {
           ...prevStats,
           pending: prevStats.pending + 1,
+          notificationQueue: prevStats.notificationQueue + 1,
           todaySent: Math.max(0, prevStats.todaySent - 1),
           totalSent: Math.max(0, (prevStats.totalSent ?? 0) - 1),
         };
@@ -549,6 +553,8 @@ export default function SMSNotificationCenterPage() {
       const res = await undoSMSSentAction(log.id);
       if (res.success) {
         toast.success('SMS moved back to Pending.');
+        window.dispatchEvent(new CustomEvent('sms-count-changed'));
+        loadData();
       } else {
         toast.error(res.message || 'Failed to undo sent status.');
         loadData();
@@ -574,6 +580,7 @@ export default function SMSNotificationCenterPage() {
       const res = await deleteSMSAction(log.id);
       if (res.success) {
         toast.success(res.message || 'SMS record deleted successfully.');
+        window.dispatchEvent(new CustomEvent('sms-count-changed'));
       } else {
         toast.error(res.message || 'Failed to delete SMS record.');
       }

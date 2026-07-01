@@ -1,49 +1,24 @@
 const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const path = require('path');
 
-// Read .env.local
-const envPath = path.join(__dirname, '..', '.env.local');
-const envContent = fs.readFileSync(envPath, 'utf8');
-const env = {};
-envContent.split('\n').forEach(line => {
-  const parts = line.split('=');
-  if (parts.length >= 2) {
-    env[parts[0].trim()] = parts.slice(1).join('=').trim();
-  }
-});
+const url = 'https://jfriacldwyfntttnbvwi.supabase.co';
+const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmcmlhY2xkd3lmbnR0dG5idndpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTAxNjA1NSwiZXhwIjoyMDk2NTkyMDU1fQ.tmrf7hQBJ19fPoN0t8UJgt8UofcISQKJUbSprbvARSQ';
 
-const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error('Missing credentials');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabase = createClient(url, serviceKey);
 
 async function run() {
-  // Query columns of invoices table
-  const { data, error } = await supabase
-    .from('invoices')
-    .select('*')
-    .limit(1);
-
-  if (error) {
-    console.error('Error querying invoices:', error);
-  } else {
-    console.log('Query result keys (columns):', data.length > 0 ? Object.keys(data[0]) : 'No records found');
+  const { data: logs, error: logsError } = await supabase
+    .from('sms_logs')
+    .select('id, status, created_at, message');
+  
+  if (logsError) {
+    console.error('Error fetching logs:', logsError);
+    return;
   }
 
-  // Also query a count of null links if column exists
-  if (data.length > 0 && 'invoice_link' in data[0]) {
-    const { count, error: countErr } = await supabase
-      .from('invoices')
-      .select('*', { count: 'exact', head: true })
-      .is('invoice_link', null);
-    console.log('Invoices with NULL invoice_link:', countErr ? countErr : count);
-  }
+  console.log('Logs:');
+  logs.forEach(log => {
+    console.log(`- ID: ${log.id}, Status: ${log.status}, CreatedAt: ${log.created_at}, msg: ${log.message.substring(0, 30)}`);
+  });
 }
 
 run();

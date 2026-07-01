@@ -152,9 +152,13 @@ function NavContent({
         .catch(() => {});
     };
     loadPending();
+    
+    window.addEventListener('sms-count-changed', loadPending);
+
     const interval = window.setInterval(loadPending, 60000);
     return () => {
       mounted = false;
+      window.removeEventListener('sms-count-changed', loadPending);
       window.clearInterval(interval);
     };
   }, [pathname]);
