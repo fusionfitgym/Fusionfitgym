@@ -179,6 +179,7 @@ function NavContent({
   // Use server-provided profile immediately; fall back to AuthProvider
   const profile = serverProfile || authProfile;
   const lastSignInAt = serverUser?.last_sign_in_at ?? authUser?.last_sign_in_at;
+  const isDemo = profile?.email === 'demo@redix.media' || (typeof window !== 'undefined' && document.cookie.includes('demo-mode=true'));
 
   // Role-based route filtering
   const filteredItems = navItems.map((item) => {
