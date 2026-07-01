@@ -42,6 +42,7 @@ import {
   resendSMSAction,
   updateSMSMessageAction,
   undoSMSSentAction,
+  deleteSMSAction,
 } from '@/lib/actions/sms';
 import { getMembers } from '@/lib/actions/members';
 import { ensureInvoiceToken, getInvoices, regenerateInvoiceToken } from '@/lib/actions/invoices';
@@ -116,6 +117,7 @@ export default function SMSNotificationCenterPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<{
+    totalSent: number;
     todaySent: number;
     monthlySent: number;
     failed: number;
@@ -237,7 +239,7 @@ export default function SMSNotificationCenterPage() {
       alert('No members available to draft message.');
       return;
     }
-    
+
     let templateKey = 'Welcome';
     if (type.includes('Renewal')) templateKey = 'Renewal';
     else if (type.includes('Invoice')) templateKey = 'Invoice';
@@ -256,7 +258,7 @@ export default function SMSNotificationCenterPage() {
         };
       }
     }
-    const message = templateKey === 'Custom' 
+    const message = templateKey === 'Custom'
       ? `Hello ${firstMem.full_name},\n`
       : buildMemberMessage(firstMem, templateKey, extra);
 
@@ -273,7 +275,7 @@ export default function SMSNotificationCenterPage() {
     const selectedMem = members.find(m => m.id === mId);
     if (!selectedMem) return;
     const phone = selectedMem.phone || '';
-    
+
     let message = '';
     if (tplType === 'Custom') {
       message = customMsg !== undefined ? customMsg : `Hello ${selectedMem.full_name},\n`;
@@ -394,7 +396,7 @@ export default function SMSNotificationCenterPage() {
     messageType?: string
   ) => {
     let activeLogId = logId;
-    
+
     // Determine a unique key for the loading state to avoid duplicate sends
     const loadingKey = logId || (memberId ? `compose-${memberId}` : 'compose-unknown');
     setActionLoadingId(loadingKey);
@@ -407,7 +409,7 @@ export default function SMSNotificationCenterPage() {
           setActionLoadingId(null);
           return;
         }
-        
+
         const freshLogs = await getSMSLogs();
         setLogs(freshLogs);
         const created = freshLogs.find(
@@ -494,10 +496,10 @@ export default function SMSNotificationCenterPage() {
         prevLogs.map((l) =>
           l.id === log.id
             ? {
-                ...l,
-                last_resend_at: new Date().toISOString(),
-                resend_count: (l.resend_count ?? 0) + 1,
-              }
+              ...l,
+              last_resend_at: new Date().toISOString(),
+              resend_count: (l.resend_count ?? 0) + 1,
+            }
             : l
         )
       );
@@ -557,6 +559,30 @@ export default function SMSNotificationCenterPage() {
       loadData();
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleDelete = async (log: SMSLog) => {
+    const confirmed = window.confirm("Are you sure you want to delete this SMS record?");
+    if (!confirmed) return;
+
+    setActionLoadingId(log.id);
+    try {
+      // Optimistic UI update
+      setLogs((prevLogs) => prevLogs.filter((l) => l.id !== log.id));
+
+      const res = await deleteSMSAction(log.id);
+      if (res.success) {
+        toast.success(res.message || 'SMS record deleted successfully.');
+      } else {
+        toast.error(res.message || 'Failed to delete SMS record.');
+      }
+    } catch (err: unknown) {
+      console.error('Error in handleDelete:', err);
+      toast.error('An unexpected error occurred during deletion.');
+    } finally {
+      setActionLoadingId(null);
+      loadData();
     }
   };
 
@@ -678,14 +704,14 @@ export default function SMSNotificationCenterPage() {
 
   const kpiCards = stats
     ? [
-        { label: 'SMS Sent Today', value: stats.todaySent, icon: Send, trend: todayTrendUp },
-        { label: 'Total SMS Sent', value: stats.totalSent ?? 0, icon: MessageSquare },
-        { label: 'SMS Sent This Month', value: stats.monthlySent, icon: Calendar },
-        { label: 'Pending SMS', value: stats.pending, icon: Clock },
-        { label: 'Failed SMS', value: stats.failed, icon: XCircle, alert: stats.failed > 0 },
-        { label: 'Renewal Reminders Sent', value: stats.renewalRemindersSent, icon: Bell },
-        { label: 'Notification Queue', value: stats.notificationQueue, icon: Inbox },
-      ]
+      { label: 'SMS Sent Today', value: stats.todaySent, icon: Send, trend: todayTrendUp },
+      { label: 'Total SMS Sent', value: stats.totalSent ?? 0, icon: MessageSquare },
+      { label: 'SMS Sent This Month', value: stats.monthlySent, icon: Calendar },
+      { label: 'Pending SMS', value: stats.pending, icon: Clock },
+      { label: 'Failed SMS', value: stats.failed, icon: XCircle, alert: stats.failed > 0 },
+      { label: 'Renewal Reminders Sent', value: stats.renewalRemindersSent, icon: Bell },
+      { label: 'Notification Queue', value: stats.notificationQueue, icon: Inbox },
+    ]
     : [];
 
   const renderExpirySection = (
@@ -1058,8 +1084,8 @@ export default function SMSNotificationCenterPage() {
                                   inv.status === 'Paid'
                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                     : inv.status === 'Overdue'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                      ? 'bg-red-50 text-red-700 border-red-200'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200'
                                 )}
                               >
                                 {inv.status}
@@ -1279,9 +1305,9 @@ export default function SMSNotificationCenterPage() {
                               <span className="block text-[10px] text-slate-400">
                                 {log.created_at
                                   ? new Date(log.created_at).toLocaleTimeString('en-IN', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
                                   : '—'}
                               </span>
                             </td>
@@ -1481,6 +1507,15 @@ export default function SMSNotificationCenterPage() {
                                 >
                                   <Copy className="h-3.5 w-3.5" />
                                 </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  disabled={isLoading}
+                                  onClick={() => void handleDelete(log)}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -1564,6 +1599,14 @@ export default function SMSNotificationCenterPage() {
                             }}
                           >
                             Duplicate
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary flex-1 min-h-[48px] font-semibold text-xs text-red-600 rounded-xl hover:bg-red-50 hover:text-red-700"
+                            disabled={isLoading}
+                            onClick={() => void handleDelete(log)}
+                          >
+                            Delete
                           </button>
                         </div>
                       </article>
