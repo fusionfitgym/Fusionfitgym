@@ -244,127 +244,209 @@ export default function PTPackagesPage() {
       {/* Modal Layout */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <form
+            onSubmit={handleSave}
+            style={{
+              maxWidth: '1100px',
+              maxHeight: '90vh',
+            }}
+            className="w-full rounded-xl border border-slate-200 bg-white shadow-2xl flex flex-col overflow-hidden animate-enter"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-bold text-slate-800">
                 {editingPackage ? 'Edit PT Package' : 'Create PT Package'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
-              <FormField label="Package Name" required>
-                <input
-                  type="text"
-                  className="input-field w-full"
-                  placeholder="e.g. 12 Sessions Pack"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </FormField>
+            <div style={{ padding: '24px' }} className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-[32px] items-start h-full">
+                {/* Left Preview Column */}
+                <div style={{ height: '100%' }} className="flex flex-col justify-start">
+                  <label className="field-label">Package Preview</label>
+                  <div className="border border-slate-200 bg-white p-6 flex flex-col justify-between shadow-sm rounded-xl flex-1 min-h-[300px]">
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <h3 className="text-lg font-bold text-slate-800">{name || 'Package Name'}</h3>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                          {status}
+                        </span>
+                      </div>
+                      
+                      <p className="mt-2 text-sm text-slate-500 line-clamp-2">{description || 'No description provided.'}</p>
+                      
+                      <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Trainer Assigned:</span>
+                          <span className="font-semibold text-slate-700">
+                            {trainerId 
+                              ? (trainers.find(t => t.id === trainerId)?.full_name || 'Assigned Trainer')
+                              : 'Any Trainer'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Sessions Count:</span>
+                          <span className="font-semibold text-slate-700">{sessions} Sessions</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Duration Limit:</span>
+                          <span className="font-semibold text-slate-700">{duration} Days</span>
+                        </div>
+                      </div>
+                    </div>
 
-              <FormField label="Description">
-                <textarea
-                  className="textarea-field w-full min-h-[60px]"
-                  placeholder="Details of what training is offered"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </FormField>
+                    <div className="mt-8 border-t border-slate-100 pt-4">
+                      <div className="flex items-baseline justify-between mb-4">
+                        <span className="text-slate-400 text-sm">Final Price:</span>
+                        <div className="text-right">
+                          {discount > 0 && (
+                            <p className="text-xs text-slate-400 line-through">{formatCurrency(price)}</p>
+                          )}
+                          <p className="text-2xl font-black text-amber-500">{formatCurrency(Math.max(0, price - discount))}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Trainer Assigned">
-                  <select
-                    className="select-field w-full"
-                    value={trainerId}
-                    onChange={(e) => setTrainerId(e.target.value)}
-                  >
-                    <option value="">Any Trainer</option>
-                    {trainers.map(t => (
-                      <option key={t.id} value={t.id}>{t.full_name}</option>
-                    ))}
-                  </select>
-                </FormField>
+                {/* Right Form Column */}
+                <div style={{ height: '100%' }} className="space-y-4">
+                  <FormField label="Package Name" required>
+                    <input
+                      type="text"
+                      className="input-field w-full"
+                      placeholder="e.g. 12 Sessions Pack"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </FormField>
 
-                <FormField label="Status">
-                  <select
-                    className="select-field w-full"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </FormField>
+                  <FormField label="Description">
+                    <textarea
+                      className="textarea-field w-full min-h-[60px]"
+                      placeholder="Details of what training is offered"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </FormField>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Trainer Assigned">
+                      <select
+                        className="select-field w-full"
+                        value={trainerId}
+                        onChange={(e) => setTrainerId(e.target.value)}
+                      >
+                        <option value="">Any Trainer</option>
+                        {trainers.map(t => (
+                          <option key={t.id} value={t.id}>{t.full_name}</option>
+                        ))}
+                      </select>
+                    </FormField>
+
+                    <FormField label="Status">
+                      <select
+                        className="select-field w-full"
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as any)}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </FormField>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Number of Sessions" required>
+                      <input
+                        type="number"
+                        min="1"
+                        className="input-field w-full"
+                        value={sessions}
+                        onChange={(e) => setSessions(Number(e.target.value))}
+                        required
+                      />
+                    </FormField>
+
+                    <FormField label="Duration (Days)" required>
+                      <input
+                        type="number"
+                        min="1"
+                        className="input-field w-full"
+                        value={duration}
+                        onChange={(e) => setDuration(Number(e.target.value))}
+                        required
+                      />
+                    </FormField>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Base Price (₹)" required>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-field w-full"
+                        value={price}
+                        onChange={(e) => setPrice(Number(e.target.value))}
+                        required
+                      />
+                    </FormField>
+
+                    <FormField label="Discount (₹)">
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-field w-full"
+                        value={discount}
+                        onChange={(e) => setDiscount(Number(e.target.value))}
+                      />
+                    </FormField>
+                  </div>
+
+                  <div className="bg-amber-50/50 border border-amber-200/60 rounded-xl p-3.5 mt-4 flex items-center justify-between">
+                    <span className="text-sm font-medium text-amber-900">Total Price Calculated:</span>
+                    <span className="text-xl font-black text-amber-600">
+                      {formatCurrency(Math.max(0, price - discount))}
+                    </span>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Number of Sessions" required>
-                  <input
-                    type="number"
-                    min="1"
-                    className="input-field w-full"
-                    value={sessions}
-                    onChange={(e) => setSessions(Number(e.target.value))}
-                    required
-                  />
-                </FormField>
-
-                <FormField label="Duration (Days)" required>
-                  <input
-                    type="number"
-                    min="1"
-                    className="input-field w-full"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    required
-                  />
-                </FormField>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Base Price (₹)" required>
-                  <input
-                    type="number"
-                    min="0"
-                    className="input-field w-full"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    required
-                  />
-                </FormField>
-
-                <FormField label="Discount (₹)">
-                  <input
-                    type="number"
-                    min="0"
-                    className="input-field w-full"
-                    value={discount}
-                    onChange={(e) => setDiscount(Number(e.target.value))}
-                  />
-                </FormField>
-              </div>
-
-              <div className="bg-amber-50/50 border border-amber-200/60 rounded-xl p-3.5 mt-4 flex items-center justify-between">
-                <span className="text-sm font-medium text-amber-900">Total Price Calculated:</span>
-                <span className="text-xl font-black text-amber-600">
-                  {formatCurrency(Math.max(0, price - discount))}
-                </span>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Package
-                </button>
-              </div>
-            </form>
-          </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                padding: '20px 24px',
+                borderTop: '1px solid #e5e7eb',
+              }}
+              className="sticky bottom-0 bg-white"
+            >
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="btn btn-secondary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Save Package
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

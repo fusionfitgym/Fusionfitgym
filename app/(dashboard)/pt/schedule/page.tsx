@@ -357,128 +357,215 @@ export default function PTSchedulePage() {
       {/* Schedule Form Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <form
+            onSubmit={handleSaveSession}
+            style={{
+              maxWidth: '1100px',
+              maxHeight: '90vh',
+            }}
+            className="w-full rounded-xl border border-slate-200 bg-white shadow-2xl flex flex-col overflow-hidden animate-enter"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-bold text-slate-800">
                 {selectedSession ? 'Edit PT Session' : 'Schedule PT Session'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSession} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="PT Client" required>
-                  <select
-                    className="select-field w-full"
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Choose Client --</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.full_name} ({c.sessions_remaining} left)</option>
-                    ))}
-                  </select>
-                </FormField>
+            <div style={{ padding: '24px' }} className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-[32px] items-start h-full">
+                {/* Left Preview Column */}
+                <div style={{ height: '100%' }} className="flex flex-col justify-start">
+                  <label className="field-label">Session Preview</label>
+                  <div className="border border-slate-200 bg-white p-6 flex flex-col justify-between shadow-sm rounded-xl flex-1 min-h-[300px]">
+                    <div>
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="text-sm font-bold text-slate-800">
+                          {clientId ? (clients.find(c => c.id === clientId)?.full_name || 'Client Name') : 'Client Name'}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          sessionStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' :
+                          sessionStatus === 'Scheduled' ? 'bg-amber-50 text-amber-700 border-amber-200/50' :
+                          sessionStatus === 'Missed' ? 'bg-red-50 text-red-700 border-red-200/50' :
+                          sessionStatus === 'Cancelled' ? 'bg-slate-50 text-slate-650 border-slate-200' :
+                          'bg-blue-50 text-blue-700 border-blue-200/50'
+                        }`}>
+                          {sessionStatus}
+                        </span>
+                      </div>
 
-                <FormField label="Personal Trainer" required>
-                  <select
-                    className="select-field w-full"
-                    value={trainerId}
-                    onChange={(e) => setTrainerId(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Choose Trainer --</option>
-                    {trainers.map(t => (
-                      <option key={t.id} value={t.id}>{t.full_name}</option>
-                    ))}
-                  </select>
-                </FormField>
-              </div>
+                      <div className="mt-6 space-y-2.5 border-t border-slate-100 pt-4 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 flex items-center gap-1"><HardHat className="h-3.5 w-3.5" /> Trainer Assigned:</span>
+                          <span className="font-semibold text-slate-700">
+                            {trainerId ? (trainers.find(t => t.id === trainerId)?.full_name || 'Trainer Name') : 'Trainer Name'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 flex items-center gap-1"><CalendarIcon className="h-3.5 w-3.5" /> Date:</span>
+                          <span className="font-semibold text-slate-700">{sessionDate || 'Not Set'}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Time:</span>
+                          <span className="font-semibold text-slate-700">{sessionTime || 'Not Set'} ({duration} Mins)</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-405">Weekly Recurring:</span>
+                          <span className={`font-semibold ${isRecurring ? 'text-amber-500 font-bold' : 'text-slate-500'}`}>
+                            {isRecurring ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                      </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <FormField label="Session Date" required>
-                  <input
-                    type="date"
-                    className="input-field w-full"
-                    value={sessionDate}
-                    onChange={(e) => setSessionDate(e.target.value)}
-                    required
-                  />
-                </FormField>
+                      <div className="mt-6 border-t border-slate-100 pt-4">
+                        <span className="text-xs text-slate-450 block mb-1">Workout Routine:</span>
+                        <p className="text-slate-650 italic font-mono text-[11px] bg-slate-50 p-2.5 rounded border border-slate-200/50 line-clamp-4 min-h-[70px]">
+                          {workoutPlan || 'No routine logged.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                <FormField label="Session Time" required>
-                  <input
-                    type="time"
-                    className="input-field w-full"
-                    value={sessionTime}
-                    onChange={(e) => setSessionTime(e.target.value)}
-                    required
-                  />
-                </FormField>
+                {/* Right Form Column */}
+                <div style={{ height: '100%' }} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FormField label="PT Client" required>
+                      <select
+                        className="select-field w-full"
+                        value={clientId}
+                        onChange={(e) => setClientId(e.target.value)}
+                        required
+                      >
+                        <option value="">-- Choose Client --</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.full_name} ({c.sessions_remaining} left)</option>
+                        ))}
+                      </select>
+                    </FormField>
 
-                <FormField label="Duration (Mins)" required>
-                  <input
-                    type="number"
-                    min="15"
-                    className="input-field w-full"
-                    value={duration}
-                    onChange={(e) => setDuration(Number(e.target.value))}
-                    required
-                  />
-                </FormField>
-              </div>
+                    <FormField label="Personal Trainer" required>
+                      <select
+                        className="select-field w-full"
+                        value={trainerId}
+                        onChange={(e) => setTrainerId(e.target.value)}
+                        required
+                      >
+                        <option value="">-- Choose Trainer --</option>
+                        {trainers.map(t => (
+                          <option key={t.id} value={t.id}>{t.full_name}</option>
+                        ))}
+                      </select>
+                    </FormField>
+                  </div>
 
-              <FormField label="Workout Plan / Routine">
-                <textarea
-                  className="textarea-field w-full min-h-[60px]"
-                  placeholder="Chest focus: bench press, dumbbell flys, dips..."
-                  value={workoutPlan}
-                  onChange={(e) => setWorkoutPlan(e.target.value)}
-                />
-              </FormField>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <FormField label="Session Date" required>
+                      <input
+                        type="date"
+                        className="input-field w-full"
+                        value={sessionDate}
+                        onChange={(e) => setSessionDate(e.target.value)}
+                        required
+                      />
+                    </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Session Status">
-                  <select
-                    className="select-field w-full"
-                    value={sessionStatus}
-                    onChange={(e) => setSessionStatus(e.target.value as any)}
-                  >
-                    <option value="Scheduled">Scheduled</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Missed">Missed</option>
-                    <option value="Cancelled">Cancelled</option>
-                    <option value="Rescheduled">Rescheduled</option>
-                  </select>
-                </FormField>
+                    <FormField label="Session Time" required>
+                      <input
+                        type="time"
+                        className="input-field w-full"
+                        value={sessionTime}
+                        onChange={(e) => setSessionTime(e.target.value)}
+                        required
+                      />
+                    </FormField>
 
-                <div className="flex items-center mt-6 gap-2">
-                  <input
-                    type="checkbox"
-                    id="isRecurring"
-                    className="checkbox"
-                    checked={isRecurring}
-                    onChange={(e) => setIsRecurring(e.target.checked)}
-                  />
-                  <label htmlFor="isRecurring" className="text-sm font-semibold text-slate-600">
-                    Recurring Weekly Routine
-                  </label>
+                    <FormField label="Duration (Mins)" required>
+                      <input
+                        type="number"
+                        min="15"
+                        className="input-field w-full"
+                        value={duration}
+                        onChange={(e) => setDuration(Number(e.target.value))}
+                        required
+                      />
+                    </FormField>
+                  </div>
+
+                  <FormField label="Workout Plan / Routine">
+                    <textarea
+                      className="textarea-field w-full min-h-[60px]"
+                      placeholder="Chest focus: bench press, dumbbell flys, dips..."
+                      value={workoutPlan}
+                      onChange={(e) => setWorkoutPlan(e.target.value)}
+                    />
+                  </FormField>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Session Status">
+                      <select
+                        className="select-field w-full"
+                        value={sessionStatus}
+                        onChange={(e) => setSessionStatus(e.target.value as any)}
+                      >
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Missed">Missed</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Rescheduled">Rescheduled</option>
+                      </select>
+                    </FormField>
+
+                    <div className="flex items-center mt-6 gap-2">
+                      <input
+                        type="checkbox"
+                        id="isRecurring"
+                        className="checkbox"
+                        checked={isRecurring}
+                        onChange={(e) => setIsRecurring(e.target.checked)}
+                      />
+                      <label htmlFor="isRecurring" className="text-sm font-semibold text-slate-600">
+                        Recurring Weekly Routine
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Confirm Schedule
-                </button>
-              </div>
-            </form>
-          </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                padding: '20px 24px',
+                borderTop: '1px solid #e5e7eb',
+              }}
+              className="sticky bottom-0 bg-white"
+            >
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="btn btn-secondary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Confirm Schedule
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

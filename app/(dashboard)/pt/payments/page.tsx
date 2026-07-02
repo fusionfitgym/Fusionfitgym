@@ -293,144 +293,234 @@ export default function PTPaymentsPage() {
       {/* Collect Payment Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <form
+            onSubmit={handleSavePayment}
+            style={{
+              maxWidth: '1100px',
+              maxHeight: '90vh',
+            }}
+            className="w-full rounded-xl border border-slate-200 bg-white shadow-2xl flex flex-col overflow-hidden animate-enter"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-1.5">
                 <DollarSign className="h-5 w-5 text-amber-500" /> Collect PT Payment
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePayment} className="space-y-4">
-              <FormField label="Select PT Client" required>
-                <select
-                  className="select-field w-full"
-                  value={clientId}
-                  onChange={(e) => handleClientChange(e.target.value)}
-                  required
-                >
-                  <option value="">-- Choose Client --</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>{c.full_name} ({c.phone})</option>
-                  ))}
-                </select>
-              </FormField>
+            <div style={{ padding: '24px' }} className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-[32px] items-start h-full">
+                {/* Left Preview Column */}
+                <div style={{ height: '100%' }} className="flex flex-col justify-start">
+                  <label className="field-label">Receipt Preview</label>
+                  <div className="border border-slate-200 bg-white p-6 flex flex-col justify-between shadow-sm rounded-xl flex-1 min-h-[300px]">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <div>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Transaction Receipt</p>
+                          <h4 className="text-sm font-black text-slate-800 mt-0.5">PT Payout Collection</h4>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">Draft</span>
+                      </div>
 
-              {clientId && filteredInvoicesForClient.length > 0 && (
-                <FormField label="Link Pending Invoice (Optional)">
-                  <select
-                    className="select-field w-full"
-                    value={invoiceId}
-                    onChange={(e) => handleInvoiceChange(e.target.value)}
-                  >
-                    <option value="">-- Direct Payment (No Invoice link) --</option>
-                    {filteredInvoicesForClient.map(i => (
-                      <option key={i.id} value={i.id}>{i.invoice_number} (Bal: ₹{i.balance_due})</option>
-                    ))}
-                  </select>
-                </FormField>
-              )}
+                      <div className="space-y-2.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Client Name:</span>
+                          <span className="font-semibold text-slate-800">
+                            {clientId ? (clients.find(c => c.id === clientId)?.full_name || 'Client') : 'Not Selected'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Reference:</span>
+                          <span className="font-semibold text-slate-700 font-mono">
+                            {invoiceId ? (invoices.find(i => i.id === invoiceId)?.invoice_number || 'Direct Sale') : 'Direct Sale'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Payment Date:</span>
+                          <span className="font-semibold text-slate-700">{formatDate(paymentDate)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Payment Method:</span>
+                          <span className="font-semibold text-slate-800">{paymentMethod}</span>
+                        </div>
+                        {paymentMethod === 'Split Payment' && (
+                          <div className="bg-slate-50 p-2.5 rounded border border-slate-200/60 space-y-1 font-mono text-[10px] text-zinc-650 mt-1">
+                            {cashAmount && Number(cashAmount) > 0 && <div className="flex justify-between"><span>Cash:</span><span>₹{cashAmount}</span></div>}
+                            {upiAmount && Number(upiAmount) > 0 && <div className="flex justify-between"><span>UPI:</span><span>₹{upiAmount}</span></div>}
+                            {cardAmount && Number(cardAmount) > 0 && <div className="flex justify-between"><span>Card:</span><span>₹{cardAmount}</span></div>}
+                          </div>
+                        )}
+                        <div className="border-t border-slate-100 pt-2.5">
+                          <span className="text-slate-400 block mb-1">Notes:</span>
+                          <p className="text-slate-650 italic text-[11px] line-clamp-2">{notes || 'No notes added.'}</p>
+                        </div>
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Amount Paid (₹)" required>
-                  <input
-                    type="number"
-                    min="1"
-                    className="input-field w-full font-bold text-amber-600"
-                    placeholder="Enter amount"
-                    value={amountPaid}
-                    onChange={(e) => setAmountPaid(e.target.value)}
-                    required
-                  />
-                </FormField>
+                    <div className="border-t border-slate-100 pt-4 flex justify-between items-baseline">
+                      <span className="text-xs text-zinc-500">Total Paid:</span>
+                      <span className="text-2xl font-black text-amber-500">{amountPaid ? formatCurrency(Number(amountPaid)) : '₹0.00'}</span>
+                    </div>
+                  </div>
+                </div>
 
-                <FormField label="Payment Date" required>
-                  <input
-                    type="date"
-                    className="input-field w-full"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    required
-                  />
-                </FormField>
-              </div>
+                {/* Right Form Column */}
+                <div style={{ height: '100%' }} className="space-y-4">
+                  <FormField label="Select PT Client" required>
+                    <select
+                      className="select-field w-full"
+                      value={clientId}
+                      onChange={(e) => handleClientChange(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Choose Client --</option>
+                      {clients.map(c => (
+                        <option key={c.id} value={c.id}>{c.full_name} ({c.phone})</option>
+                      ))}
+                    </select>
+                  </FormField>
 
-              <FormField label="Payment Method" required>
-                <select
-                  className="select-field w-full"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as any)}
-                  required
-                >
-                  <option value="UPI">UPI</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Card">Card</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Split Payment">Split Payment</option>
-                  <option value="Partial Payment">Partial Payment</option>
-                </select>
-              </FormField>
+                  {clientId && filteredInvoicesForClient.length > 0 && (
+                    <FormField label="Link Pending Invoice (Optional)">
+                      <select
+                        className="select-field w-full"
+                        value={invoiceId}
+                        onChange={(e) => handleInvoiceChange(e.target.value)}
+                      >
+                        <option value="">-- Direct Payment (No Invoice link) --</option>
+                        {filteredInvoicesForClient.map(i => (
+                          <option key={i.id} value={i.id}>{i.invoice_number} (Bal: ₹{i.balance_due})</option>
+                        ))}
+                      </select>
+                    </FormField>
+                  )}
 
-              {/* Split Payment inputs */}
-              {paymentMethod === 'Split Payment' && (
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Split Details</h4>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                    <FormField label="Cash (₹)">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Amount Paid (₹)" required>
                       <input
                         type="number"
-                        min="0"
-                        className="input-field w-full text-xs font-mono text-center"
-                        value={cashAmount}
-                        onChange={(e) => setCashAmount(e.target.value)}
+                        min="1"
+                        className="input-field w-full font-bold text-amber-600"
+                        placeholder="Enter amount"
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(e.target.value)}
+                        required
                       />
                     </FormField>
 
-                    <FormField label="UPI (₹)">
+                    <FormField label="Payment Date" required>
                       <input
-                        type="number"
-                        min="0"
-                        className="input-field w-full text-xs font-mono text-center"
-                        value={upiAmount}
-                        onChange={(e) => setUpiAmount(e.target.value)}
-                      />
-                    </FormField>
-
-                    <FormField label="Card (₹)">
-                      <input
-                        type="number"
-                        min="0"
-                        className="input-field w-full text-xs font-mono text-center"
-                        value={cardAmount}
-                        onChange={(e) => setCardAmount(e.target.value)}
+                        type="date"
+                        className="input-field w-full"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        required
                       />
                     </FormField>
                   </div>
+
+                  <FormField label="Payment Method" required>
+                    <select
+                      className="select-field w-full"
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value as any)}
+                      required
+                    >
+                      <option value="UPI">UPI</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Split Payment">Split Payment</option>
+                      <option value="Partial Payment">Partial Payment</option>
+                    </select>
+                  </FormField>
+
+                  {/* Split Payment inputs */}
+                  {paymentMethod === 'Split Payment' && (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Split Details</h4>
+                      
+                      <div className="grid grid-cols-3 gap-2">
+                        <FormField label="Cash (₹)">
+                          <input
+                            type="number"
+                            min="0"
+                            className="input-field w-full text-xs font-mono text-center"
+                            value={cashAmount}
+                            onChange={(e) => setCashAmount(e.target.value)}
+                          />
+                        </FormField>
+
+                        <FormField label="UPI (₹)">
+                          <input
+                            type="number"
+                            min="0"
+                            className="input-field w-full text-xs font-mono text-center"
+                            value={upiAmount}
+                            onChange={(e) => setUpiAmount(e.target.value)}
+                          />
+                        </FormField>
+
+                        <FormField label="Card (₹)">
+                          <input
+                            type="number"
+                            min="0"
+                            className="input-field w-full text-xs font-mono text-center"
+                            value={cardAmount}
+                            onChange={(e) => setCardAmount(e.target.value)}
+                          />
+                        </FormField>
+                      </div>
+                    </div>
+                  )}
+
+                  <FormField label="Payment Notes">
+                    <textarea
+                      className="textarea-field w-full min-h-[60px]"
+                      placeholder="Transactions notes, references..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </FormField>
                 </div>
-              )}
-
-              <FormField label="Payment Notes">
-                <textarea
-                  className="textarea-field w-full min-h-[60px]"
-                  placeholder="Transactions notes, references..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </FormField>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
-                  Cancel
-                </button>
-                <button type="submit" disabled={submitting} className="btn btn-primary">
-                  {submitting ? 'Recording...' : 'Record Payment'}
-                </button>
               </div>
-            </form>
-          </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                padding: '20px 24px',
+                borderTop: '1px solid #e5e7eb',
+              }}
+              className="sticky bottom-0 bg-white"
+            >
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="btn btn-secondary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="btn btn-primary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                {submitting ? 'Recording...' : 'Record Payment'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

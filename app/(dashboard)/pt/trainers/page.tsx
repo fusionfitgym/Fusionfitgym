@@ -369,136 +369,213 @@ export default function PTTrainersPage() {
       {/* Trainer Form Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <form
+            onSubmit={handleSave}
+            style={{
+              maxWidth: '1100px',
+              maxHeight: '90vh',
+            }}
+            className="w-full rounded-xl border border-slate-200 bg-white shadow-2xl flex flex-col overflow-hidden animate-enter"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
               <h3 className="text-lg font-bold text-slate-800">
                 {editingTrainer ? 'Edit Trainer Profile' : 'Register PT Trainer'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4">
-              <FormField label="Full Name" required>
-                <input
-                  type="text"
-                  className="input-field w-full"
-                  placeholder="e.g. Rohan Sharma"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </FormField>
+            <div style={{ padding: '24px' }} className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-[32px] items-start h-full">
+                {/* Left Preview Column */}
+                <div style={{ height: '100%' }} className="flex flex-col justify-start">
+                  <label className="field-label">Trainer Preview</label>
+                  <div className="border border-slate-200 bg-white p-6 flex flex-col justify-between shadow-sm rounded-xl flex-1 min-h-[300px]">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-500 font-extrabold text-sm">
+                          {(name || 'PT').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-md font-bold text-slate-800">{name || 'Trainer Name'}</h3>
+                          <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold mt-1 ${status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                            {status}
+                          </span>
+                        </div>
+                      </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Phone Number" required>
-                  <input
-                    type="tel"
-                    className="input-field w-full"
-                    placeholder="10-digit phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </FormField>
+                      <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Specialization:</span>
+                          <span className="font-semibold text-slate-700">{specialization || 'General Training'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Working Days:</span>
+                          <span className="font-semibold text-slate-700">{availability || 'Not Set'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Hours:</span>
+                          <span className="font-semibold text-slate-700 text-xs">{workingHours || 'Not Set'}</span>
+                        </div>
+                        {!isTrainer && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Commission Rate:</span>
+                            <span className="font-bold text-amber-500">
+                              {commissionType === 'Percentage' ? `${commissionValue}%` : `₹${commissionValue} (${commissionType})`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                <FormField label="Email Address">
-                  <input
-                    type="email"
-                    className="input-field w-full"
-                    placeholder="email@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </FormField>
-              </div>
-
-              <FormField label="Specializations">
-                <input
-                  type="text"
-                  className="input-field w-full"
-                  placeholder="e.g. Weight Loss, Strength training"
-                  value={specialization}
-                  onChange={(e) => setSpecialization(e.target.value)}
-                />
-              </FormField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Availability">
-                  <input
-                    type="text"
-                    className="input-field w-full"
-                    placeholder="e.g. Mon - Sat"
-                    value={availability}
-                    onChange={(e) => setAvailability(e.target.value)}
-                  />
-                </FormField>
-
-                <FormField label="Working Hours">
-                  <input
-                    type="text"
-                    className="input-field w-full"
-                    placeholder="e.g. 06:00 - 11:00, 16:00 - 20:00"
-                    value={workingHours}
-                    onChange={(e) => setWorkingHours(e.target.value)}
-                  />
-                </FormField>
-              </div>
-
-              <div className="border-t border-slate-100 pt-3">
-                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-100 pb-1.5">Commission Scheme Config</h4>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label="Commission Type">
-                    <select
-                      className="select-field w-full"
-                      value={commissionType}
-                      onChange={(e) => setCommissionType(e.target.value as any)}
-                    >
-                      <option value="Percentage">Percentage (%)</option>
-                      <option value="Fixed">Fixed Amount per Month (₹)</option>
-                      <option value="Per Session">Rate Per Session (₹)</option>
-                      <option value="Per Package">Rate Per Package (₹)</option>
-                    </select>
-                  </FormField>
-
-                  <FormField label="Rate/Value" required>
+                {/* Right Form Column */}
+                <div style={{ height: '100%' }} className="space-y-4">
+                  <FormField label="Full Name" required>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
                       className="input-field w-full"
-                      value={commissionValue}
-                      onChange={(e) => setCommissionValue(Number(e.target.value))}
+                      placeholder="e.g. Rohan Sharma"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       required
                     />
                   </FormField>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Phone Number" required>
+                      <input
+                        type="tel"
+                        className="input-field w-full"
+                        placeholder="10-digit phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                      />
+                    </FormField>
+
+                    <FormField label="Email Address">
+                      <input
+                        type="email"
+                        className="input-field w-full"
+                        placeholder="email@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </FormField>
+                  </div>
+
+                  <FormField label="Specializations">
+                    <input
+                      type="text"
+                      className="input-field w-full"
+                      placeholder="e.g. Weight Loss, Strength training"
+                      value={specialization}
+                      onChange={(e) => setSpecialization(e.target.value)}
+                    />
+                  </FormField>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Availability">
+                      <input
+                        type="text"
+                        className="input-field w-full"
+                        placeholder="e.g. Mon - Sat"
+                        value={availability}
+                        onChange={(e) => setAvailability(e.target.value)}
+                      />
+                    </FormField>
+
+                    <FormField label="Working Hours">
+                      <input
+                        type="text"
+                        className="input-field w-full"
+                        placeholder="e.g. 06:00 - 11:00, 16:00 - 20:00"
+                        value={workingHours}
+                        onChange={(e) => setWorkingHours(e.target.value)}
+                      />
+                    </FormField>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-3">
+                    <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-100 pb-1.5">Commission Scheme Config</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField label="Commission Type">
+                        <select
+                          className="select-field w-full"
+                          value={commissionType}
+                          onChange={(e) => setCommissionType(e.target.value as any)}
+                        >
+                          <option value="Percentage">Percentage (%)</option>
+                          <option value="Fixed">Fixed Amount per Month (₹)</option>
+                          <option value="Per Session">Rate Per Session (₹)</option>
+                          <option value="Per Package">Rate Per Package (₹)</option>
+                        </select>
+                      </FormField>
+
+                      <FormField label="Rate/Value" required>
+                        <input
+                          type="number"
+                          min="0"
+                          className="input-field w-full"
+                          value={commissionValue}
+                          onChange={(e) => setCommissionValue(Number(e.target.value))}
+                          required
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-3">
+                    <FormField label="Status">
+                      <select
+                        className="select-field w-full"
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as any)}
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </FormField>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-3">
-                <FormField label="Status">
-                  <select
-                    className="select-field w-full"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </FormField>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Trainer
-                </button>
-              </div>
-            </form>
-          </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                padding: '20px 24px',
+                borderTop: '1px solid #e5e7eb',
+              }}
+              className="sticky bottom-0 bg-white"
+            >
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="btn btn-secondary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ height: '42px', minWidth: '110px' }}
+              >
+                Save Trainer
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
