@@ -219,10 +219,10 @@ export default function PTTrainersPage() {
         </div>
       ) : activeTab === 'trainers' ? (
         trainers.length === 0 ? (
-          <Card className="flex flex-col items-center justify-center p-12 text-center">
-            <HardHat className="mx-auto h-12 w-12 text-zinc-400" />
-            <h3 className="mt-4 text-lg font-bold text-zinc-100">No PT Trainers Registered</h3>
-            <p className="mt-2 text-zinc-400">Register gym trainers here to assign them client packages.</p>
+          <Card className="flex flex-col items-center justify-center p-12 text-center border border-slate-200 bg-white shadow-sm">
+            <HardHat className="mx-auto h-12 w-12 text-slate-400" />
+            <h3 className="mt-4 text-lg font-bold text-slate-800">No PT Trainers Registered</h3>
+            <p className="mt-2 text-slate-500">Register gym trainers here to assign them client packages.</p>
             {isAdmin && (
               <button onClick={openAddModal} className="btn btn-primary mt-6">
                 Register First Trainer
@@ -232,37 +232,37 @@ export default function PTTrainersPage() {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {trainers.map((trainer) => (
-              <Card key={trainer.id} className="border border-zinc-800 bg-zinc-950 p-6 flex flex-col justify-between hover:border-zinc-700 transition-all">
+              <Card key={trainer.id} className="border border-slate-200 bg-white p-6 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div>
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300 font-extrabold text-sm">
+                    <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-500 font-extrabold text-sm">
                       {trainer.full_name.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-md font-bold text-zinc-100">{trainer.full_name}</h3>
-                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold mt-1 ${trainer.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}`}>
+                      <h3 className="text-md font-bold text-slate-800">{trainer.full_name}</h3>
+                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold mt-1 ${trainer.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
                         {trainer.status}
                       </span>
                     </div>
                   </div>
 
-                  <div className="mt-6 space-y-2 border-t border-zinc-800/60 pt-4 text-sm text-zinc-300">
+                  <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Specialization:</span>
-                      <span className="font-semibold text-zinc-200">{trainer.specialization || 'General Training'}</span>
+                      <span className="text-slate-400">Specialization:</span>
+                      <span className="font-semibold text-slate-700">{trainer.specialization || 'General Training'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Working Days:</span>
-                      <span className="font-semibold text-zinc-200">{trainer.availability}</span>
+                      <span className="text-slate-400">Working Days:</span>
+                      <span className="font-semibold text-slate-700">{trainer.availability}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Hours:</span>
-                      <span className="font-semibold text-zinc-200 text-xs">{trainer.working_hours}</span>
+                      <span className="text-slate-400">Hours:</span>
+                      <span className="font-semibold text-slate-700 text-xs">{trainer.working_hours}</span>
                     </div>
                     {!isTrainer && (
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">Commission Rate:</span>
-                        <span className="font-bold text-amber-300">
+                        <span className="text-slate-400">Commission Rate:</span>
+                        <span className="font-bold text-amber-500">
                           {trainer.commission_type === 'Percentage' ? `${trainer.commission_value}%` : `₹${trainer.commission_value} (${trainer.commission_type})`}
                         </span>
                       </div>
@@ -271,11 +271,11 @@ export default function PTTrainersPage() {
                 </div>
 
                 {isAdmin && (
-                  <div className="mt-6 flex gap-2 border-t border-zinc-800/80 pt-4">
+                  <div className="mt-6 flex gap-2 border-t border-slate-100 pt-4">
                     <button onClick={() => openEditModal(trainer)} className="btn btn-secondary btn-sm flex-1">
                       <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                     </button>
-                    <button onClick={() => handleDelete(trainer.id)} className="btn btn-secondary btn-sm text-red-400 hover:text-red-300">
+                    <button onClick={() => handleDelete(trainer.id)} className="btn btn-secondary btn-sm text-red-500 hover:text-red-600 hover:bg-red-50">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -288,32 +288,33 @@ export default function PTTrainersPage() {
         // Commissions Dashboard
         <div>
           {/* Dashboard Summary Cards */}
+          {/* Dashboard Summary Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-            <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20">
+            <Card className="flex items-center gap-4 p-5 bg-white border border-slate-200 shadow-sm">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/10 text-amber-500 border border-amber-400/20">
                 <Wallet className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Pending Payouts</p>
-                <p className="mt-1 text-2xl font-black text-amber-300">{formatCurrency(totalPendingCommission)}</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Payouts</p>
+                <p className="mt-1 text-2xl font-black text-amber-500">{formatCurrency(totalPendingCommission)}</p>
               </div>
             </Card>
-            <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <Card className="flex items-center gap-4 p-5 bg-white border border-slate-200 shadow-sm">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                 <CheckCircle className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Settled Payouts</p>
-                <p className="mt-1 text-2xl font-black text-emerald-400">{formatCurrency(totalPaidCommission)}</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Settled Payouts</p>
+                <p className="mt-1 text-2xl font-black text-emerald-600">{formatCurrency(totalPaidCommission)}</p>
               </div>
             </Card>
           </div>
 
           {/* Commissions Table */}
           {visibleCommissions.length === 0 ? (
-            <Card className="p-8 text-center text-zinc-400">No trainer commissions generated yet.</Card>
+            <Card className="p-8 text-center text-slate-500 border border-slate-200 bg-white shadow-sm">No trainer commissions generated yet.</Card>
           ) : (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden border border-slate-200 bg-white shadow-sm">
               <div className="data-table">
                 <table>
                   <thead>
@@ -330,17 +331,17 @@ export default function PTTrainersPage() {
                   <tbody>
                     {visibleCommissions.map((comm) => (
                       <tr key={comm.id}>
-                        <td><p className="font-semibold text-zinc-200">{comm.trainer?.full_name}</p></td>
-                        <td><p className="text-sm text-zinc-300">{comm.client?.full_name || 'N/A'}</p></td>
+                        <td><p className="font-semibold text-slate-800">{comm.trainer?.full_name}</p></td>
+                        <td><p className="text-sm text-slate-600">{comm.client?.full_name || 'N/A'}</p></td>
                         <td>
-                          <span className="text-xs text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
+                          <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60">
                             {comm.session_id ? 'PT Session' : comm.invoice_id ? `Invoice: ${comm.invoice?.invoice_number}` : 'Package Sale'}
                           </span>
                         </td>
-                        <td><p className="font-bold text-zinc-100">{formatCurrency(comm.amount)}</p></td>
-                        <td><p className="text-xs text-zinc-400">{formatDate(comm.commission_date)}</p></td>
+                        <td><p className="font-bold text-slate-800">{formatCurrency(comm.amount)}</p></td>
+                        <td><p className="text-xs text-slate-400">{formatDate(comm.commission_date)}</p></td>
                         <td>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${comm.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}`}>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${comm.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : 'bg-amber-50 text-amber-700 border border-amber-200/50'}`}>
                             {comm.status}
                           </span>
                         </td>
@@ -351,7 +352,7 @@ export default function PTTrainersPage() {
                                 Settle Payout
                               </button>
                             ) : (
-                              <span className="text-xs text-zinc-500 font-semibold">{formatDate(comm.paid_date || '')}</span>
+                              <span className="text-xs text-slate-400 font-semibold">{formatDate(comm.paid_date || '')}</span>
                             )}
                           </td>
                         )}
@@ -367,13 +368,13 @@ export default function PTTrainersPage() {
 
       {/* Trainer Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-800">
                 {editingTrainer ? 'Edit Trainer Profile' : 'Register PT Trainer'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-zinc-400 hover:text-zinc-200">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -382,7 +383,7 @@ export default function PTTrainersPage() {
               <FormField label="Full Name" required>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="input-field w-full"
                   placeholder="e.g. Rohan Sharma"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -394,7 +395,7 @@ export default function PTTrainersPage() {
                 <FormField label="Phone Number" required>
                   <input
                     type="tel"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="10-digit phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -405,7 +406,7 @@ export default function PTTrainersPage() {
                 <FormField label="Email Address">
                   <input
                     type="email"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="email@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -416,7 +417,7 @@ export default function PTTrainersPage() {
               <FormField label="Specializations">
                 <input
                   type="text"
-                  className="input w-full"
+                  className="input-field w-full"
                   placeholder="e.g. Weight Loss, Strength training"
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
@@ -427,7 +428,7 @@ export default function PTTrainersPage() {
                 <FormField label="Availability">
                   <input
                     type="text"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. Mon - Sat"
                     value={availability}
                     onChange={(e) => setAvailability(e.target.value)}
@@ -437,7 +438,7 @@ export default function PTTrainersPage() {
                 <FormField label="Working Hours">
                   <input
                     type="text"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 06:00 - 11:00, 16:00 - 20:00"
                     value={workingHours}
                     onChange={(e) => setWorkingHours(e.target.value)}
@@ -445,13 +446,13 @@ export default function PTTrainersPage() {
                 </FormField>
               </div>
 
-              <div className="border-t border-zinc-800 pt-3">
-                <h4 className="text-sm font-semibold text-zinc-400 mb-3">Commission Scheme Config</h4>
+              <div className="border-t border-slate-100 pt-3">
+                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-100 pb-1.5">Commission Scheme Config</h4>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField label="Commission Type">
                     <select
-                      className="input w-full"
+                      className="select-field w-full"
                       value={commissionType}
                       onChange={(e) => setCommissionType(e.target.value as any)}
                     >
@@ -466,7 +467,7 @@ export default function PTTrainersPage() {
                     <input
                       type="number"
                       min="0"
-                      className="input w-full"
+                      className="input-field w-full"
                       value={commissionValue}
                       onChange={(e) => setCommissionValue(Number(e.target.value))}
                       required
@@ -475,10 +476,10 @@ export default function PTTrainersPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 border-t border-zinc-800 pt-3">
+              <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-3">
                 <FormField label="Status">
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
                   >
@@ -488,7 +489,7 @@ export default function PTTrainersPage() {
                 </FormField>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>

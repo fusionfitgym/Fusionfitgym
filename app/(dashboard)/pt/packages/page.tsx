@@ -167,10 +167,10 @@ export default function PTPackagesPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
         </div>
       ) : packages.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center p-12 text-center">
-          <ClipboardList className="mx-auto h-12 w-12 text-zinc-400" />
-          <h3 className="mt-4 text-lg font-bold text-zinc-100">No Packages Created Yet</h3>
-          <p className="mt-2 text-zinc-400">Add a packages layout (e.g. 12 sessions, weight loss) to register clients.</p>
+        <Card className="flex flex-col items-center justify-center p-12 text-center border border-slate-200 bg-white shadow-sm">
+          <ClipboardList className="mx-auto h-12 w-12 text-slate-400" />
+          <h3 className="mt-4 text-lg font-bold text-slate-800">No Packages Created Yet</h3>
+          <p className="mt-2 text-slate-500">Add a packages layout (e.g. 12 sessions, weight loss) to register clients.</p>
           {isAdmin && (
             <button onClick={openAddModal} className="btn btn-primary mt-6">
               <Plus className="h-4 w-4" /> Create first package
@@ -186,41 +186,41 @@ export default function PTPackagesPage() {
               : 'Any Trainer';
 
             return (
-              <Card key={pkg.id} className="relative flex flex-col justify-between overflow-hidden border border-zinc-800 bg-zinc-950 p-6 transition-all hover:border-zinc-700">
+              <Card key={pkg.id} className="relative flex flex-col justify-between overflow-hidden border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all duration-200">
                 <div>
                   <div className="flex items-start justify-between">
-                    <h3 className="text-lg font-bold text-zinc-100">{pkg.package_name}</h3>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${pkg.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                    <h3 className="text-lg font-bold text-slate-800">{pkg.package_name}</h3>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${pkg.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
                       {pkg.status}
                     </span>
                   </div>
                   
-                  <p className="mt-2 text-sm text-zinc-400 line-clamp-2">{pkg.description || 'No description provided.'}</p>
+                  <p className="mt-2 text-sm text-slate-500 line-clamp-2">{pkg.description || 'No description provided.'}</p>
                   
-                  <div className="mt-6 space-y-2 border-t border-zinc-800/60 pt-4 text-sm text-zinc-300">
+                  <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Trainer Assigned:</span>
-                      <span className="font-semibold text-zinc-200">{assignedTrainer}</span>
+                      <span className="text-slate-400">Trainer Assigned:</span>
+                      <span className="font-semibold text-slate-700">{assignedTrainer}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Sessions Count:</span>
-                      <span className="font-semibold text-zinc-200">{pkg.number_of_sessions} Sessions</span>
+                      <span className="text-slate-400">Sessions Count:</span>
+                      <span className="font-semibold text-slate-700">{pkg.number_of_sessions} Sessions</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-500">Duration Limit:</span>
-                      <span className="font-semibold text-zinc-200">{pkg.duration} Days</span>
+                      <span className="text-slate-400">Duration Limit:</span>
+                      <span className="font-semibold text-slate-700">{pkg.duration} Days</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-8 border-t border-zinc-800/80 pt-4">
+                <div className="mt-8 border-t border-slate-100 pt-4">
                   <div className="flex items-baseline justify-between mb-4">
-                    <span className="text-zinc-500 text-sm">Final Price:</span>
+                    <span className="text-slate-400 text-sm">Final Price:</span>
                     <div className="text-right">
                       {pkg.discount > 0 && (
-                        <p className="text-xs text-zinc-500 line-through">{formatCurrency(pkg.price)}</p>
+                        <p className="text-xs text-slate-400 line-through">{formatCurrency(pkg.price)}</p>
                       )}
-                      <p className="text-2xl font-black text-amber-300">{formatCurrency(finalPrice)}</p>
+                      <p className="text-2xl font-black text-amber-500">{formatCurrency(finalPrice)}</p>
                     </div>
                   </div>
 
@@ -229,7 +229,7 @@ export default function PTPackagesPage() {
                       <button onClick={() => openEditModal(pkg)} className="btn btn-secondary btn-sm flex-1">
                         <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                       </button>
-                      <button onClick={() => handleDelete(pkg.id)} className="btn btn-secondary btn-sm text-red-400 hover:text-red-300">
+                      <button onClick={() => handleDelete(pkg.id)} className="btn btn-secondary btn-sm text-red-500 hover:text-red-600 hover:bg-red-50">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -243,13 +243,13 @@ export default function PTPackagesPage() {
 
       {/* Modal Layout */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-800">
                 {editingPackage ? 'Edit PT Package' : 'Create PT Package'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-zinc-400 hover:text-zinc-200">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -258,7 +258,7 @@ export default function PTPackagesPage() {
               <FormField label="Package Name" required>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="input-field w-full"
                   placeholder="e.g. 12 Sessions Pack"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -268,7 +268,7 @@ export default function PTPackagesPage() {
 
               <FormField label="Description">
                 <textarea
-                  className="input w-full min-h-[60px]"
+                  className="textarea-field w-full min-h-[60px]"
                   placeholder="Details of what training is offered"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -278,7 +278,7 @@ export default function PTPackagesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Trainer Assigned">
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={trainerId}
                     onChange={(e) => setTrainerId(e.target.value)}
                   >
@@ -291,7 +291,7 @@ export default function PTPackagesPage() {
 
                 <FormField label="Status">
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
                   >
@@ -306,7 +306,7 @@ export default function PTPackagesPage() {
                   <input
                     type="number"
                     min="1"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={sessions}
                     onChange={(e) => setSessions(Number(e.target.value))}
                     required
@@ -317,7 +317,7 @@ export default function PTPackagesPage() {
                   <input
                     type="number"
                     min="1"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
                     required
@@ -330,7 +330,7 @@ export default function PTPackagesPage() {
                   <input
                     type="number"
                     min="0"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
                     required
@@ -341,21 +341,21 @@ export default function PTPackagesPage() {
                   <input
                     type="number"
                     min="0"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={discount}
                     onChange={(e) => setDiscount(Number(e.target.value))}
                   />
                 </FormField>
               </div>
 
-              <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-3 mt-4 flex items-center justify-between">
-                <span className="text-sm text-zinc-400">Total Price Calculated:</span>
-                <span className="text-xl font-black text-amber-300">
+              <div className="bg-amber-50/50 border border-amber-200/60 rounded-xl p-3.5 mt-4 flex items-center justify-between">
+                <span className="text-sm font-medium text-amber-900">Total Price Calculated:</span>
+                <span className="text-xl font-black text-amber-600">
                   {formatCurrency(Math.max(0, price - discount))}
                 </span>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>
