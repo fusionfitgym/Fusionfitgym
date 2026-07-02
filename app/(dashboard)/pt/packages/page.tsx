@@ -94,8 +94,8 @@ export default function PTPackagesPage() {
     const finalPrice = Math.max(0, price - discount);
     const payload = {
       package_name: name,
-      description: description || null,
-      trainer_id: trainerId || null,
+      description: description || undefined,
+      trainer_id: trainerId || undefined,
       number_of_sessions: Number(sessions),
       duration: Number(duration),
       price: Number(price),

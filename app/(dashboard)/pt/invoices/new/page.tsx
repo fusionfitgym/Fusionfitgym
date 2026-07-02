@@ -128,7 +128,11 @@ export default function NewPTInvoicePage() {
       if (isDemo) {
         const res = demo.createPTInvoice(payload);
         toast.success('PT Invoice generated successfully! (Demo Mode)');
-        router.push(`/pt/invoices/${res.data.id}`);
+        if (res.data) {
+          router.push(`/pt/invoices/${res.data.id}`);
+        } else {
+          throw new Error(res.error || 'Failed to create invoice');
+        }
       } else {
         const res = await createPTInvoice(payload);
         if (res.error || !res.data) throw new Error(res.error || 'Failed to create invoice');

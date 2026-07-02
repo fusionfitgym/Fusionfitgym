@@ -124,7 +124,7 @@ export default function PTPaymentsPage() {
       payment_date: paymentDate,
       payment_method: paymentMethod,
       split_details: splitDetails,
-      notes: notes || null
+      notes: notes || undefined
     };
 
     try {

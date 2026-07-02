@@ -479,4 +479,9 @@ export default function AddPTClientPage() {
                 </Link>
               </div>
             </div>
-          
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
