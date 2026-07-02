@@ -381,21 +381,21 @@ export default function PTInvoiceDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Collect Payment Modal */}
       {isPayModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm no-print">
-          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-1.5">
-                <DollarSign className="h-5 w-5 text-amber-300" /> Collect Payment
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm no-print">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-1.5">
+                <DollarSign className="h-5 w-5 text-amber-500" /> Collect Payment
               </h3>
-              <button onClick={() => setIsPayModalOpen(false)} className="text-zinc-400 hover:text-zinc-200">
+              <button onClick={() => setIsPayModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <div className="bg-zinc-900 p-3 rounded-lg border border-zinc-850 flex items-center justify-between text-sm">
-                <span className="text-zinc-400">Invoice Number:</span>
-                <span className="font-mono font-bold text-zinc-200">{invoice.invoice_number}</span>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-sm">
+                <span className="text-slate-500">Invoice Number:</span>
+                <span className="font-mono font-bold text-slate-700">{invoice.invoice_number}</span>
               </div>
 
               <FormField label="Amount to Collect (₹)" required>
@@ -403,7 +403,7 @@ export default function PTInvoiceDetailPage({ params }: { params: Promise<{ id: 
                   type="number"
                   min="1"
                   max={invoice.balance_due}
-                  className="input w-full font-bold text-lg text-amber-300"
+                  className="input-field w-full font-bold text-lg text-amber-600"
                   value={amountPaid}
                   onChange={(e) => setAmountPaid(e.target.value)}
                   required
@@ -412,7 +412,7 @@ export default function PTInvoiceDetailPage({ params }: { params: Promise<{ id: 
 
               <FormField label="Payment Method" required>
                 <select
-                  className="input w-full"
+                  className="select-field w-full"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
                   required
@@ -426,19 +426,19 @@ export default function PTInvoiceDetailPage({ params }: { params: Promise<{ id: 
 
               <FormField label="Payment Notes">
                 <textarea
-                  className="input w-full min-h-[60px]"
+                  className="textarea-field w-full min-h-[60px]"
                   placeholder="Txn ID, reference, or description..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </FormField>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setIsPayModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>
                 <button type="submit" disabled={submittingPayment} className="btn btn-primary">
-                  {submittingPayment ? 'Processing...' : 'Confirm Payment'}
+                  {submittingPayment ? 'Processing...' : 'Record Payment'}
                 </button>
               </div>
             </form>

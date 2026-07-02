@@ -356,13 +356,13 @@ export default function PTSchedulePage() {
 
       {/* Schedule Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-zinc-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-800">
                 {selectedSession ? 'Edit PT Session' : 'Schedule PT Session'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-zinc-400 hover:text-zinc-200">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -371,7 +371,7 @@ export default function PTSchedulePage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="PT Client" required>
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={clientId}
                     onChange={(e) => setClientId(e.target.value)}
                     required
@@ -385,7 +385,7 @@ export default function PTSchedulePage() {
 
                 <FormField label="Personal Trainer" required>
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={trainerId}
                     onChange={(e) => setTrainerId(e.target.value)}
                     required
@@ -402,7 +402,7 @@ export default function PTSchedulePage() {
                 <FormField label="Session Date" required>
                   <input
                     type="date"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={sessionDate}
                     onChange={(e) => setSessionDate(e.target.value)}
                     required
@@ -412,7 +412,7 @@ export default function PTSchedulePage() {
                 <FormField label="Session Time" required>
                   <input
                     type="time"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={sessionTime}
                     onChange={(e) => setSessionTime(e.target.value)}
                     required
@@ -423,7 +423,7 @@ export default function PTSchedulePage() {
                   <input
                     type="number"
                     min="15"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
                     required
@@ -433,7 +433,7 @@ export default function PTSchedulePage() {
 
               <FormField label="Workout Plan / Routine">
                 <textarea
-                  className="input w-full min-h-[60px]"
+                  className="textarea-field w-full min-h-[60px]"
                   placeholder="Chest focus: bench press, dumbbell flys, dips..."
                   value={workoutPlan}
                   onChange={(e) => setWorkoutPlan(e.target.value)}
@@ -443,7 +443,7 @@ export default function PTSchedulePage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Session Status">
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={sessionStatus}
                     onChange={(e) => setSessionStatus(e.target.value as any)}
                   >
@@ -463,13 +463,13 @@ export default function PTSchedulePage() {
                     checked={isRecurring}
                     onChange={(e) => setIsRecurring(e.target.checked)}
                   />
-                  <label htmlFor="isRecurring" className="text-sm font-semibold text-zinc-300">
+                  <label htmlFor="isRecurring" className="text-sm font-semibold text-slate-600">
                     Recurring Weekly Routine
                   </label>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>

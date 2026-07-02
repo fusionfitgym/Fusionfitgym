@@ -475,11 +475,11 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
 
       {/* Progress Log Modal */}
       {isProgressModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-zinc-100">Add Biometric Progress Log</h3>
-              <button onClick={() => setIsProgressModalOpen(false)} className="text-zinc-400 hover:text-zinc-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Add Biometric Progress Log</h3>
+              <button onClick={() => setIsProgressModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -490,7 +490,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   <input
                     type="number"
                     step="0.1"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 78.5"
                     value={weight}
                     onChange={(e) => setWeight(e.target.value)}
@@ -502,7 +502,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   <input
                     type="number"
                     step="0.1"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 18.4"
                     value={bodyFat}
                     onChange={(e) => setBodyFat(e.target.value)}
@@ -515,7 +515,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   <input
                     type="number"
                     step="0.1"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 98"
                     value={chest}
                     onChange={(e) => setChest(e.target.value)}
@@ -526,7 +526,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   <input
                     type="number"
                     step="0.1"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 84"
                     value={waist}
                     onChange={(e) => setWaist(e.target.value)}
@@ -539,7 +539,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   <input
                     type="number"
                     step="0.1"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 34.5"
                     value={arms}
                     onChange={(e) => setArms(e.target.value)}
@@ -550,7 +550,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   <input
                     type="number"
                     step="0.1"
-                    className="input w-full"
+                    className="input-field w-full"
                     placeholder="e.g. 54"
                     value={legs}
                     onChange={(e) => setLegs(e.target.value)}
@@ -562,7 +562,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                 <FormField label="Before Photo URL">
                   <input
                     type="text"
-                    className="input w-full text-xs"
+                    className="input-field w-full text-xs"
                     placeholder="https://example.com/before.jpg"
                     value={photoBefore}
                     onChange={(e) => setPhotoBefore(e.target.value)}
@@ -572,7 +572,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                 <FormField label="After/Current Photo URL">
                   <input
                     type="text"
-                    className="input w-full text-xs"
+                    className="input-field w-full text-xs"
                     placeholder="https://example.com/after.jpg"
                     value={photoAfter}
                     onChange={(e) => setPhotoAfter(e.target.value)}
@@ -582,14 +582,14 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
 
               <FormField label="Progress Log Notes">
                 <textarea
-                  className="input w-full min-h-[60px]"
+                  className="textarea-field w-full min-h-[60px]"
                   placeholder="Notes on performance improvements, workout notes, cardiovascular endurance"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </FormField>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setIsProgressModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>

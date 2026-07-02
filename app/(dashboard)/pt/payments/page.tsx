@@ -292,13 +292,13 @@ export default function PTPaymentsPage() {
 
       {/* Collect Payment Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl animate-enter">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
-              <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-1">
-                <DollarSign className="h-5 w-5 text-amber-300" /> Collect PT Payment
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-1.5">
+                <DollarSign className="h-5 w-5 text-amber-500" /> Collect PT Payment
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-zinc-400 hover:text-zinc-200">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -306,7 +306,7 @@ export default function PTPaymentsPage() {
             <form onSubmit={handleSavePayment} className="space-y-4">
               <FormField label="Select PT Client" required>
                 <select
-                  className="input w-full"
+                  className="select-field w-full"
                   value={clientId}
                   onChange={(e) => handleClientChange(e.target.value)}
                   required
@@ -321,7 +321,7 @@ export default function PTPaymentsPage() {
               {clientId && filteredInvoicesForClient.length > 0 && (
                 <FormField label="Link Pending Invoice (Optional)">
                   <select
-                    className="input w-full"
+                    className="select-field w-full"
                     value={invoiceId}
                     onChange={(e) => handleInvoiceChange(e.target.value)}
                   >
@@ -338,7 +338,7 @@ export default function PTPaymentsPage() {
                   <input
                     type="number"
                     min="1"
-                    className="input w-full font-bold text-amber-300"
+                    className="input-field w-full font-bold text-amber-600"
                     placeholder="Enter amount"
                     value={amountPaid}
                     onChange={(e) => setAmountPaid(e.target.value)}
@@ -349,7 +349,7 @@ export default function PTPaymentsPage() {
                 <FormField label="Payment Date" required>
                   <input
                     type="date"
-                    className="input w-full"
+                    className="input-field w-full"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
                     required
@@ -359,7 +359,7 @@ export default function PTPaymentsPage() {
 
               <FormField label="Payment Method" required>
                 <select
-                  className="input w-full"
+                  className="select-field w-full"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
                   required
@@ -375,15 +375,15 @@ export default function PTPaymentsPage() {
 
               {/* Split Payment inputs */}
               {paymentMethod === 'Split Payment' && (
-                <div className="bg-zinc-900/60 p-3 rounded-lg border border-zinc-800 space-y-3">
-                  <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Split Details</h4>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Split Details</h4>
                   
                   <div className="grid grid-cols-3 gap-2">
                     <FormField label="Cash (₹)">
                       <input
                         type="number"
                         min="0"
-                        className="input w-full text-xs font-mono text-center"
+                        className="input-field w-full text-xs font-mono text-center"
                         value={cashAmount}
                         onChange={(e) => setCashAmount(e.target.value)}
                       />
@@ -393,7 +393,7 @@ export default function PTPaymentsPage() {
                       <input
                         type="number"
                         min="0"
-                        className="input w-full text-xs font-mono text-center"
+                        className="input-field w-full text-xs font-mono text-center"
                         value={upiAmount}
                         onChange={(e) => setUpiAmount(e.target.value)}
                       />
@@ -403,7 +403,7 @@ export default function PTPaymentsPage() {
                       <input
                         type="number"
                         min="0"
-                        className="input w-full text-xs font-mono text-center"
+                        className="input-field w-full text-xs font-mono text-center"
                         value={cardAmount}
                         onChange={(e) => setCardAmount(e.target.value)}
                       />
@@ -414,14 +414,14 @@ export default function PTPaymentsPage() {
 
               <FormField label="Payment Notes">
                 <textarea
-                  className="input w-full min-h-[60px]"
+                  className="textarea-field w-full min-h-[60px]"
                   placeholder="Transactions notes, references..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </FormField>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>
