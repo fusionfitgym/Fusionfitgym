@@ -48,19 +48,19 @@ export default async function DashboardLayout({
   if (role === 'Super Admin') {
     isAllowed = true;
   } else if (role === 'Admin') {
-    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/about', '/backup'];
+    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/devices', '/invoices', '/reports', '/sms', '/settings', '/about', '/backup', '/pt'];
     isAllowed = allowedPrefixes.some((prefix) => {
       if (prefix === '/') return pathname === '/';
       return pathname.startsWith(prefix);
     });
   } else if (role === 'Receptionist') {
-    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/invoices', '/about'];
+    const allowedPrefixes = ['/', '/members', '/attendance', '/monitor', '/invoices', '/about', '/pt'];
     isAllowed = allowedPrefixes.some((prefix) => {
       if (prefix === '/') return pathname === '/';
       return pathname.startsWith(prefix);
     });
   } else if (role === 'Trainer') {
-    const allowedPrefixes = ['/', '/members', '/health', '/parq', '/about'];
+    const allowedPrefixes = ['/', '/members', '/health', '/parq', '/about', '/pt'];
     isAllowed = allowedPrefixes.some((prefix) => {
       if (prefix === '/') return pathname === '/';
       return pathname.startsWith(prefix);

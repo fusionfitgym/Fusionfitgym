@@ -18,6 +18,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { TableSkeleton } from '@/components/ui/Skeleton';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
 
 export default function ReportsPage() {
   const { profile } = useAuth();

@@ -51,6 +51,21 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/members', label: 'Members', icon: Users },
   {
+    label: 'Personal Training',
+    icon: Dumbbell,
+    children: [
+      { href: '/pt', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/pt/members', label: 'PT Members', icon: Users },
+      { href: '/pt/packages', label: 'PT Packages', icon: ClipboardList },
+      { href: '/pt/trainers', label: 'Trainers', icon: HardHat },
+      { href: '/pt/schedule', label: 'Session Schedule', icon: Activity },
+      { href: '/pt/attendance', label: 'Attendance', icon: Activity },
+      { href: '/pt/payments', label: 'Payments', icon: FileText },
+      { href: '/pt/invoices', label: 'Invoices', icon: FileSpreadsheet },
+      { href: '/pt/reports', label: 'Reports', icon: FileSpreadsheet },
+    ],
+  },
+  {
     label: 'Staff',
     icon: HardHat,
     children: [
@@ -188,6 +203,18 @@ function NavContent({
         if (!profile) return false;
         const role = profile.role;
         if (role === 'Super Admin') return true;
+
+        if (child.href.startsWith('/pt')) {
+          if (role === 'Admin') return true;
+          if (role === 'Receptionist') {
+            return child.href !== '/pt/reports';
+          }
+          if (role === 'Trainer') {
+            return ['/pt', '/pt/members', '/pt/packages', '/pt/trainers', '/pt/schedule', '/pt/attendance'].includes(child.href);
+          }
+          return false;
+        }
+
         if (role === 'Admin' || role === 'Receptionist') {
           return ['/staff', '/staff/attendance'].includes(child.href);
         }
@@ -234,10 +261,14 @@ function NavContent({
   };
 
   const [staffExpanded, setStaffExpanded] = useState(pathname.startsWith('/staff'));
+  const [ptExpanded, setPtExpanded] = useState(pathname.startsWith('/pt'));
 
   useEffect(() => {
     if (pathname.startsWith('/staff')) {
       setStaffExpanded(true);
+    }
+    if (pathname.startsWith('/pt')) {
+      setPtExpanded(true);
     }
   }, [pathname]);
 
@@ -283,11 +314,14 @@ function NavContent({
           {finalItems.map((item) => {
             if (item.children) {
               const isChildActive = item.children.some(child => isRouteActive(pathname, child.href));
+              const isPt = item.label === 'Personal Training';
+              const expanded = isPt ? ptExpanded : staffExpanded;
+              const toggleExpand = () => isPt ? setPtExpanded(!ptExpanded) : setStaffExpanded(!staffExpanded);
               return (
                 <div key={item.label} className="space-y-1">
                   <button
                     type="button"
-                    onClick={() => setStaffExpanded(!staffExpanded)}
+                    onClick={toggleExpand}
                     className={cn(
                       'group w-full flex min-h-11 items-center rounded-xl text-[13px] font-medium transition-colors duration-150 justify-between px-3 cursor-pointer',
                       isChildActive
@@ -304,12 +338,12 @@ function NavContent({
                       <ChevronDown
                         className={cn(
                           'h-4 w-4 text-zinc-500 transition-transform duration-200',
-                          staffExpanded && 'rotate-180'
+                          expanded && 'rotate-180'
                         )}
                       />
                     )}
                   </button>
-                  {staffExpanded && !collapsed && (
+                  {expanded && !collapsed && (
                     <ul className="pl-4 space-y-1 mt-1 border-l border-white/[0.07] ml-5">
                       {item.children.map((child) => (
                         <NavLink
