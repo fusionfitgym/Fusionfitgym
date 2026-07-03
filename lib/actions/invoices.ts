@@ -363,3 +363,41 @@ export async function recordAdditionalPayment(
     return { success: false, error: err.message };
   }
 }
+
+export async function sendManualInvoiceSMS(invoiceId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { data: invoice, error } = await supabase
+      .from('invoices')
+      .select('*, member:members(*)')
+      .eq('id', invoiceId)
+      .single();
+
+    if (error || !invoice) {
+      return { success: false, error: 'Invoice not found.' };
+    }
+
+    const member = invoice.member as any;
+    if (!member?.phone) {
+      return { success: false, error: 'Member phone number is missing.' };
+    }
+
+    const token = invoice.invoice_token || (await ensureInvoiceToken(invoice.id));
+    const invoiceLink = buildInvoicePublicUrl(token);
+
+    await sendInvoiceSMS(
+      invoice.member_id,
+      invoice.invoice_number,
+      member.package_name || 'Membership',
+      Number(invoice.amount),
+      member.phone,
+      member.full_name || 'Member',
+      invoiceLink
+    );
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Failed to send manual invoice SMS:', err);
+    return { success: false, error: err.message || 'An unexpected error occurred.' };
+  }
+}

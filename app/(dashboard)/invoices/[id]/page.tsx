@@ -17,7 +17,8 @@ import {
   Trash2,
   DollarSign,
   Send,
-  Plus
+  Plus,
+  MessageSquare
 } from 'lucide-react';
 import {
   Breadcrumb,
@@ -34,7 +35,8 @@ import {
   ensureInvoiceToken,
   duplicateInvoice,
   cancelInvoice,
-  recordAdditionalPayment
+  recordAdditionalPayment,
+  sendManualInvoiceSMS
 } from '@/lib/actions/invoices';
 import { getSettings } from '@/lib/actions/settings';
 import { GymSettings, Invoice, INVOICE_STATUSES } from '@/types';
@@ -68,6 +70,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   // Invoice Action States
   const [duplicating, setDuplicating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [sendingSMS, setSendingSMS] = useState(false);
 
   useEffect(() => {
     if (isDemo) {
@@ -175,6 +178,33 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     const body = `Hi ${member.full_name},\n\nHere is your invoice details:\nInvoice Number: ${invoice.invoice_number}\nAmount: ${currencySym}${invoice.amount}\nDue Date: ${formatDate(invoice.due_date)}\n\nLink to view invoice online: ${invoiceLink || 'N/A'}\n\nThank you for your business!\n\nBest regards,\n${settings?.gym_name || 'Fusion Fit Team'}`;
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(url, '_blank');
+  };
+
+  const handleSendSMS = async () => {
+    if (!invoice || !member) return;
+    if (!member.phone) {
+      toast.error('Member phone number is missing');
+      return;
+    }
+    setSendingSMS(true);
+    try {
+      if (isDemo) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        toast.success('Invoice SMS sent successfully (Demo Mode)');
+      } else {
+        const res = await sendManualInvoiceSMS(invoice.id);
+        if (res.success) {
+          toast.success('Invoice SMS sent successfully');
+        } else {
+          toast.error(res.error || 'Failed to send SMS');
+        }
+      }
+    } catch (err: any) {
+      console.error('Error sending SMS:', err);
+      toast.error(err?.message || 'Failed to send SMS');
+    } finally {
+      setSendingSMS(false);
+    }
   };
 
   const handleDuplicate = async () => {
@@ -362,6 +392,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             >
               <Send className="mr-2 h-4 w-4" />
               Email
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSendSMS}
+              disabled={sendingSMS}
+              className="btn btn-secondary text-amber-700 hover:text-amber-800"
+            >
+              {sendingSMS ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MessageSquare className="mr-2 h-4 w-4" />
+              )}
+              SMS
             </button>
 
             {invoice.status !== 'Cancelled' && (
