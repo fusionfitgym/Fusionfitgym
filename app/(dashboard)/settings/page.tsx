@@ -198,6 +198,93 @@ export default function SettingsPage() {
         </SectionCard>
 
         <SectionCard
+          title="Invoice & Billing Settings"
+          description="Configure dynamic invoice generation prefix, starting sequence, taxes, currency, terms and automation."
+          icon={<CreditCard className="h-5 w-5" />}
+        >
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <input
+              id="invoice_auto_generation"
+              type="checkbox"
+              className="h-5 w-5 rounded border-slate-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+              {...register('invoice_auto_generation')}
+            />
+            <div className="flex flex-col">
+              <label htmlFor="invoice_auto_generation" className="text-sm font-semibold text-slate-800 cursor-pointer">
+                Enable Automatic Invoice Generation
+              </label>
+              <span className="text-xs text-slate-500">Automatically generate a unique invoice when a member is created or renewed.</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Invoice Prefix" htmlFor="invoice_prefix">
+              <input
+                id="invoice_prefix"
+                type="text"
+                placeholder="INV"
+                className="input-field"
+                {...register('invoice_prefix')}
+              />
+            </FormField>
+
+            <FormField label="Starting Invoice Number" htmlFor="invoice_starting_number">
+              <input
+                id="invoice_starting_number"
+                type="number"
+                min="1"
+                placeholder="1001"
+                className="input-field"
+                {...register('invoice_starting_number')}
+              />
+            </FormField>
+
+            <FormField label="GST % (Taxes)" htmlFor="invoice_gst_percent">
+              <input
+                id="invoice_gst_percent"
+                type="number"
+                min="0"
+                placeholder="18"
+                className="input-field"
+                {...register('invoice_gst_percent')}
+              />
+            </FormField>
+
+            <FormField label="Currency Symbol" htmlFor="invoice_currency">
+              <input
+                id="invoice_currency"
+                type="text"
+                placeholder="₹"
+                className="input-field"
+                {...register('invoice_currency')}
+              />
+            </FormField>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4">
+            <FormField label="Invoice Footer Message" htmlFor="invoice_footer">
+              <input
+                id="invoice_footer"
+                type="text"
+                placeholder="Thank you for your business!"
+                className="input-field"
+                {...register('invoice_footer')}
+              />
+            </FormField>
+
+            <FormField label="Terms & Conditions" htmlFor="invoice_terms">
+              <textarea
+                id="invoice_terms"
+                placeholder="Terms & Conditions apply. Fees once paid are non-refundable."
+                rows={3}
+                className="input-field py-2"
+                {...register('invoice_terms')}
+              />
+            </FormField>
+          </div>
+        </SectionCard>
+
+        <SectionCard
           title="SMS Automation Settings"
           description="Configure when the ERP automatically creates pending SMS notifications for staff to send via the device SMS app."
           icon={<MessageSquare className="h-5 w-5" />}

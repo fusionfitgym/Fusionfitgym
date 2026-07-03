@@ -24,6 +24,14 @@ export interface Member {
   trainer_fee: number;
   admission_fee: number;
   machine_type: 'Gents' | 'Ladies';
+  // Advanced billing fields
+  locker_fee?: number;
+  diet_plan_fee?: number;
+  discount?: number;
+  tax?: number;
+  payment_method?: 'Cash' | 'UPI' | 'Card' | 'Bank Transfer' | 'Online Payment' | '';
+  paid_amount?: number;
+  pt_package_id?: string | null;
   // Legacy fields
   membership_plan?: 'Monthly' | 'Quarterly' | 'Biannual' | 'Annual' | null;
   join_date?: string | null;
@@ -68,6 +76,13 @@ export const memberSchema = z.object({
   trainer_fee: z.coerce.number().min(0),
   admission_fee: z.coerce.number().min(0),
   machine_type: z.enum(['Gents', 'Ladies']),
+  locker_fee: z.coerce.number().min(0).optional(),
+  diet_plan_fee: z.coerce.number().min(0).optional(),
+  discount: z.coerce.number().min(0).optional(),
+  tax: z.coerce.number().min(0).optional(),
+  payment_method: z.string().optional().or(z.literal('')),
+  paid_amount: z.coerce.number().min(0).optional(),
+  pt_package_id: z.string().uuid().nullable().optional(),
 });
 
 export type MemberFormValues = z.infer<typeof memberSchema>;
@@ -177,7 +192,7 @@ export interface Invoice {
   invoice_number: string;
   amount: number;
   due_date: string;
-  status: 'Paid' | 'Pending' | 'Overdue';
+  status: 'Paid' | 'Partially Paid' | 'Unpaid' | 'Pending' | 'Overdue' | 'Cancelled';
   pdf_url?: string | null;
   invoice_token?: string | null;
   invoice_link?: string | null;
@@ -187,15 +202,37 @@ export interface Invoice {
   parq_fee?: number;
   trainer_fee?: number;
   admission_fee?: number;
+  locker_fee?: number;
+  diet_plan_fee?: number;
+  subtotal?: number;
+  discount?: number;
+  tax?: number;
+  paid_amount?: number;
+  balance_due?: number;
+  payment_method?: string | null;
+  transaction_id?: string | null;
+  payment_date?: string | null;
+  trainer_name?: string | null;
   member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'package_name' | 'package_duration' | 'package_price' | 'package_start_date' | 'package_end_date'>;
 }
 
 export const invoiceSchema = z.object({
   member_id: z.string().uuid('Select a member'),
-  amount: z.coerce.number().min(1, 'Amount must be greater than 0'),
+  amount: z.coerce.number().min(0, 'Amount must be 0 or greater'),
   due_date: z.string().min(1, 'Due date is required'),
-  status: z.enum(['Paid', 'Pending', 'Overdue']),
+  status: z.enum(['Paid', 'Partially Paid', 'Unpaid', 'Pending', 'Overdue', 'Cancelled']),
   notes: z.string().optional().or(z.literal('')),
+  locker_fee: z.coerce.number().min(0).optional(),
+  diet_plan_fee: z.coerce.number().min(0).optional(),
+  subtotal: z.coerce.number().min(0).optional(),
+  discount: z.coerce.number().min(0).optional(),
+  tax: z.coerce.number().min(0).optional(),
+  paid_amount: z.coerce.number().min(0).optional(),
+  balance_due: z.coerce.number().min(0).optional(),
+  payment_method: z.string().optional().nullable(),
+  transaction_id: z.string().optional().nullable(),
+  payment_date: z.string().optional().nullable(),
+  trainer_name: z.string().optional().nullable(),
 });
 
 export type InvoiceFormValues = z.infer<typeof invoiceSchema>;
@@ -224,6 +261,14 @@ export interface GymSettings {
   sms_automation_expired?: boolean;
   sms_automation_invoice?: boolean;
   sms_automation_payment?: boolean;
+  // Invoice generation settings
+  invoice_prefix?: string;
+  invoice_starting_number?: string;
+  invoice_gst_percent?: string;
+  invoice_currency?: string;
+  invoice_footer?: string;
+  invoice_terms?: string;
+  invoice_auto_generation?: boolean;
 }
 
 // ── SMS Logs ────────────────────────────────────────────────
@@ -250,7 +295,7 @@ export interface SMSLog {
 
 export const MEMBERSHIP_PLANS = ['Daily Pass', '1 Month', '3 Months', '6 Months'] as const;
 export const MEMBER_STATUSES = ['Active', 'Inactive', 'Expired', 'Frozen'] as const;
-export const INVOICE_STATUSES = ['Paid', 'Pending', 'Overdue'] as const;
+export const INVOICE_STATUSES = ['Paid', 'Partially Paid', 'Unpaid', 'Pending', 'Overdue', 'Cancelled'] as const;
 
 // ── Biometric Devices & Sync Logs ────────────────────────────
 export interface BiometricDevice {

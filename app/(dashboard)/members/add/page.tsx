@@ -43,7 +43,11 @@ export default function AddMemberPage() {
         });
         if (res.data) {
           toast.success('Member created successfully (Demo Mode)');
-          router.push(`/members/${res.data.id}`);
+          if (res.invoiceId) {
+            router.push(`/invoices/${res.invoiceId}`);
+          } else {
+            router.push(`/members/${res.data.id}`);
+          }
         } else {
           toast.error(res.error || 'Failed to create member (Demo Mode)');
           setSubmitting(false);
@@ -60,7 +64,12 @@ export default function AddMemberPage() {
       }
       const res = await createMember({ ...data, profile_photo: profilePhoto });
       if (res.error || !res.data) throw new Error(res.error || 'Failed to create member');
-      router.push(`/members/${res.data.id}`);
+      toast.success('Member created successfully!');
+      if (res.invoiceId) {
+        router.push(`/invoices/${res.invoiceId}`);
+      } else {
+        router.push(`/members/${res.data.id}`);
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Failed to create member.');
     } finally {

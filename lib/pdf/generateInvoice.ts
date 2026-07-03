@@ -27,6 +27,15 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
   doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
 
+  const formatWithCurrency = (amount: number): string => {
+    const formatted = formatCurrency(amount);
+    const customSymbol = settings.invoice_currency || '₹';
+    if (customSymbol !== '₹') {
+      return formatted.replace('₹', customSymbol);
+    }
+    return formatted;
+  };
+
   const member = invoice.member as {
     full_name: string;
     phone?: string;
@@ -330,35 +339,39 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   });
 
   // ── Items Table ──────────────────────────────────────────────
-  const membershipFee = invoice.membership_fee || invoice.amount;
+  const membershipFee = invoice.membership_fee || 0;
   const parqFee = invoice.parq_fee || 0;
   const trainerFee = invoice.trainer_fee || 0;
   const admissionFee = invoice.admission_fee || 0;
+  const lockerFee = invoice.locker_fee || 0;
+  const dietPlanFee = invoice.diet_plan_fee || 0;
 
-  const tableBody = [
-    [
-      `Membership Fee — ${member?.package_name ?? 'Gym'} Package`,
+  const tableBody: any[] = [];
+
+  if (membershipFee > 0) {
+    tableBody.push([
+      `Membership Fee — ${member?.package_name ?? 'Gym Membership'}`,
       '1',
-      formatCurrency(membershipFee),
-      formatCurrency(membershipFee)
-    ]
-  ];
+      formatWithCurrency(membershipFee),
+      formatWithCurrency(membershipFee)
+    ]);
+  }
 
   if (parqFee > 0) {
     tableBody.push([
       `PAR-Q Fee`,
       '1',
-      formatCurrency(parqFee),
-      formatCurrency(parqFee)
+      formatWithCurrency(parqFee),
+      formatWithCurrency(parqFee)
     ]);
   }
 
   if (trainerFee > 0) {
     tableBody.push([
-      `Trainer Fee`,
+      `Personal Training Fee${invoice.trainer_name ? ` (${invoice.trainer_name})` : ''}`,
       '1',
-      formatCurrency(trainerFee),
-      formatCurrency(trainerFee)
+      formatWithCurrency(trainerFee),
+      formatWithCurrency(trainerFee)
     ]);
   }
 
@@ -366,8 +379,26 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
     tableBody.push([
       `Admission Fee`,
       '1',
-      formatCurrency(admissionFee),
-      formatCurrency(admissionFee)
+      formatWithCurrency(admissionFee),
+      formatWithCurrency(admissionFee)
+    ]);
+  }
+
+  if (lockerFee > 0) {
+    tableBody.push([
+      `Locker Fee`,
+      '1',
+      formatWithCurrency(lockerFee),
+      formatWithCurrency(lockerFee)
+    ]);
+  }
+
+  if (dietPlanFee > 0) {
+    tableBody.push([
+      `Diet Plan Fee`,
+      '1',
+      formatWithCurrency(dietPlanFee),
+      formatWithCurrency(dietPlanFee)
     ]);
   }
 
@@ -466,7 +497,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   // Right Column: Summary Box
   const summaryBoxX = PW - M - 72;
   const summaryBoxW = 72;
-  const summaryBoxH = 34;
+  const summaryBoxH = 44;
 
   doc.setFillColor(252, 251, 247);
   doc.setDrawColor(234, 209, 150); // Gold Border
@@ -477,6 +508,13 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   const leftLabelX = summaryBoxX + 4;
   let sy = finalY + 5.5;
 
+  const subtotal = invoice.subtotal || invoice.amount;
+  const discount = invoice.discount || 0;
+  const tax = invoice.tax || 0;
+  const grandTotal = invoice.amount;
+  const paidAmount = invoice.paid_amount || 0;
+  const balanceDue = invoice.balance_due !== undefined ? invoice.balance_due : (grandTotal - paidAmount);
+
   // Subtotal
   doc.setFont('Roboto', 'bold');
   doc.setTextColor(100, 116, 139);
@@ -484,7 +522,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.text('Subtotal:', leftLabelX, sy);
   doc.setFont('Roboto', 'normal');
   doc.setTextColor(30, 41, 59);
-  doc.text(formatCurrency(invoice.amount), rightAlignX, sy, { align: 'right' });
+  doc.text(formatWithCurrency(subtotal), rightAlignX, sy, { align: 'right' });
   
   // Discount
   sy += 4.8;
@@ -493,16 +531,26 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.text('Discount:', leftLabelX, sy);
   doc.setFont('Roboto', 'normal');
   doc.setTextColor(30, 41, 59);
-  doc.text(formatCurrency(0), rightAlignX, sy, { align: 'right' });
+  doc.text(discount > 0 ? `-${formatWithCurrency(discount)}` : formatWithCurrency(0), rightAlignX, sy, { align: 'right' });
 
   // Tax
   sy += 4.8;
   doc.setFont('Roboto', 'bold');
   doc.setTextColor(100, 116, 139);
-  doc.text('Tax (0%):', leftLabelX, sy);
+  const taxPercentStr = settings.invoice_gst_percent ? ` (${settings.invoice_gst_percent}%)` : '';
+  doc.text(`Tax${taxPercentStr}:`, leftLabelX, sy);
   doc.setFont('Roboto', 'normal');
   doc.setTextColor(30, 41, 59);
-  doc.text(formatCurrency(0), rightAlignX, sy, { align: 'right' });
+  doc.text(formatWithCurrency(tax), rightAlignX, sy, { align: 'right' });
+
+  // Paid Amount
+  sy += 4.8;
+  doc.setFont('Roboto', 'bold');
+  doc.setTextColor(100, 116, 139);
+  doc.text('Paid Amount:', leftLabelX, sy);
+  doc.setFont('Roboto', 'normal');
+  doc.setTextColor(30, 84, 63);
+  doc.text(formatWithCurrency(paidAmount), rightAlignX, sy, { align: 'right' });
 
   // Divider inside summary box
   sy += 2.5;
@@ -519,11 +567,11 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.setTextColor(212, 175, 55); // Gold Text
   doc.setFontSize(7.5);
   doc.setFont('Roboto', 'bold');
-  doc.text('AMOUNT DUE', summaryBoxX + 5, dueBoxY + 7.5);
+  doc.text('BALANCE DUE', summaryBoxX + 5, dueBoxY + 7.5);
 
   doc.setFontSize(11);
   doc.setFont('Roboto', 'bold');
-  doc.text(formatCurrency(invoice.amount), rightAlignX - 5, dueBoxY + 8.2, { align: 'right' });
+  doc.text(formatWithCurrency(balanceDue), rightAlignX - 5, dueBoxY + 8.2, { align: 'right' });
 
   // ── Save ─────────────────────────────────────────────────
   doc.save(`${invoice.invoice_number}.pdf`);

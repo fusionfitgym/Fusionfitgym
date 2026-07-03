@@ -32,8 +32,11 @@ import {
 import { cn } from '@/lib/utils';
 import { getSettings } from '@/lib/actions/settings';
 import { getMembers } from '@/lib/actions/members';
+import { getPTPackages } from '@/lib/actions/pt';
 import { GymSettings } from '@/types';
 import { calculatePackagePrice } from '@/lib/pricing';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { useDemoState } from '@/components/auth/DemoStateProvider';
 
 const defaultValues: MemberFormValues = {
   full_name: '',
@@ -79,6 +82,10 @@ export function MemberForm({
   cancelHref,
   onSubmit,
 }: MemberFormProps) {
+  const { profile } = useAuth();
+  const isDemo = profile?.email === 'demo@redix.media';
+  const demo = useDemoState();
+
   const [gymSettings, setGymSettings] = useState<GymSettings | null>(null);
 
   useEffect(() => {
@@ -89,6 +96,7 @@ export function MemberForm({
   const [photoPreview, setPhotoPreview] = useState(initialValues?.profile_photo || '');
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [ptPackages, setPtPackages] = useState<any[]>([]);
 
   const legacyInitial = initialValues as any;
   const parsedInitialValues = {
@@ -149,6 +157,22 @@ export function MemberForm({
     }).catch(console.error);
   }, [initialValues, submitLabel, setValue]);
 
+  useEffect(() => {
+    if (isDemo) {
+      setPtPackages(demo.ptPackages || []);
+      return;
+    }
+    getPTPackages().then(setPtPackages).catch(console.error);
+  }, [isDemo, demo.ptPackages]);
+
+  useEffect(() => {
+    if (gymSettings) {
+      if (initialValues?.tax === undefined) {
+        setValue('tax', Number(gymSettings.invoice_gst_percent || 18));
+      }
+    }
+  }, [gymSettings, initialValues, setValue]);
+
   const handleAutoGenerate = async () => {
     try {
       const membersList = await getMembers();
@@ -195,6 +219,30 @@ export function MemberForm({
   const machineType = watch('machine_type');
   const startDate = watch('package_start_date');
   const admissionFee = watch('admission_fee') || 0;
+  
+  const membershipFee = watch('membership_fee') || 0;
+  const parqFee = watch('parq_fee') || 0;
+  const trainerFee = watch('trainer_fee') || 0;
+  const lockerFee = watch('locker_fee') || 0;
+  const dietPlanFee = watch('diet_plan_fee') || 0;
+  const discount = watch('discount') || 0;
+  const taxPercent = watch('tax') || 0;
+  const paidAmount = watch('paid_amount') || 0;
+  const ptPackageId = watch('pt_package_id') || '';
+
+  // Synchronize trainer_fee and trainer_package when pt_package_id is updated
+  useEffect(() => {
+    if (!ptPackageId) {
+      setValue('trainer_package', false);
+      setValue('trainer_fee', 0);
+      return;
+    }
+    const pkg = ptPackages.find(p => p.id === ptPackageId);
+    if (pkg) {
+      setValue('trainer_package', true);
+      setValue('trainer_fee', Number(pkg.final_price || pkg.price || 0));
+    }
+  }, [ptPackageId, ptPackages, setValue]);
 
   // Auto-calculate end date
   useEffect(() => {
@@ -236,14 +284,24 @@ export function MemberForm({
 
     setValue('membership_fee', result.membershipFee, { shouldDirty: true, shouldValidate: true });
     setValue('parq_fee', result.addOnFees['parq_purchased'], { shouldDirty: true, shouldValidate: true });
-    setValue('trainer_fee', result.addOnFees['trainer_package'], { shouldDirty: true, shouldValidate: true });
-    setValue('package_price', result.total, { shouldDirty: true, shouldValidate: true });
+    
+    let currentTrainerFee = result.addOnFees['trainer_package'];
+    if (ptPackageId) {
+      const pkg = ptPackages.find(p => p.id === ptPackageId);
+      if (pkg) {
+        currentTrainerFee = Number(pkg.final_price || pkg.price || 0);
+      }
+    }
+    setValue('trainer_fee', currentTrainerFee, { shouldDirty: true, shouldValidate: true });
+
+    const finalPackagePrice = result.membershipFee + result.addOnFees['parq_purchased'] + currentTrainerFee + admissionFee;
+    setValue('package_price', finalPackagePrice, { shouldDirty: true, shouldValidate: true });
 
     const isDailyPass = duration === 'Daily Pass';
     const name = isDailyPass ? 'Daily Pass' : `${gender} - ${duration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
     setValue('package_duration', duration, { shouldDirty: true, shouldValidate: true });
-  }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, setValue]);
+  }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, ptPackageId, ptPackages, setValue]);
 
   useEffect(() => {
     return () => {
@@ -631,6 +689,213 @@ export function MemberForm({
                   </div>
                 </FormField>
               )}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Invoice & Billing Details"
+            description="Configure initial invoice billing options, locker fees, diet fees, taxes, discounts, and payment info."
+            icon={<ShieldCheck className="h-5 w-5" />}
+          >
+            <div className="field-grid field-grid-2">
+              <FormField
+                label="PT Package (Optional)"
+                htmlFor="pt_package_id"
+              >
+                <select
+                  id="pt_package_id"
+                  className="select-field font-semibold text-slate-800"
+                  {...register('pt_package_id')}
+                >
+                  <option value="">No PT Plan</option>
+                  {ptPackages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.package_name} - ₹{pkg.final_price || pkg.price} ({pkg.trainer?.full_name || 'No trainer'})
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField
+                label="Locker Fee (INR)"
+                htmlFor="locker_fee"
+                error={errors.locker_fee?.message}
+              >
+                <input
+                  id="locker_fee"
+                  type="number"
+                  min="0"
+                  className="input-field font-semibold text-slate-800"
+                  {...register('locker_fee', { valueAsNumber: true })}
+                />
+              </FormField>
+
+              <FormField
+                label="Diet Plan Fee (INR)"
+                htmlFor="diet_plan_fee"
+                error={errors.diet_plan_fee?.message}
+              >
+                <input
+                  id="diet_plan_fee"
+                  type="number"
+                  min="0"
+                  className="input-field font-semibold text-slate-800"
+                  {...register('diet_plan_fee', { valueAsNumber: true })}
+                />
+              </FormField>
+
+              <FormField
+                label="Discount (INR)"
+                htmlFor="discount"
+                error={errors.discount?.message}
+              >
+                <input
+                  id="discount"
+                  type="number"
+                  min="0"
+                  className="input-field font-semibold text-slate-800"
+                  {...register('discount', { valueAsNumber: true })}
+                />
+              </FormField>
+
+              <FormField
+                label="Tax / GST %"
+                htmlFor="tax"
+                error={errors.tax?.message}
+              >
+                <input
+                  id="tax"
+                  type="number"
+                  min="0"
+                  className="input-field font-semibold text-slate-800"
+                  {...register('tax', { valueAsNumber: true })}
+                />
+              </FormField>
+
+              <FormField
+                label="Payment Method"
+                htmlFor="payment_method"
+                error={errors.payment_method?.message}
+              >
+                <select
+                  id="payment_method"
+                  className="select-field font-semibold text-slate-800"
+                  {...register('payment_method')}
+                >
+                  <option value="">Unpaid (No Payment)</option>
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Card">Card</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Online Payment">Online Payment</option>
+                </select>
+              </FormField>
+
+              <FormField
+                label="Paid Amount (INR)"
+                htmlFor="paid_amount"
+                error={errors.paid_amount?.message}
+              >
+                <input
+                  id="paid_amount"
+                  type="number"
+                  min="0"
+                  className="input-field font-semibold text-slate-800"
+                  {...register('paid_amount', { valueAsNumber: true })}
+                />
+              </FormField>
+            </div>
+
+            {/* Live Invoice Breakdown Preview */}
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-3">Live Invoice Calculations Summary</h4>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Base Membership Fee:</span>
+                  <span className="font-semibold text-slate-800">₹{membershipFee}</span>
+                </div>
+                {parqPurchased && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">PAR-Q Fee:</span>
+                    <span className="font-semibold text-slate-800">₹{parqFee}</span>
+                  </div>
+                )}
+                {trainerPackage && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Personal Training Fee:</span>
+                    <span className="font-semibold text-slate-800">₹{trainerFee}</span>
+                  </div>
+                )}
+                {admissionFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Admission Fee:</span>
+                    <span className="font-semibold text-slate-800">₹{admissionFee}</span>
+                  </div>
+                )}
+                {lockerFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Locker Fee:</span>
+                    <span className="font-semibold text-slate-800">₹{lockerFee}</span>
+                  </div>
+                )}
+                {dietPlanFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Diet Plan Fee:</span>
+                    <span className="font-semibold text-slate-800">₹{dietPlanFee}</span>
+                  </div>
+                )}
+                <div className="border-t border-slate-200 my-2"></div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Subtotal:</span>
+                  <span className="font-semibold text-slate-800">
+                    ₹{Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)}
+                  </span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-emerald-700">
+                    <span>Discount:</span>
+                    <span className="font-semibold">-₹{discount}</span>
+                  </div>
+                )}
+                {taxPercent > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Tax (GST {taxPercent}%):</span>
+                    <span className="font-semibold">
+                      ₹{Math.round(((Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) * (taxPercent / 100)) * 100) / 100}
+                    </span>
+                  </div>
+                )}
+                <div className="border-t border-amber-300 my-2"></div>
+                <div className="flex justify-between text-base font-extrabold text-amber-900">
+                  <span>Grand Total:</span>
+                  <span>
+                    ₹{Math.max(
+                      0,
+                      (Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) +
+                      Math.round(((Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) * (taxPercent / 100)) * 100) / 100 -
+                      discount
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-600 text-xs mt-1">
+                  <span>Paid Amount:</span>
+                  <span className="font-semibold text-emerald-700">₹{paidAmount}</span>
+                </div>
+                <div className="flex justify-between text-slate-700 text-xs">
+                  <span>Balance Due:</span>
+                  <span className="font-bold text-red-600">
+                    ₹{Math.max(
+                      0,
+                      Math.max(
+                        0,
+                        (Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) +
+                        Math.round(((Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) * (taxPercent / 100)) * 100) / 100 -
+                        discount
+                      ) - paidAmount
+                    )}
+                  </span>
+                </div>
+              </div>
             </div>
           </SectionCard>
 

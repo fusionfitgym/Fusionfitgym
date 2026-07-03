@@ -219,3 +219,147 @@ export async function updateInvoicePdfUrl(id: string, pdf_url: string): Promise<
   const { error } = await supabase.from('invoices').update({ pdf_url }).eq('id', id);
   if (error) throw error;
 }
+
+export async function duplicateInvoice(id: string): Promise<{ data?: Invoice; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    const supabase = await createClient();
+
+    // 1. Fetch original invoice
+    const { data: original, error: fetchError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !original) {
+      return { error: 'Invoice not found.' };
+    }
+
+    // 2. Insert new invoice cloning most values
+    const insertPayload = {
+      member_id: original.member_id,
+      amount: original.amount,
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+      status: 'Pending',
+      notes: original.notes ? `Cloned from ${original.invoice_number}. ${original.notes}` : `Cloned from ${original.invoice_number}`,
+      membership_fee: original.membership_fee || 0,
+      parq_fee: original.parq_fee || 0,
+      admission_fee: original.admission_fee || 0,
+      trainer_fee: original.trainer_fee || 0,
+      locker_fee: original.locker_fee || 0,
+      diet_plan_fee: original.diet_plan_fee || 0,
+      subtotal: original.subtotal || 0,
+      discount: original.discount || 0,
+      tax: original.tax || 0,
+      paid_amount: 0,
+      balance_due: original.amount,
+      payment_method: null,
+      transaction_id: null,
+      payment_date: null,
+      invoice_number: '' // Trigger will auto-generate
+    };
+
+    const { data, error: insertError } = await supabase
+      .from('invoices')
+      .insert([insertPayload])
+      .select('*, member:members(full_name, phone, package_name)')
+      .single();
+
+    if (insertError) {
+      console.error('Failed to duplicate invoice:', insertError);
+      return { error: insertError.message };
+    }
+
+    await logAudit(`Duplicated invoice ${original.invoice_number} as ${data.invoice_number}`, 'Invoices', user.id);
+
+    revalidatePath('/invoices');
+    return { data: data as Invoice };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
+}
+
+export async function cancelInvoice(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    const supabase = await createClient();
+
+    const { data: invoice } = await supabase.from('invoices').select('invoice_number, paid_amount, balance_due, amount').eq('id', id).single();
+    if (!invoice) return { success: false, error: 'Invoice not found' };
+
+    const { error } = await supabase
+      .from('invoices')
+      .update({ status: 'Cancelled', balance_due: 0 })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await logAudit(`Cancelled invoice ${invoice.invoice_number}`, 'Invoices', user.id);
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${id}`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function recordAdditionalPayment(
+  id: string,
+  amount: number,
+  paymentMethod: string,
+  transactionId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    const supabase = await createClient();
+
+    // Fetch current invoice details
+    const { data: invoice, error: fetchError } = await supabase
+      .from('invoices')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !invoice) {
+      return { success: false, error: 'Invoice not found.' };
+    }
+
+    const currentPaid = Number(invoice.paid_amount || 0);
+    const newPaid = currentPaid + amount;
+    const totalAmount = Number(invoice.amount);
+    const newBalance = Math.max(0, totalAmount - newPaid);
+
+    let status: Invoice['status'] = 'Partially Paid';
+    if (newPaid >= totalAmount) {
+      status = 'Paid';
+    } else if (newPaid <= 0) {
+      status = 'Unpaid';
+    }
+
+    const updatePayload = {
+      paid_amount: newPaid,
+      balance_due: newBalance,
+      status,
+      payment_method: paymentMethod,
+      transaction_id: transactionId || invoice.transaction_id || null,
+      payment_date: new Date().toISOString()
+    };
+
+    const { error: updateError } = await supabase
+      .from('invoices')
+      .update(updatePayload)
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    // Log the transaction
+    await logAudit(`Recorded payment of ₹${amount} for invoice ${invoice.invoice_number}`, 'Invoices', user.id);
+
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${id}`);
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}

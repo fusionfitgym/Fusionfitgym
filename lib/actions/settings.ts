@@ -36,6 +36,14 @@ export async function getSettings(): Promise<GymSettings> {
     sms_automation_expired:      map.sms_automation_expired      === 'true',
     sms_automation_invoice:      map.sms_automation_invoice      === 'true',
     sms_automation_payment:      map.sms_automation_payment      === 'true',
+    // Invoice settings mapping
+    invoice_prefix: map.invoice_prefix ?? 'INV',
+    invoice_starting_number: map.invoice_starting_number ?? '1001',
+    invoice_gst_percent: map.invoice_gst_percent ?? '18',
+    invoice_currency: map.invoice_currency ?? '₹',
+    invoice_footer: map.invoice_footer ?? 'Thank you for your business!',
+    invoice_terms: map.invoice_terms ?? 'Terms & Conditions apply. Fees once paid are non-refundable.',
+    invoice_auto_generation: map.invoice_auto_generation !== 'false',
   };
 }
 
@@ -95,6 +103,17 @@ export async function upsertSettings(settings: Partial<GymSettings>): Promise<vo
     .from('settings')
     .upsert(rows, { onConflict: 'key' });
   if (error) throw error;
+
+  // Call sequence reset RPC if invoice_starting_number is updated
+  if (settings.invoice_starting_number !== undefined) {
+    const startNum = parseInt(settings.invoice_starting_number, 10);
+    if (!isNaN(startNum) && startNum >= 1) {
+      const { error: rpcError } = await supabase.rpc('set_invoice_sequence', { start_num: startNum });
+      if (rpcError) {
+        console.error('Failed to set invoice sequence via RPC:', rpcError);
+      }
+    }
+  }
 
   await logAudit('Updated multiple gym settings', 'Settings', user.id);
 }

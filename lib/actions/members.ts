@@ -30,11 +30,11 @@ export async function getMemberById(id: string): Promise<Member | null> {
   return data as Member;
 }
 
-export async function createMember(values: MemberFormValues): Promise<{ data?: Member; error?: string }> {
+export async function createMember(values: MemberFormValues): Promise<{ data?: Member; error?: string; invoiceId?: string | null }> {
   try {
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
     
-    // Validate inputs server-side (Requirement 3 & 4)
+    // Validate inputs server-side
     const validatedValues = memberSchema.parse(values);
     
     const supabase = await createClient();
@@ -52,27 +52,160 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       }
     }
 
-    const { data, error } = await supabase
+    // Extract invoice-specific fields that do not belong to the members table
+    const {
+      discount = 0,
+      tax = 0,
+      payment_method = '',
+      paid_amount = 0,
+      pt_package_id,
+      ...memberInsertData
+    } = validatedValues as any;
+
+    const { data: member, error } = await supabase
       .from('members')
-      .insert([validatedValues])
+      .insert([memberInsertData])
       .select()
       .single();
     if (error) return { error: error.message };
 
-    await logAudit(`Created member: ${data.full_name}`, 'Members', user.id);
+    await logAudit(`Created member: ${member.full_name}`, 'Members', user.id);
 
     // Dispatch welcome SMS to the new member
     try {
-      if (data.phone) {
-        await sendWelcomeSMS(data.id, data.full_name, data.phone);
+      if (member.phone) {
+        await sendWelcomeSMS(member.id, member.full_name, member.phone);
       }
     } catch (smsErr) {
       console.error('Failed to trigger welcome SMS:', smsErr);
     }
 
+    let createdInvoiceId = null;
+
+    // Fetch gym settings to check auto generation
+    const { getSettings } = await import('./settings');
+    const settings = await getSettings();
+
+    if (settings.invoice_auto_generation) {
+      const membershipFee = Number(member.membership_fee || 0);
+      const parqFee = Number(member.parq_fee || 0);
+      const trainerFee = Number(member.trainer_fee || 0);
+      const admissionFee = Number(member.admission_fee || 0);
+      const lockerFee = Number(member.locker_fee || 0);
+      const dietPlanFee = Number(member.diet_plan_fee || 0);
+
+      const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
+      
+      const taxRate = Number(tax || settings.invoice_gst_percent || 0);
+      const taxAmount = Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+      
+      const discountAmount = Number(discount || 0);
+      const grandTotal = Math.max(0, subtotal + taxAmount - discountAmount);
+
+      const paidVal = Number(paid_amount || 0);
+      const balanceDue = Math.max(0, grandTotal - paidVal);
+
+      let invoiceStatus: 'Paid' | 'Partially Paid' | 'Unpaid' | 'Pending' | 'Overdue' = 'Pending';
+      if (paidVal >= grandTotal && grandTotal > 0) {
+        invoiceStatus = 'Paid';
+      } else if (paidVal > 0) {
+        invoiceStatus = 'Partially Paid';
+      } else {
+        invoiceStatus = 'Pending';
+      }
+
+      let trainerName = null;
+      if (pt_package_id) {
+        const { data: pkg } = await supabase
+          .from('pt_packages')
+          .select('*, trainer:pt_trainers(full_name)')
+          .eq('id', pt_package_id)
+          .maybeSingle();
+        if (pkg?.trainer?.full_name) {
+          trainerName = pkg.trainer.full_name;
+        }
+      }
+
+      const invoicePayload = {
+        member_id: member.id,
+        amount: grandTotal,
+        due_date: member.package_start_date, // Due immediately
+        status: invoiceStatus,
+        notes: `Automatically generated invoice for new member registration.`,
+        membership_fee: membershipFee,
+        parq_fee: parqFee,
+        admission_fee: admissionFee,
+        trainer_fee: trainerFee,
+        locker_fee: lockerFee,
+        diet_plan_fee: dietPlanFee,
+        subtotal,
+        discount: discountAmount,
+        tax: taxAmount,
+        paid_amount: paidVal,
+        balance_due: balanceDue,
+        payment_method: payment_method || null,
+        transaction_id: null,
+        payment_date: paidVal > 0 ? new Date().toISOString() : null,
+        trainer_name: trainerName,
+        invoice_number: '' // Trigger will generate
+      };
+
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert([invoicePayload])
+        .select()
+        .single();
+
+      if (invoiceError) {
+        console.error('Database error creating auto invoice:', invoiceError);
+        // Rollback: delete created member
+        await supabase.from('members').delete().eq('id', member.id);
+        return { error: `Failed to automatically generate invoice: ${invoiceError.message}` };
+      }
+
+      createdInvoiceId = invoiceData.id;
+
+      // Create PT client registration if PT package is selected
+      if (pt_package_id) {
+        try {
+          const { data: ptPkg } = await supabase
+            .from('pt_packages')
+            .select('*')
+            .eq('id', pt_package_id)
+            .single();
+
+          if (ptPkg) {
+            const expiryDate = new Date(new Date(member.package_start_date).getTime() + Number(ptPkg.duration) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const ptClientPayload = {
+              member_id: member.id,
+              full_name: member.full_name,
+              phone: member.phone,
+              email: member.email || null,
+              emergency_contact: member.emergency_contact || null,
+              trainer_id: ptPkg.trainer_id,
+              package_id: ptPkg.id,
+              sessions_purchased: ptPkg.number_of_sessions,
+              sessions_remaining: ptPkg.number_of_sessions,
+              package_start_date: member.package_start_date,
+              expiry_date: expiryDate,
+              status: 'Active'
+            };
+            const { error: clientError } = await supabase
+              .from('pt_clients')
+              .insert([ptClientPayload]);
+            if (clientError) {
+              console.error('Failed to register PT client:', clientError);
+            }
+          }
+        } catch (ptErr) {
+          console.error('Error creating PT client entry:', ptErr);
+        }
+      }
+    }
+
     revalidatePath('/');
     revalidatePath('/members');
-    return { data: data as Member };
+    return { data: member as Member, invoiceId: createdInvoiceId };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred.';
     return { error: errorMsg };
@@ -131,6 +264,55 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
           await sendRenewalSMS(data.id, data.full_name, formattedExpiry, data.phone);
         } catch (smsErr) {
           console.error('Failed to trigger renewal SMS:', smsErr);
+        }
+
+        // Renewal: Generate a new invoice automatically, preserve history, never overwrite.
+        try {
+          const { getSettings } = await import('./settings');
+          const settings = await getSettings();
+
+          if (settings.invoice_auto_generation) {
+            const membershipFee = Number(data.membership_fee || 0);
+            const parqFee = Number(data.parq_fee || 0);
+            const trainerFee = Number(data.trainer_fee || 0);
+            const admissionFee = Number(data.admission_fee || 0);
+            const lockerFee = Number(data.locker_fee || 0);
+            const dietPlanFee = Number(data.diet_plan_fee || 0);
+
+            const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
+            
+            const taxRate = Number(settings.invoice_gst_percent || 0);
+            const taxAmount = Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+            
+            const grandTotal = subtotal + taxAmount;
+
+            const invoicePayload = {
+              member_id: data.id,
+              amount: grandTotal,
+              due_date: data.package_start_date,
+              status: 'Pending',
+              notes: `Automatically generated invoice for membership renewal.`,
+              membership_fee: membershipFee,
+              parq_fee: parqFee,
+              admission_fee: admissionFee,
+              trainer_fee: trainerFee,
+              locker_fee: lockerFee,
+              diet_plan_fee: dietPlanFee,
+              subtotal,
+              discount: 0,
+              tax: taxAmount,
+              paid_amount: 0,
+              balance_due: grandTotal,
+              payment_method: null,
+              transaction_id: null,
+              payment_date: null,
+              invoice_number: '' // Trigger will generate
+            };
+
+            await supabase.from('invoices').insert([invoicePayload]);
+          }
+        } catch (invErr) {
+          console.error('Failed to auto-generate renewal invoice:', invErr);
         }
       }
     }

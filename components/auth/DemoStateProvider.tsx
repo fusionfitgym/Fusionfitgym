@@ -55,7 +55,7 @@ interface DemoStateContextType {
   // Mutators
   getMembers: () => Member[];
   getMemberById: (id: string) => Member | null;
-  createMember: (values: any) => { data?: Member; error?: string };
+  createMember: (values: any) => { data?: Member; error?: string; invoiceId?: string | null };
   updateMember: (id: string, values: any) => { data?: Member; error?: string };
   deleteMember: (id: string) => void;
   getMembersPaginated: (args: any) => { members: Member[]; totalCount: number };
@@ -63,7 +63,10 @@ interface DemoStateContextType {
   getInvoicesByMember: (memberId: string) => Invoice[];
   getInvoiceById: (id: string) => Invoice | null;
   createInvoice: (values: any) => Invoice;
-  updateInvoiceStatus: (id: string, status: 'Paid' | 'Pending' | 'Overdue') => Invoice | null;
+  updateInvoiceStatus: (id: string, status: Invoice['status']) => Invoice | null;
+  duplicateInvoice: (id: string) => { data?: Invoice; error?: string };
+  cancelInvoice: (id: string) => { success: boolean; error?: string };
+  recordAdditionalPayment: (id: string, amount: number, paymentMethod: string, transactionId?: string) => { success: boolean; error?: string };
   
   getAttendanceHistory: (args: { member_id?: string; device_id?: string }) => AttendanceLog[];
   getAttendanceAnalytics: () => any;
@@ -559,7 +562,79 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       updated_at: new Date().toISOString()
     };
     setMembers(prev => [newMember, ...prev]);
-    return { data: newMember };
+
+    let invoiceId: string | null = null;
+    if (settings.invoice_auto_generation !== false) {
+      const membershipFee = Number(newMember.membership_fee || 0);
+      const parqFee = Number(newMember.parq_fee || 0);
+      const trainerFee = Number(newMember.trainer_fee || 0);
+      const admissionFee = Number(newMember.admission_fee || 0);
+      const lockerFee = Number(newMember.locker_fee || 0);
+      const dietPlanFee = Number(newMember.diet_plan_fee || 0);
+
+      const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
+      
+      const taxRate = Number(values.tax || settings.invoice_gst_percent || 0);
+      const taxAmount = Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+      
+      const discountAmount = Number(values.discount || 0);
+      const grandTotal = Math.max(0, subtotal + taxAmount - discountAmount);
+
+      const paidVal = Number(values.paid_amount || 0);
+      const balanceDue = Math.max(0, grandTotal - paidVal);
+
+      let invoiceStatus: Invoice['status'] = 'Pending';
+      if (paidVal >= grandTotal && grandTotal > 0) {
+        invoiceStatus = 'Paid';
+      } else if (paidVal > 0) {
+        invoiceStatus = 'Partially Paid';
+      }
+
+      const prefix = settings.invoice_prefix || 'INV';
+      const year = new Date().getFullYear();
+      const seq = invoices.length + 1;
+      const invNum = `${prefix}-${year}-${seq.toString().padStart(6, '0')}`;
+
+      const newInvoice: Invoice = {
+        id: `demo-invoice-uuid-${(invoices.length + 1).toString().padStart(4, '0')}`,
+        member_id: newMember.id,
+        invoice_number: invNum,
+        amount: grandTotal,
+        due_date: newMember.package_start_date,
+        status: invoiceStatus,
+        created_at: new Date().toISOString(),
+        membership_fee: membershipFee,
+        parq_fee: parqFee,
+        admission_fee: admissionFee,
+        trainer_fee: trainerFee,
+        locker_fee: lockerFee,
+        diet_plan_fee: dietPlanFee,
+        subtotal,
+        discount: discountAmount,
+        tax: taxAmount,
+        paid_amount: paidVal,
+        balance_due: balanceDue,
+        payment_method: values.payment_method || null,
+        transaction_id: null,
+        payment_date: paidVal > 0 ? new Date().toISOString() : null,
+        member: {
+          full_name: newMember.full_name,
+          phone: newMember.phone,
+          email: newMember.email,
+          address: newMember.address,
+          package_name: newMember.package_name,
+          package_duration: newMember.package_duration,
+          package_price: newMember.package_price,
+          package_start_date: newMember.package_start_date,
+          package_end_date: newMember.package_end_date
+        }
+      };
+
+      setInvoices(prev => [newInvoice, ...prev]);
+      invoiceId = newInvoice.id;
+    }
+
+    return { data: newMember, invoiceId };
   };
 
   const updateMember = (id: string, values: any) => {
@@ -660,16 +735,83 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     return newInvoice;
   };
 
-  const updateInvoiceStatus = (id: string, status: 'Paid' | 'Pending' | 'Overdue') => {
+  const updateInvoiceStatus = (id: string, status: Invoice['status']) => {
     let updated: Invoice | null = null;
     setInvoices(prev => prev.map(i => {
       if (i.id === id) {
-        updated = { ...i, status };
+        let balance_due = i.balance_due;
+        let paid_amount = i.paid_amount;
+        if (status === 'Paid') {
+          paid_amount = i.amount;
+          balance_due = 0;
+        } else if (status === 'Pending' || status === 'Unpaid') {
+          paid_amount = 0;
+          balance_due = i.amount;
+        } else if (status === 'Cancelled') {
+          balance_due = 0;
+        }
+        updated = { ...i, status, paid_amount, balance_due };
         return updated;
       }
       return i;
     }));
     return updated;
+  };
+
+  const duplicateInvoice = (id: string) => {
+    const original = invoices.find(i => i.id === id);
+    if (!original) return { error: 'Invoice not found' };
+    const prefix = settings.invoice_prefix || 'INV';
+    const year = new Date().getFullYear();
+    const seq = invoices.length + 1;
+    const invNum = `${prefix}-${year}-${seq.toString().padStart(6, '0')}`;
+    const newInvoice: Invoice = {
+      ...original,
+      id: `demo-invoice-uuid-${(invoices.length + 1).toString().padStart(4, '0')}`,
+      invoice_number: invNum,
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'Pending',
+      notes: original.notes ? `Cloned from ${original.invoice_number}. ${original.notes}` : `Cloned from ${original.invoice_number}`,
+      paid_amount: 0,
+      balance_due: original.amount,
+      payment_method: null,
+      transaction_id: null,
+      payment_date: null,
+      created_at: new Date().toISOString()
+    };
+    setInvoices(prev => [newInvoice, ...prev]);
+    return { data: newInvoice };
+  };
+
+  const cancelInvoice = (id: string) => {
+    setInvoices(prev => prev.map(i => i.id === id ? { ...i, status: 'Cancelled', balance_due: 0 } : i));
+    return { success: true };
+  };
+
+  const recordAdditionalPayment = (id: string, amount: number, paymentMethod: string, transactionId?: string) => {
+    setInvoices(prev => prev.map(i => {
+      if (i.id === id) {
+        const currentPaid = Number(i.paid_amount || 0);
+        const newPaid = currentPaid + amount;
+        const totalAmount = Number(i.amount);
+        const newBalance = Math.max(0, totalAmount - newPaid);
+        let status: Invoice['status'] = 'Partially Paid';
+        if (newPaid >= totalAmount) {
+          status = 'Paid';
+        }
+        return {
+          ...i,
+          paid_amount: newPaid,
+          balance_due: newBalance,
+          status,
+          payment_method: paymentMethod,
+          transaction_id: transactionId || i.transaction_id || null,
+          payment_date: new Date().toISOString()
+        };
+      }
+      return i;
+    }));
+    return { success: true };
   };
 
   const getAttendanceHistory = (args: { member_id?: string; device_id?: string }) => {
@@ -1278,6 +1420,9 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         getInvoiceById,
         createInvoice,
         updateInvoiceStatus,
+        duplicateInvoice,
+        cancelInvoice,
+        recordAdditionalPayment,
         
         getAttendanceHistory,
         getAttendanceAnalytics,
