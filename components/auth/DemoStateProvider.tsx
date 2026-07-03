@@ -586,8 +586,8 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
 
       const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
       
-      const taxRate = Number(values.tax || settings.invoice_gst_percent || 0);
-      const taxAmount = Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+      const taxRate = 0;
+      const taxAmount = 0;
       
       const discountAmount = Number(values.discount || 0);
       const grandTotal = Math.max(0, subtotal + taxAmount - discountAmount);

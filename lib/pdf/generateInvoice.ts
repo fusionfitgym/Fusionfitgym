@@ -497,7 +497,8 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   // Right Column: Summary Box
   const summaryBoxX = PW - M - 72;
   const summaryBoxW = 72;
-  const summaryBoxH = 44;
+  const hasTax = (invoice.tax || 0) > 0;
+  const summaryBoxH = hasTax ? 44 : 39.2;
 
   doc.setFillColor(252, 251, 247);
   doc.setDrawColor(234, 209, 150); // Gold Border
@@ -534,14 +535,16 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.text(discount > 0 ? `-${formatWithCurrency(discount)}` : formatWithCurrency(0), rightAlignX, sy, { align: 'right' });
 
   // Tax
-  sy += 4.8;
-  doc.setFont('Roboto', 'bold');
-  doc.setTextColor(100, 116, 139);
-  const taxPercentStr = settings.invoice_gst_percent ? ` (${settings.invoice_gst_percent}%)` : '';
-  doc.text(`Tax${taxPercentStr}:`, leftLabelX, sy);
-  doc.setFont('Roboto', 'normal');
-  doc.setTextColor(30, 41, 59);
-  doc.text(formatWithCurrency(tax), rightAlignX, sy, { align: 'right' });
+  if (hasTax) {
+    sy += 4.8;
+    doc.setFont('Roboto', 'bold');
+    doc.setTextColor(100, 116, 139);
+    const taxPercentStr = settings.invoice_gst_percent ? ` (${settings.invoice_gst_percent}%)` : '';
+    doc.text(`Tax${taxPercentStr}:`, leftLabelX, sy);
+    doc.setFont('Roboto', 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.text(formatWithCurrency(tax), rightAlignX, sy, { align: 'right' });
+  }
 
   // Paid Amount
   sy += 4.8;

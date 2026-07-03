@@ -63,6 +63,8 @@ const defaultValues: MemberFormValues = {
   trainer_fee: 0,
   admission_fee: 0,
   machine_type: 'Gents',
+  tax: 0,
+  discount: 0,
 };
 
 interface MemberFormProps {
@@ -168,7 +170,7 @@ export function MemberForm({
   useEffect(() => {
     if (gymSettings) {
       if (initialValues?.tax === undefined) {
-        setValue('tax', Number(gymSettings.invoice_gst_percent || 18));
+        setValue('tax', 0);
       }
     }
   }, [gymSettings, initialValues, setValue]);
@@ -759,19 +761,6 @@ export function MemberForm({
                 />
               </FormField>
 
-              <FormField
-                label="Tax / GST %"
-                htmlFor="tax"
-                error={errors.tax?.message}
-              >
-                <input
-                  id="tax"
-                  type="number"
-                  min="0"
-                  className="input-field font-semibold text-slate-800"
-                  {...register('tax', { valueAsNumber: true })}
-                />
-              </FormField>
 
               <FormField
                 label="Payment Method"
@@ -858,22 +847,13 @@ export function MemberForm({
                     <span className="font-semibold">-₹{discount}</span>
                   </div>
                 )}
-                {taxPercent > 0 && (
-                  <div className="flex justify-between text-slate-600">
-                    <span>Tax (GST {taxPercent}%):</span>
-                    <span className="font-semibold">
-                      ₹{Math.round(((Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) * (taxPercent / 100)) * 100) / 100}
-                    </span>
-                  </div>
-                )}
                 <div className="border-t border-amber-300 my-2"></div>
                 <div className="flex justify-between text-base font-extrabold text-amber-900">
                   <span>Grand Total:</span>
                   <span>
                     ₹{Math.max(
                       0,
-                      (Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) +
-                      Math.round(((Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) * (taxPercent / 100)) * 100) / 100 -
+                      (Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) -
                       discount
                     )}
                   </span>
@@ -889,8 +869,7 @@ export function MemberForm({
                       0,
                       Math.max(
                         0,
-                        (Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) +
-                        Math.round(((Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) * (taxPercent / 100)) * 100) / 100 -
+                        (Number(membershipFee) + Number(parqFee) + Number(trainerFee) + Number(admissionFee) + Number(lockerFee) + Number(dietPlanFee)) -
                         discount
                       ) - paidAmount
                     )}

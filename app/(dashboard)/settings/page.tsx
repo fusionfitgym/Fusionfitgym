@@ -270,17 +270,6 @@ export default function SettingsPage() {
               />
             </FormField>
 
-            <FormField label="GST % (Taxes)" htmlFor="invoice_gst_percent">
-              <input
-                id="invoice_gst_percent"
-                type="number"
-                min="0"
-                placeholder="18"
-                className="input-field"
-                {...register('invoice_gst_percent')}
-              />
-            </FormField>
-
             <FormField label="Currency Symbol" htmlFor="invoice_currency">
               <input
                 id="invoice_currency"

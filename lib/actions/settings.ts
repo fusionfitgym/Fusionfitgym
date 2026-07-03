@@ -51,7 +51,7 @@ export async function getSettings(): Promise<GymSettings> {
     // Invoice settings mapping
     invoice_prefix: map.invoice_prefix ?? 'INV',
     invoice_starting_number: map.invoice_starting_number ?? '1001',
-    invoice_gst_percent: map.invoice_gst_percent ?? '18',
+    invoice_gst_percent: map.invoice_gst_percent ?? '0',
     invoice_currency: map.invoice_currency ?? '₹',
     invoice_footer: map.invoice_footer ?? 'Thank you for your business!',
     invoice_terms: map.invoice_terms ?? 'Terms & Conditions apply. Fees once paid are non-refundable.',

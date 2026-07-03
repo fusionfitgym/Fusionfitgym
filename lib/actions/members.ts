@@ -96,8 +96,8 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
 
       const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
       
-      const taxRate = Number(tax || settings.invoice_gst_percent || 0);
-      const taxAmount = Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+      const taxRate = 0;
+      const taxAmount = 0;
       
       const discountAmount = Number(discount || 0);
       const grandTotal = Math.max(0, subtotal + taxAmount - discountAmount);
@@ -281,8 +281,8 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
 
             const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
             
-            const taxRate = Number(settings.invoice_gst_percent || 0);
-            const taxAmount = Math.round((subtotal * (taxRate / 100)) * 100) / 100;
+            const taxRate = 0;
+            const taxAmount = 0;
             
             const grandTotal = subtotal + taxAmount;
 
