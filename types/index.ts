@@ -248,6 +248,18 @@ export interface GymSettings {
   plan_quarterly: string;
   plan_biannual: string;
   plan_annual: string;
+  plan_ladies_wt_1m?: string;
+  plan_ladies_ws_1m?: string;
+  plan_ladies_wt_3m?: string;
+  plan_ladies_ws_3m?: string;
+  plan_ladies_wt_6m?: string;
+  plan_ladies_ws_6m?: string;
+  plan_gents_wt_1m?: string;
+  plan_gents_wc_1m?: string;
+  plan_gents_wt_3m?: string;
+  plan_gents_wc_3m?: string;
+  plan_gents_wt_6m?: string;
+  plan_gents_wc_6m?: string;
   sms_provider_name?: string;
   sms_api_url?: string;
   sms_api_key?: string;

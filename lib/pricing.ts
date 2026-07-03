@@ -1,3 +1,5 @@
+import { GymSettings } from '@/types';
+
 export interface AddOnDefinition {
   key: string;
   name: string;
@@ -13,7 +15,8 @@ export const ADD_ONS: AddOnDefinition[] = [
 export function getBaseMembershipFee(
   gender: 'Gents' | 'Ladies',
   duration: 'Daily Pass' | '1 Month' | '3 Months' | '6 Months',
-  trainingType: 'Weight Training Only' | 'Weight Training + Cardio' | 'Weight Training + Strength Training'
+  trainingType: 'Weight Training Only' | 'Weight Training + Cardio' | 'Weight Training + Strength Training',
+  settings?: GymSettings
 ): number {
   if (duration === 'Daily Pass') {
     return 50;
@@ -21,19 +24,43 @@ export function getBaseMembershipFee(
   
   if (gender === 'Ladies') {
     if (duration === '1 Month') {
-      return trainingType === 'Weight Training Only' ? 1000 : 1300;
+      if (trainingType === 'Weight Training Only') {
+        return settings?.plan_ladies_wt_1m ? Number(settings.plan_ladies_wt_1m) : 1000;
+      } else {
+        return settings?.plan_ladies_ws_1m ? Number(settings.plan_ladies_ws_1m) : 1300;
+      }
     } else if (duration === '3 Months') {
-      return trainingType === 'Weight Training Only' ? 2750 : 3600;
+      if (trainingType === 'Weight Training Only') {
+        return settings?.plan_ladies_wt_3m ? Number(settings.plan_ladies_wt_3m) : 2750;
+      } else {
+        return settings?.plan_ladies_ws_3m ? Number(settings.plan_ladies_ws_3m) : 3600;
+      }
     } else if (duration === '6 Months') {
-      return trainingType === 'Weight Training Only' ? 5800 : 7300;
+      if (trainingType === 'Weight Training Only') {
+        return settings?.plan_ladies_wt_6m ? Number(settings.plan_ladies_wt_6m) : 5800;
+      } else {
+        return settings?.plan_ladies_ws_6m ? Number(settings.plan_ladies_ws_6m) : 7300;
+      }
     }
   } else { // Gents
     if (duration === '1 Month') {
-      return trainingType === 'Weight Training Only' ? 1000 : 1300;
+      if (trainingType === 'Weight Training Only') {
+        return settings?.plan_gents_wt_1m ? Number(settings.plan_gents_wt_1m) : 1000;
+      } else {
+        return settings?.plan_gents_wc_1m ? Number(settings.plan_gents_wc_1m) : 1300;
+      }
     } else if (duration === '3 Months') {
-      return trainingType === 'Weight Training Only' ? 2850 : 3750;
+      if (trainingType === 'Weight Training Only') {
+        return settings?.plan_gents_wt_3m ? Number(settings.plan_gents_wt_3m) : 2850;
+      } else {
+        return settings?.plan_gents_wc_3m ? Number(settings.plan_gents_wc_3m) : 3750;
+      }
     } else if (duration === '6 Months') {
-      return trainingType === 'Weight Training Only' ? 5750 : 7500;
+      if (trainingType === 'Weight Training Only') {
+        return settings?.plan_gents_wt_6m ? Number(settings.plan_gents_wt_6m) : 5750;
+      } else {
+        return settings?.plan_gents_wc_6m ? Number(settings.plan_gents_wc_6m) : 7500;
+      }
     }
   }
   return 0;
@@ -45,9 +72,10 @@ export function calculatePackagePrice(inputs: {
   trainingType: 'Weight Training Only' | 'Weight Training + Cardio' | 'Weight Training + Strength Training';
   admissionFee: number;
   addOnSelections: Record<string, boolean>;
+  settings?: GymSettings;
 }) {
   const isDailyPass = inputs.duration === 'Daily Pass';
-  const membershipFee = getBaseMembershipFee(inputs.gender, inputs.duration, inputs.trainingType);
+  const membershipFee = getBaseMembershipFee(inputs.gender, inputs.duration, inputs.trainingType, inputs.settings);
   const admissionFee = Number(inputs.admissionFee) || 0;
 
   const addOnFees: Record<string, number> = {};

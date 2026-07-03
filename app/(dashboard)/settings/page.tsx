@@ -115,7 +115,7 @@ export default function SettingsPage() {
     <div className="page-narrow page-enter">
       <PageHeader
         title="Settings"
-        subtitle="Keep gym contact details and membership pricing up to date."
+        subtitle="Keep gym contact details and package custom settings pricing up to date."
       />
 
       <form onSubmit={handleSubmit(onSubmit)} className="page-stack">
@@ -173,27 +173,58 @@ export default function SettingsPage() {
         </SectionCard>
 
         <SectionCard
-          title="Membership pricing"
-          description="Set the default amount used when creating invoices."
+          title="Package custom settings pricing"
+          description="Set the default amount used when registering members or creating invoices."
           icon={<CreditCard className="h-5 w-5" />}
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {[
-              { name: 'plan_monthly' as const, label: 'Monthly', period: '1 month' },
-              { name: 'plan_quarterly' as const, label: 'Quarterly', period: '3 months' },
-              { name: 'plan_biannual' as const, label: 'Biannual', period: '6 months' },
-              { name: 'plan_annual' as const, label: 'Annual', period: '12 months' },
-            ].map(({ name, label, period }) => (
-              <div key={name} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center justify-between gap-4">
-                  <p className="text-sm font-semibold text-slate-800">{label}</p>
-                  <span className="text-xs text-slate-500">{period}</span>
-                </div>
-                <FormField label="Price (INR)" htmlFor={name}>
-                  <input id={name} type="number" min="0" className="input-field" {...register(name)} />
-                </FormField>
+          <div className="space-y-8">
+            {/* Gents Packages */}
+            <div>
+              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">Gents Packages</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {[
+                  { name: 'plan_gents_wt_1m' as const, label: '1 Month - Weight Training Only' },
+                  { name: 'plan_gents_wc_1m' as const, label: '1 Month - Weight Training With Cardio' },
+                  { name: 'plan_gents_wt_3m' as const, label: '3 Months - Weight Training Only' },
+                  { name: 'plan_gents_wc_3m' as const, label: '3 Months - Weight Training With Cardio' },
+                  { name: 'plan_gents_wt_6m' as const, label: '6 Months - Weight Training Only' },
+                  { name: 'plan_gents_wc_6m' as const, label: '6 Months - Weight Training With Cardio' },
+                ].map(({ name, label }) => (
+                  <div key={name} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-800 line-clamp-1">{label}</p>
+                    </div>
+                    <FormField label="Price (INR)" htmlFor={name}>
+                      <input id={name} type="number" min="0" className="input-field" {...register(name)} />
+                    </FormField>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Ladies Packages */}
+            <div>
+              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">Ladies Packages</h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {[
+                  { name: 'plan_ladies_wt_1m' as const, label: '1 Month - Weight Training Only' },
+                  { name: 'plan_ladies_ws_1m' as const, label: '1 Month - Weight Training & Strength' },
+                  { name: 'plan_ladies_wt_3m' as const, label: '3 Months - Weight Training Only' },
+                  { name: 'plan_ladies_ws_3m' as const, label: '3 Months - Weight Training & Strength' },
+                  { name: 'plan_ladies_wt_6m' as const, label: '6 Months - Weight Training Only' },
+                  { name: 'plan_ladies_ws_6m' as const, label: '6 Months - Weight Training & Strength' },
+                ].map(({ name, label }) => (
+                  <div key={name} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold text-slate-800 line-clamp-1">{label}</p>
+                    </div>
+                    <FormField label="Price (INR)" htmlFor={name}>
+                      <input id={name} type="number" min="0" className="input-field" {...register(name)} />
+                    </FormField>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </SectionCard>
 

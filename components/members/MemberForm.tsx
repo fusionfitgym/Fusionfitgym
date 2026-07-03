@@ -280,6 +280,7 @@ export function MemberForm({
         parq_purchased: parqPurchased,
         trainer_package: trainerPackage,
       },
+      settings: gymSettings || undefined,
     });
 
     setValue('membership_fee', result.membershipFee, { shouldDirty: true, shouldValidate: true });
@@ -301,7 +302,7 @@ export function MemberForm({
     const name = isDailyPass ? 'Daily Pass' : `${gender} - ${duration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
     setValue('package_duration', duration, { shouldDirty: true, shouldValidate: true });
-  }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, ptPackageId, ptPackages, setValue]);
+  }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, ptPackageId, ptPackages, gymSettings, setValue]);
 
   useEffect(() => {
     return () => {
