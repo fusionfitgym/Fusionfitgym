@@ -82,7 +82,7 @@ export const memberSchema = z.object({
   tax: z.coerce.number().min(0).optional(),
   payment_method: z.string().optional().or(z.literal('')),
   paid_amount: z.coerce.number().min(0).optional(),
-  pt_package_id: z.string().uuid().nullable().optional(),
+  pt_package_id: z.string().uuid().nullable().optional().or(z.literal('')),
 });
 
 export type MemberFormValues = z.infer<typeof memberSchema>;
