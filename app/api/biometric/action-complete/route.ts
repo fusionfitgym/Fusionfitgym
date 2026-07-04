@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('member_id', memberId)
       .eq('action', action)
-      .eq('status', 'pending');
+      .in('status', ['pending', 'sent']);
 
     if (biometricId) {
       query = query.eq('biometric_id', biometricId);

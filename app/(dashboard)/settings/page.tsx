@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Building2,
   CheckCircle,
@@ -452,6 +453,29 @@ export default function SettingsPage() {
             </button>
           </div>
         </SectionCard>
+
+        {profile?.role === 'Super Admin' && (
+          <SectionCard
+            title="Developer Tools"
+            description="Access system simulation tools and diagnostics for integration verification."
+            icon={<FileCode className="h-5 w-5" />}
+          >
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <Link
+                href="/settings/developer-tools/biometric-testing"
+                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xs transition-all hover:border-amber-400 hover:bg-slate-50 cursor-pointer group"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:scale-105 transition-transform">
+                  <Database className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="block text-sm font-bold text-slate-900">Biometric Testing Panel</span>
+                  <span className="block text-xs text-slate-500 mt-0.5">Test ERP → Sync Agent → Biometric Device workflows</span>
+                </div>
+              </Link>
+            </div>
+          </SectionCard>
+        )}
 
         <FormActions sticky>
           {saved && (
