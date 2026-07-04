@@ -299,42 +299,44 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
   doc.setFont('Roboto', 'bold');
   doc.text('MEMBERSHIP SUMMARY', M + 4, y + 4.5);
 
-  // Compute duration and package type
+  // Compute duration and package details
   const duration = member?.package_duration ?? '—';
-  const packageType = member?.package_name ?? 'Gym Membership';
-  
-  const startDate = formatDate(member?.package_start_date ?? invoice.created_at);
-  const expiryDate = formatDate(member?.package_end_date);
+  const plan = member?.package_name ?? '—';
+  const startDate = formatDate(invoice.membership_start_date || member?.package_start_date || invoice.created_at);
+  const expiryDate = formatDate(invoice.membership_expiry_date || member?.package_end_date);
+  const paymentDate = invoice.payment_date ? formatDate(invoice.payment_date) : '—';
+  const nextDueDate = formatDate(invoice.due_date);
 
-  const colW = summaryW / 5;
+  const colW = summaryW / 6;
   const summaryCols = [
-    { label: 'PLAN', value: member?.package_name ?? '—' },
+    { label: 'PLAN', value: plan },
     { label: 'DURATION', value: duration },
-    { label: 'PACKAGE TYPE', value: packageType },
     { label: 'START DATE', value: startDate },
-    { label: 'EXPIRY DATE', value: expiryDate }
+    { label: 'EXPIRY DATE', value: expiryDate },
+    { label: 'PAYMENT DATE', value: paymentDate },
+    { label: 'NEXT DUE DATE', value: nextDueDate }
   ];
 
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   summaryCols.forEach((col, i) => {
     const colX = M + i * colW;
     doc.setFont('Roboto', 'bold');
     doc.setTextColor(100, 116, 139);
-    doc.text(col.label, colX + 4, y + 10);
+    doc.text(col.label, colX + 2, y + 10);
     
     doc.setFont('Roboto', 'bold');
     doc.setTextColor(11, 13, 18);
-    if (col.label === 'PACKAGE TYPE') {
-      doc.setFontSize(7);
+    if (col.label === 'PLAN') {
+      doc.setFontSize(6.2);
       const textWidth = doc.getTextWidth(col.value);
-      if (textWidth > colW - 5) {
-        doc.text(col.value.replace(' Package', ''), colX + 4, y + 14.5);
+      if (textWidth > colW - 3) {
+        doc.text(col.value.substring(0, 16) + '..', colX + 2, y + 14.5);
       } else {
-        doc.text(col.value, colX + 4, y + 14.5);
+        doc.text(col.value, colX + 2, y + 14.5);
       }
-      doc.setFontSize(7.5);
+      doc.setFontSize(7);
     } else {
-      doc.text(col.value, colX + 4, y + 14.5);
+      doc.text(col.value, colX + 2, y + 14.5);
     }
   });
 

@@ -10,6 +10,11 @@ import { validateRole } from './auth';
 import { logAudit } from './audit';
 
 export async function getMembers(): Promise<Member[]> {
+  try {
+    await autoUpdateExpiredMembers();
+  } catch (err) {
+    console.error('Failed autoUpdateExpiredMembers in getMembers:', err);
+  }
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
@@ -20,6 +25,11 @@ export async function getMembers(): Promise<Member[]> {
 }
 
 export async function getMemberById(id: string): Promise<Member | null> {
+  try {
+    await autoUpdateExpiredMembers();
+  } catch (err) {
+    console.error('Failed autoUpdateExpiredMembers in getMemberById:', err);
+  }
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
@@ -68,6 +78,11 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       .select()
       .single();
     if (error) return { error: error.message };
+
+    // Queue biometric enable action if biometric_user_id is provided at creation
+    if (member.biometric_user_id) {
+      await queueBiometricAction(member.id, member.biometric_user_id, 'enable');
+    }
 
     await logAudit(`Created member: ${member.full_name}`, 'Members', user.id);
 
@@ -129,7 +144,7 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       const invoicePayload = {
         member_id: member.id,
         amount: grandTotal,
-        due_date: member.package_start_date, // Due immediately
+        due_date: member.package_end_date, // Next Due Date = Membership Expiry Date
         status: invoiceStatus,
         notes: `Automatically generated invoice for new member registration.`,
         membership_fee: membershipFee,
@@ -146,6 +161,8 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
         payment_method: payment_method || null,
         transaction_id: null,
         payment_date: paidVal > 0 ? new Date().toISOString() : null,
+        membership_start_date: member.package_start_date,
+        membership_expiry_date: member.package_end_date,
         trainer_name: trainerName,
         invoice_number: '' // Trigger will generate
       };
@@ -252,6 +269,23 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
       .single();
     if (error) return { error: error.message };
 
+    // Process biometric status transitions based on the updated status
+    if (data) {
+      const nextBiometricStatus = data.status === 'Active' ? 'ENABLED' : 'DISABLED';
+      if (data.biometric_status !== nextBiometricStatus) {
+        await supabase
+          .from('members')
+          .update({ biometric_status: nextBiometricStatus })
+          .eq('id', id);
+        data.biometric_status = nextBiometricStatus;
+      }
+
+      if (data.biometric_user_id) {
+        const actionType = nextBiometricStatus === 'ENABLED' ? 'enable' : 'disable';
+        await queueBiometricAction(data.id, data.biometric_user_id, actionType);
+      }
+    }
+
     // Trigger automated Renewal SMS if membership start shifted or reactivated to Active
     if (oldMember && data && data.phone) {
       const isPlanRenewed = (values.package_start_date && values.package_start_date !== oldMember.package_start_date) || (values.package_end_date && values.package_end_date !== oldMember.package_end_date);
@@ -289,7 +323,7 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
             const invoicePayload = {
               member_id: data.id,
               amount: grandTotal,
-              due_date: data.package_start_date,
+              due_date: data.package_end_date, // Next Due Date = Membership Expiry Date
               status: 'Pending',
               notes: `Automatically generated invoice for membership renewal.`,
               membership_fee: membershipFee,
@@ -306,6 +340,8 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
               payment_method: null,
               transaction_id: null,
               payment_date: null,
+              membership_start_date: data.package_start_date,
+              membership_expiry_date: data.package_end_date,
               invoice_number: '' // Trigger will generate
             };
 
@@ -382,6 +418,11 @@ export async function uploadProfilePhoto(file: File): Promise<{ url?: string; er
 }
 
 export async function getDashboardStats() {
+  try {
+    await autoUpdateExpiredMembers();
+  } catch (err) {
+    console.error('Failed autoUpdateExpiredMembers in getDashboardStats:', err);
+  }
   const supabase = await createClient();
   
   // Run queries in parallel using Promise.all
@@ -426,6 +467,11 @@ export async function getMembersPaginated({
   plan?: string;
   machine?: string;
 } = {}): Promise<{ members: Member[]; totalCount: number }> {
+  try {
+    await autoUpdateExpiredMembers();
+  } catch (err) {
+    console.error('Failed autoUpdateExpiredMembers in getMembersPaginated:', err);
+  }
   const supabase = await createClient();
   const offset = (page - 1) * limit;
 
@@ -507,5 +553,125 @@ export async function getMemberByBiometricId(biometricId: string): Promise<Membe
   if (ladiesData) return ladiesData as Member;
     
   return null;
+}
+
+function getDurationInDays(duration: string): number {
+  const durStr = duration.toLowerCase().trim();
+  if (durStr.includes('daily')) return 1;
+  if (durStr.includes('30 day') || durStr === '1 month') return 30;
+  if (durStr.includes('90 day') || durStr === '3 months') return 90;
+  if (durStr.includes('180 day') || durStr === '6 months') return 180;
+  if (durStr.includes('365 day') || durStr.includes('1 year')) return 365;
+  
+  // Custom days: parse number
+  const match = durStr.match(/\d+/);
+  if (match) {
+    return parseInt(match[0], 10);
+  }
+  return 30; // fallback
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+export async function queueBiometricAction(memberId: string, biometricId: string, action: 'enable' | 'disable') {
+  const supabase = await createClient();
+
+  // Find any existing pending action for this member
+  const { data: existingActions, error: fetchError } = await supabase
+    .from('biometric_actions')
+    .select('id, action')
+    .eq('member_id', memberId)
+    .eq('status', 'pending');
+
+  if (fetchError) {
+    console.error('Error fetching existing biometric actions:', fetchError);
+    return;
+  }
+
+  // If there's a pending action of the same type, we don't need to do anything
+  const hasSameAction = existingActions?.some((a: { action: string; }) => a.action === action);
+  if (hasSameAction) {
+    return;
+  }
+
+  // If there's a pending action of a different type, mark it as completed/cancelled
+  const differentActions = existingActions?.filter((a: { action: string; }) => a.action !== action);
+  if (differentActions && differentActions.length > 0) {
+    const idsToUpdate = differentActions.map((a: { id: string; }) => a.id);
+    await supabase
+      .from('biometric_actions')
+      .update({ status: 'completed', notes: 'Superseded by new action', updated_at: new Date().toISOString() })
+      .in('id', idsToUpdate);
+  }
+
+  // Now insert the new pending action
+  const { error: insertError } = await supabase
+    .from('biometric_actions')
+    .insert({
+      member_id: memberId,
+      biometric_id: biometricId,
+      action: action,
+      status: 'pending'
+    });
+
+  if (insertError) {
+    console.error('Error inserting biometric action:', insertError);
+  }
+}
+
+export async function autoUpdateExpiredMembers() {
+  const supabase = await createClient();
+
+  // Get current local date string (in YYYY-MM-DD format using India/local timezone)
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
+  // Fetch all members whose status is 'Active' and whose package_end_date has passed (excluding Daily Pass which has no expiry)
+  const { data: expiredMembers, error: fetchError } = await supabase
+    .from('members')
+    .select('id, full_name, biometric_user_id, package_end_date, status, biometric_status, duration')
+    .eq('status', 'Active')
+    .neq('duration', 'Daily Pass')
+    .lt('package_end_date', todayStr);
+
+  if (fetchError) {
+    console.error('Error fetching expired members for auto-update:', fetchError);
+    return;
+  }
+
+  if (!expiredMembers || expiredMembers.length === 0) {
+    return;
+  }
+
+  console.log(`Auto-expiring ${expiredMembers.length} members...`);
+
+  for (const member of expiredMembers) {
+    // 1. Update status to 'Expired' and biometric_status to 'DISABLED' in database
+    const { error: updateError } = await supabase
+      .from('members')
+      .update({
+        status: 'Expired',
+        biometric_status: 'DISABLED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', member.id);
+
+    if (updateError) {
+      console.error(`Error updating member ${member.full_name} status to Expired:`, updateError);
+      continue;
+    }
+
+    // 2. Queue biometric disable action (if biometric_user_id is mapped)
+    if (member.biometric_user_id) {
+      await queueBiometricAction(member.id, member.biometric_user_id, 'disable');
+    }
+  }
 }
 

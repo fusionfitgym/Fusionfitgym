@@ -20,6 +20,7 @@ import { useDemoState } from '@/components/auth/DemoStateProvider';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentMembers } from '@/components/dashboard/RecentMembers';
 import { ExpiringMembersList } from '@/components/dashboard/ExpiringMembersList';
+import { ExpiryAndBiometricsSection } from '@/components/dashboard/ExpiryAndBiometricsSection';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
@@ -34,6 +35,33 @@ export default function DashboardClientPage() {
   const active = members.filter((m) => m.status === 'Active').length;
   
   const now = new Date(2026, 5, 30); // Demo reference date (June 30, 2026)
+
+  // Get today's local date string for demo
+  const demoTodayStr = '2026-06-30';
+  
+  // Helper to add days to date string
+  const addDaysDemo = (dateStr: string, days: number): string => {
+    const res = new Date(dateStr);
+    res.setDate(res.getDate() + days);
+    return res.toISOString().split('T')[0];
+  };
+  const demoThreeDaysLaterStr = addDaysDemo(demoTodayStr, 3);
+
+  const expiringToday = useMemo(() => {
+    return members.filter(m => m && m.status === 'Active' && m.package_end_date === demoTodayStr);
+  }, [members]);
+
+  const expiringIn3Days = useMemo(() => {
+    return members.filter(m => m && m.status === 'Active' && m.package_end_date > demoTodayStr && m.package_end_date <= demoThreeDaysLaterStr);
+  }, [members]);
+
+  const expiredMembers = useMemo(() => {
+    return members.filter(m => m && m.status === 'Expired');
+  }, [members]);
+
+  const disabledBiometrics = useMemo(() => {
+    return members.filter(m => m && m.biometric_status === 'DISABLED');
+  }, [members]);
   
   const expiringSoon = useMemo(() => {
     return members.filter((member) => {
@@ -262,6 +290,14 @@ export default function DashboardClientPage() {
           ))}
         </div>
       </section>
+
+      {/* Expiry alerts and biometric status tabbed overview */}
+      <ExpiryAndBiometricsSection 
+        expiringToday={expiringToday}
+        expiringIn3Days={expiringIn3Days}
+        expiredMembers={expiredMembers}
+        disabledBiometrics={disabledBiometrics}
+      />
 
       {/* Dynamic Visualizations & Expiring Alerts */}
       <DashboardChartsSection revenueData={revenueData} pieData={pieData} />

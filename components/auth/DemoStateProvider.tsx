@@ -163,6 +163,29 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     if (data[3]) { data[3].biometric_gents_id = '2053'; data[3].biometric_ladies_id = '2053'; }
     return data;
   });
+
+  useEffect(() => {
+    // Run auto-expiry check on demo members when provider mounts
+    const todayStr = '2026-06-30'; // Demo date
+    setMembers(prev => prev.map(m => {
+      const isExpired = m.status === 'Active' && m.duration !== 'Daily Pass' && m.package_end_date && m.package_end_date < todayStr;
+      if (isExpired) {
+        return {
+          ...m,
+          status: 'Expired',
+          biometric_status: 'DISABLED'
+        };
+      }
+      // Set default biometric_status to ENABLED for others if undefined
+      if (m.biometric_status === undefined) {
+        return {
+          ...m,
+          biometric_status: m.status === 'Active' ? 'ENABLED' : 'DISABLED'
+        };
+      }
+      return m;
+    }));
+  }, []);
   
   const [staffAttendance, setStaffAttendance] = useState<any[]>(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -612,7 +635,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         member_id: newMember.id,
         invoice_number: invNum,
         amount: grandTotal,
-        due_date: newMember.package_start_date,
+        due_date: newMember.package_end_date, // Next Due Date = Expiry Date
         status: invoiceStatus,
         created_at: new Date().toISOString(),
         membership_fee: membershipFee,
@@ -629,6 +652,8 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         payment_method: values.payment_method || null,
         transaction_id: null,
         payment_date: paidVal > 0 ? new Date().toISOString() : null,
+        membership_start_date: newMember.package_start_date,
+        membership_expiry_date: newMember.package_end_date,
         member: {
           full_name: newMember.full_name,
           phone: newMember.phone,
@@ -653,7 +678,80 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     let updated: Member | undefined;
     setMembers(prev => prev.map(m => {
       if (m.id === id) {
-        updated = { ...m, ...values, updated_at: new Date().toISOString() };
+        // Biometric status transitions based on new status
+        let nextBiometricStatus = m.biometric_status || 'ENABLED';
+        if (values.status) {
+          nextBiometricStatus = values.status === 'Active' ? 'ENABLED' : 'DISABLED';
+        }
+        updated = { 
+          ...m, 
+          ...values, 
+          biometric_status: nextBiometricStatus,
+          updated_at: new Date().toISOString() 
+        };
+
+        // If the package validity shifted or status is reactivated to Active, auto-generate renewal invoice
+        const isPlanRenewed = (values.package_start_date && values.package_start_date !== m.package_start_date) || (values.package_end_date && values.package_end_date !== m.package_end_date);
+        const isStatusActivated = (m.status === 'Expired' || m.status === 'Inactive') && values.status === 'Active';
+
+        if (isPlanRenewed || isStatusActivated) {
+          // Auto generate invoice in demo
+          if (settings.invoice_auto_generation !== false) {
+            const membershipFee = Number(updated.membership_fee || 0);
+            const parqFee = Number(updated.parq_fee || 0);
+            const trainerFee = Number(updated.trainer_fee || 0);
+            const admissionFee = Number(updated.admission_fee || 0);
+            const lockerFee = Number(updated.locker_fee || 0);
+            const dietPlanFee = Number(updated.diet_plan_fee || 0);
+
+            const subtotal = membershipFee + parqFee + trainerFee + admissionFee + lockerFee + dietPlanFee;
+            const grandTotal = subtotal;
+
+            const prefix = settings.invoice_prefix || 'INV';
+            const year = new Date().getFullYear();
+            const seq = invoices.length + 1;
+            const invNum = `${prefix}-${year}-${seq.toString().padStart(6, '0')}`;
+
+            const newInvoice: Invoice = {
+              id: `demo-invoice-uuid-${(invoices.length + 1).toString().padStart(4, '0')}`,
+              member_id: updated.id,
+              invoice_number: invNum,
+              amount: grandTotal,
+              due_date: updated.package_end_date, // Next Due Date = Expiry Date
+              status: 'Pending',
+              created_at: new Date().toISOString(),
+              membership_fee: membershipFee,
+              parq_fee: parqFee,
+              admission_fee: admissionFee,
+              trainer_fee: trainerFee,
+              locker_fee: lockerFee,
+              diet_plan_fee: dietPlanFee,
+              subtotal,
+              discount: 0,
+              tax: 0,
+              paid_amount: 0,
+              balance_due: grandTotal,
+              payment_method: null,
+              transaction_id: null,
+              payment_date: null,
+              membership_start_date: updated.package_start_date,
+              membership_expiry_date: updated.package_end_date,
+              member: {
+                full_name: updated.full_name,
+                phone: updated.phone,
+                email: updated.email,
+                address: updated.address,
+                package_name: updated.package_name,
+                package_duration: updated.package_duration,
+                package_price: updated.package_price,
+                package_start_date: updated.package_start_date,
+                package_end_date: updated.package_end_date
+              }
+            };
+            setInvoices(prevInv => [newInvoice, ...prevInv]);
+          }
+        }
+
         return updated;
       }
       return m;

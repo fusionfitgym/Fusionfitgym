@@ -22,6 +22,7 @@ import { Member } from '@/types';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentMembers } from '@/components/dashboard/RecentMembers';
 import { ExpiringMembersList } from '@/components/dashboard/ExpiringMembersList';
+import { ExpiryAndBiometricsSection } from '@/components/dashboard/ExpiryAndBiometricsSection';
 import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceAnalytics, getStaffAttendanceTodayStats } from '@/lib/actions/attendance';
 import { getSMSStats } from '@/lib/actions/sms';
@@ -108,7 +109,7 @@ export default async function DashboardPage() {
         try {
           return await supabase
             .from('members')
-            .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo, duration, training_type')
+            .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo, duration, training_type, biometric_status, biometric_user_id')
             .order('created_at', { ascending: false });
         } catch (err: any) {
           console.error("Error fetching members:", err);
@@ -188,6 +189,27 @@ export default async function DashboardPage() {
   const total = members.length;
   const active = members.filter((member) => member && member.status === 'Active').length;
   const now = new Date();
+
+  // Get today's local date string (in YYYY-MM-DD format using India/local timezone)
+  const dObj = new Date();
+  const yr = dObj.getFullYear();
+  const mth = String(dObj.getMonth() + 1).padStart(2, '0');
+  const dy = String(dObj.getDate()).padStart(2, '0');
+  const todayStr = `${yr}-${mth}-${dy}`;
+
+  // Helper to add days to date string
+  const addDaysLoc = (dateStr: string, days: number): string => {
+    const res = new Date(dateStr);
+    res.setDate(res.getDate() + days);
+    return res.toISOString().split('T')[0];
+  };
+  const threeDaysLaterStr = addDaysLoc(todayStr, 3);
+
+  // Filter lists for Expiry & Biometrics Section
+  const expiringToday = members.filter(m => m && m.status === 'Active' && m.package_end_date === todayStr);
+  const expiringIn3Days = members.filter(m => m && m.status === 'Active' && m.package_end_date > todayStr && m.package_end_date <= threeDaysLaterStr);
+  const expiredMembers = members.filter(m => m && m.status === 'Expired');
+  const disabledBiometrics = members.filter(m => m && m.biometric_status === 'DISABLED');
   
   const expiringSoon = members.filter((member) => {
     if (!member || member.status !== 'Active' || !member.package_end_date) return false;
@@ -475,6 +497,14 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      {/* Expiry alerts and biometric status tabbed overview */}
+      <ExpiryAndBiometricsSection 
+        expiringToday={expiringToday}
+        expiringIn3Days={expiringIn3Days}
+        expiredMembers={expiredMembers}
+        disabledBiometrics={disabledBiometrics}
+      />
 
       {/* Dynamic Visualizations & Expiring Alerts */}
       {showRevenueAnalytics && (

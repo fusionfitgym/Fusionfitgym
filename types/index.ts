@@ -15,7 +15,7 @@ export interface Member {
   package_start_date: string;
   package_end_date: string;
   gender: 'Gents' | 'Ladies';
-  duration: 'Daily Pass' | '1 Month' | '3 Months' | '6 Months';
+  duration: string;
   training_type: 'Weight Training Only' | 'Weight Training + Cardio' | 'Weight Training + Strength Training';
   membership_fee: number;
   parq_purchased: boolean;
@@ -38,6 +38,7 @@ export interface Member {
   status: 'Active' | 'Inactive' | 'Expired' | 'Frozen';
   profile_photo?: string | null;
   biometric_user_id?: string | null;
+  biometric_status?: 'ENABLED' | 'DISABLED' | null;
   membership_status?: string | null;
   last_checkin?: string | null;
   sms_sent?: boolean;
@@ -65,9 +66,10 @@ export const memberSchema = z.object({
     .refine((val) => !val || /^\d+$/.test(val), {
       message: "Biometric User ID must contain numeric digits only",
     }),
+  biometric_status: z.string().optional().or(z.literal('')),
   membership_status: z.string().optional().or(z.literal('')),
   gender: z.enum(['Gents', 'Ladies']),
-  duration: z.enum(['Daily Pass', '1 Month', '3 Months', '6 Months']),
+  duration: z.string().min(1, 'Duration is required'),
   training_type: z.enum(['Weight Training Only', 'Weight Training + Cardio', 'Weight Training + Strength Training']),
   membership_fee: z.coerce.number().min(0),
   parq_purchased: z.boolean(),
@@ -213,6 +215,8 @@ export interface Invoice {
   transaction_id?: string | null;
   payment_date?: string | null;
   trainer_name?: string | null;
+  membership_start_date?: string | null;
+  membership_expiry_date?: string | null;
   member?: Pick<Member, 'full_name' | 'phone' | 'email' | 'address' | 'package_name' | 'package_duration' | 'package_price' | 'package_start_date' | 'package_end_date'>;
 }
 
@@ -329,6 +333,17 @@ export interface BiometricSyncLog {
   message: string;
   punch_time: string;
   created_at?: string;
+}
+
+export interface BiometricAction {
+  id: string;
+  member_id: string;
+  biometric_id: string;
+  action: 'enable' | 'disable';
+  status: 'pending' | 'completed' | 'failed';
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ── Staff (Trainers & Janitors) ──────────────────────────────

@@ -79,14 +79,30 @@ export default function PublicInvoiceView({ invoice, settings }: PublicInvoiceDa
               {member?.email && <p className="text-sm text-slate-600 break-all">{member.email}</p>}
             </section>
 
-            <section className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 text-sm">
+            <section className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-slate-50 p-4 text-xs border border-slate-100">
               <div>
-                <p className="text-[10px] font-bold uppercase text-slate-400">Package</p>
-                <p className="mt-0.5 font-semibold text-slate-800">{member?.package_name ?? '—'}</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Plan</p>
+                <p className="mt-0.5 font-bold text-slate-800">{member?.package_name ?? '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-slate-400">Due date</p>
-                <p className="mt-0.5 font-semibold text-slate-800">{formatDate(invoice.due_date)}</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Plan Duration</p>
+                <p className="mt-0.5 font-semibold text-slate-800">{member?.package_duration ?? '—'}</p>
+              </div>
+              <div className="border-t border-slate-200/50 pt-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Start Date</p>
+                <p className="mt-0.5 font-semibold text-slate-800">{formatDate(invoice.membership_start_date || member?.package_start_date)}</p>
+              </div>
+              <div className="border-t border-slate-200/50 pt-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Expiry Date</p>
+                <p className="mt-0.5 font-semibold text-slate-800">{formatDate(invoice.membership_expiry_date || member?.package_end_date)}</p>
+              </div>
+              <div className="border-t border-slate-200/50 pt-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Payment Date</p>
+                <p className="mt-0.5 font-semibold text-slate-800">{invoice.payment_date ? formatDate(invoice.payment_date) : '—'}</p>
+              </div>
+              <div className="border-t border-slate-200/50 pt-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Next Due Date</p>
+                <p className="mt-0.5 font-bold text-amber-700">{formatDate(invoice.due_date)}</p>
               </div>
             </section>
 

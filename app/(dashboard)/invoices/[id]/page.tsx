@@ -500,12 +500,28 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       <span className="font-semibold text-slate-900">{formatDate(invoice.created_at)}</span>
                     </div>
                     <div className="flex justify-between gap-4 sm:justify-end">
-                      <span className="text-slate-500">Due Date:</span>
-                      <span className="font-semibold text-slate-900">{formatDate(invoice.due_date)}</span>
+                      <span className="text-slate-500">Plan:</span>
+                      <span className="font-semibold text-slate-900">{member?.package_name ?? '—'}</span>
                     </div>
                     <div className="flex justify-between gap-4 sm:justify-end">
-                      <span className="text-slate-500">Membership Duration:</span>
+                      <span className="text-slate-500">Plan Duration:</span>
                       <span className="font-semibold text-slate-900">{member?.package_duration ?? '—'}</span>
+                    </div>
+                    <div className="flex justify-between gap-4 sm:justify-end">
+                      <span className="text-slate-500">Membership Start:</span>
+                      <span className="font-semibold text-slate-900">{formatDate(invoice.membership_start_date || member?.package_start_date)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4 sm:justify-end">
+                      <span className="text-slate-500">Membership Expiry:</span>
+                      <span className="font-semibold text-slate-900">{formatDate(invoice.membership_expiry_date || member?.package_end_date)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4 sm:justify-end">
+                      <span className="text-slate-500">Payment Date:</span>
+                      <span className="font-semibold text-slate-900">{invoice.payment_date ? formatDate(invoice.payment_date) : '—'}</span>
+                    </div>
+                    <div className="flex justify-between gap-4 sm:justify-end">
+                      <span className="text-slate-500 font-bold text-amber-700">Next Due Date:</span>
+                      <span className="font-bold text-amber-700">{formatDate(invoice.due_date)}</span>
                     </div>
                     {invoice.trainer_name && (
                       <div className="flex justify-between gap-4 sm:justify-end">

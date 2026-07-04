@@ -473,6 +473,10 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 </span>
               </div>
               <div className="flex justify-between border-t border-slate-100 pt-2.5 gap-4">
+                <span className="text-slate-400 font-semibold">Start Date</span>
+                <span className="font-bold text-slate-900 text-right">{formatDate(member.package_start_date)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
                 <span className="text-slate-400 font-semibold">Expiry Date</span>
                 <span className="font-bold text-slate-900 text-right">
                   {member.duration === 'Daily Pass' ? (
@@ -480,6 +484,43 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   ) : (
                     formatDate(expiry)
                   )}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Remaining Days</span>
+                <span className="font-bold text-slate-900 text-right">
+                  {member.duration === 'Daily Pass' ? '—' : (() => {
+                    if (!member.package_end_date) return '—';
+                    const exp = new Date(member.package_end_date);
+                    const td = new Date();
+                    td.setHours(0,0,0,0);
+                    exp.setHours(0,0,0,0);
+                    const rDays = Math.ceil((exp.getTime() - td.getTime()) / (1000 * 60 * 60 * 24));
+                    return rDays > 0 ? `${rDays} days` : '0 days (Expired)';
+                  })()}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Membership Status</span>
+                <span className="font-bold text-slate-900 text-right">
+                  <span className={cn(
+                    "font-bold",
+                    member.status === 'Active' ? 'text-emerald-600' :
+                    member.status === 'Expired' ? 'text-rose-600' : 'text-slate-500'
+                  )}>{member.status}</span>
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400 font-semibold">Biometric Status</span>
+                <span className="font-bold text-slate-900 text-right">
+                  <span className={cn(
+                    "badge py-0.5 px-2 text-xs font-bold rounded-full",
+                    member.biometric_status === 'DISABLED' 
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200' 
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  )}>
+                    {member.biometric_status || 'ENABLED'}
+                  </span>
                 </span>
               </div>
             </div>

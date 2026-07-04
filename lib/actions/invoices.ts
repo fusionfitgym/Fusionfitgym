@@ -116,7 +116,7 @@ export async function createInvoice(
     // 4. Verify selected member exists (Foreign key existence validation)
     const { data: memberData, error: memberError } = await supabase
       .from('members')
-      .select('id, membership_fee, parq_fee, admission_fee, trainer_fee, package_price')
+      .select('id, membership_fee, parq_fee, admission_fee, trainer_fee, package_price, package_start_date, package_end_date')
       .eq('id', values.member_id)
       .maybeSingle();
 
@@ -144,13 +144,15 @@ export async function createInvoice(
     const insertPayload = {
       member_id: values.member_id,
       amount: Number(values.amount),
-      due_date: values.due_date,
+      due_date: memberData?.package_end_date || values.due_date, // Next Due Date = Membership Expiry Date
       status: values.status,
       notes: values.notes || null,
       membership_fee,
       parq_fee,
       admission_fee,
       trainer_fee,
+      membership_start_date: memberData?.package_start_date || null,
+      membership_expiry_date: memberData?.package_end_date || null,
       invoice_number: '' // Trigger will auto-generate
     };
 
@@ -236,11 +238,18 @@ export async function duplicateInvoice(id: string): Promise<{ data?: Invoice; er
       return { error: 'Invoice not found.' };
     }
 
+    // Fetch current member details
+    const { data: memberData } = await supabase
+      .from('members')
+      .select('package_start_date, package_end_date')
+      .eq('id', original.member_id)
+      .maybeSingle();
+
     // 2. Insert new invoice cloning most values
     const insertPayload = {
       member_id: original.member_id,
       amount: original.amount,
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+      due_date: memberData?.package_end_date || original.due_date, // Next Due Date = Membership Expiry Date
       status: 'Pending',
       notes: original.notes ? `Cloned from ${original.invoice_number}. ${original.notes}` : `Cloned from ${original.invoice_number}`,
       membership_fee: original.membership_fee || 0,
@@ -257,6 +266,8 @@ export async function duplicateInvoice(id: string): Promise<{ data?: Invoice; er
       payment_method: null,
       transaction_id: null,
       payment_date: null,
+      membership_start_date: memberData?.package_start_date || original.membership_start_date || null,
+      membership_expiry_date: memberData?.package_end_date || original.membership_expiry_date || null,
       invoice_number: '' // Trigger will auto-generate
     };
 

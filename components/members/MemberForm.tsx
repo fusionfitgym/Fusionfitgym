@@ -100,11 +100,35 @@ export function MemberForm({
   const [isDragging, setIsDragging] = useState(false);
   const [ptPackages, setPtPackages] = useState<any[]>([]);
 
+  const [customDays, setCustomDays] = useState<number>(() => {
+    const initDuration = initialValues?.duration || (initialValues as any)?.package_duration;
+    if (initDuration) {
+      const match = String(initDuration).match(/\d+/);
+      if (match) {
+        const parsed = parseInt(match[0], 10);
+        // Standard non-custom days list: 30, 90, 180, 365, or 1 Month/3 Months/6 Months
+        if (![1, 30, 90, 180, 365].includes(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return 30; // default
+  });
+
   const legacyInitial = initialValues as any;
   const parsedInitialValues = {
     ...initialValues,
     gender: initialValues?.gender || legacyInitial?.gender || 'Gents',
-    duration: initialValues?.duration || legacyInitial?.duration || (legacyInitial?.package_duration === 'Custom' ? '1 Month' : legacyInitial?.package_duration) || '1 Month',
+    duration: (() => {
+      const dVal = initialValues?.duration || legacyInitial?.duration || legacyInitial?.package_duration || '1 Month';
+      if (['Daily Pass', '1 Month', '3 Months', '6 Months', '30 Days', '90 Days', '180 Days', '365 Days'].includes(dVal)) {
+        return dVal;
+      }
+      if (dVal && /\d+/.test(dVal)) {
+        return 'Custom Days';
+      }
+      return '1 Month';
+    })(),
     training_type: initialValues?.training_type || legacyInitial?.training_type || 'Weight Training Only',
     membership_fee: initialValues?.membership_fee ?? legacyInitial?.membership_fee ?? 1000,
     parq_purchased: initialValues?.parq_purchased ?? legacyInitial?.parq_purchased ?? false,
@@ -257,25 +281,75 @@ export function MemberForm({
       return;
     }
 
-    const durStr = duration.toLowerCase().trim();
-    if (durStr.includes('month') || durStr.includes('mo')) {
-      const match = durStr.match(/\d+/);
-      const num = match ? parseInt(match[0], 10) : 1;
-      start.setMonth(start.getMonth() + num);
+    // Get today's local date string in YYYY-MM-DD
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    // Get plan duration in days
+    let days = 30;
+    if (duration === 'Custom Days') {
+      days = customDays;
     } else {
-      start.setMonth(start.getMonth() + 1);
+      const durStr = duration.toLowerCase().trim();
+      if (durStr.includes('month') || durStr.includes('mo')) {
+        const match = durStr.match(/\d+/);
+        const num = match ? parseInt(match[0], 10) : 1;
+        days = num * 30;
+      } else if (durStr.includes('day')) {
+        const match = durStr.match(/\d+/);
+        days = match ? parseInt(match[0], 10) : 30;
+      } else {
+        if (duration === '1 Month') days = 30;
+        else if (duration === '3 Months') days = 90;
+        else if (duration === '6 Months') days = 180;
+      }
+    }
+
+    // Previous values for edit mode
+    const isEditing = !!(initialValues as any)?.id;
+    const prevExpiry = initialValues?.package_end_date;
+    const prevStatus = initialValues?.status;
+
+    let calculatedEndDate = '';
+    
+    if (isEditing && prevExpiry) {
+      // Active means: status is Active AND prevExpiry is today or in the future
+      const isActive = prevStatus === 'Active' && prevExpiry >= todayStr;
+      
+      if (isActive) {
+        // Active: New Expiry = Current Expiry Date + Plan Duration
+        const baseDate = new Date(prevExpiry);
+        baseDate.setDate(baseDate.getDate() + days);
+        calculatedEndDate = baseDate.toISOString().split('T')[0];
+      } else {
+        // Expired: New Expiry = Start Date (Payment Date) + Plan Duration
+        const baseDate = new Date(startDate);
+        baseDate.setDate(baseDate.getDate() + days);
+        calculatedEndDate = baseDate.toISOString().split('T')[0];
+      }
+    } else {
+      // New member: New Expiry = Start Date + Plan Duration
+      const baseDate = new Date(startDate);
+      baseDate.setDate(baseDate.getDate() + days);
+      calculatedEndDate = baseDate.toISOString().split('T')[0];
     }
     
-    setValue('package_end_date', start.toISOString().split('T')[0], { shouldDirty: true, shouldValidate: true });
-  }, [startDate, duration, setValue]);
+    setValue('package_end_date', calculatedEndDate, { shouldDirty: true, shouldValidate: true });
+  }, [startDate, duration, customDays, setValue, initialValues]);
 
   // Pricing engine recalculations based on Genders, Durations and Training Types
   useEffect(() => {
     if (!gender || !duration || !trainingType) return;
     
+    const isDailyPass = duration === 'Daily Pass';
+    const displayDuration = duration === 'Custom Days' ? `${customDays} Days` : duration;
+    
     const result = calculatePackagePrice({
       gender,
-      duration,
+      duration: displayDuration,
       trainingType,
       admissionFee,
       addOnSelections: {
@@ -300,10 +374,9 @@ export function MemberForm({
     const finalPackagePrice = result.membershipFee + result.addOnFees['parq_purchased'] + currentTrainerFee + admissionFee;
     setValue('package_price', finalPackagePrice, { shouldDirty: true, shouldValidate: true });
 
-    const isDailyPass = duration === 'Daily Pass';
-    const name = isDailyPass ? 'Daily Pass' : `${gender} - ${duration} - ${trainingType}`;
+    const name = isDailyPass ? 'Daily Pass' : `${gender} - ${displayDuration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
-    setValue('package_duration', duration, { shouldDirty: true, shouldValidate: true });
+    setValue('package_duration', displayDuration, { shouldDirty: true, shouldValidate: true });
   }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, ptPackageId, ptPackages, gymSettings, setValue]);
 
   useEffect(() => {
@@ -536,8 +609,33 @@ export function MemberForm({
                   <option value="1 Month">1 Month</option>
                   <option value="3 Months">3 Months</option>
                   <option value="6 Months">6 Months</option>
+                  <option value="30 Days">30 Days</option>
+                  <option value="90 Days">90 Days</option>
+                  <option value="180 Days">180 Days</option>
+                  <option value="365 Days">365 Days</option>
+                  <option value="Custom Days">Custom Days</option>
                 </select>
               </FormField>
+
+              {duration === 'Custom Days' && (
+                <FormField
+                  label="Custom Duration (Days)"
+                  htmlFor="custom_days"
+                  required
+                >
+                  <input
+                    id="custom_days"
+                    type="number"
+                    min="1"
+                    className="input-field font-semibold text-slate-800"
+                    value={customDays}
+                    onChange={(e) => {
+                      const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                      setCustomDays(val);
+                    }}
+                  />
+                </FormField>
+              )}
 
               <FormField
                 label="Training Type"
