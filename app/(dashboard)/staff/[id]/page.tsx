@@ -196,6 +196,55 @@ export default function StaffProfilePage() {
           <InfoRow label="Status" value={staff.status} icon={HardHat} />
           <InfoRow label="Biometric ID (Gents Machine)" value={staff.biometric_gents_id || '—'} icon={Fingerprint} />
           <InfoRow label="Biometric ID (Ladies Machine)" value={staff.biometric_ladies_id || '—'} icon={Fingerprint} />
+          <div className="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
+            <Fingerprint className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-slate-500 uppercase tracking-wider font-medium">Biometric Status</p>
+              <div className="mt-1 flex items-center justify-between gap-4">
+                <span className={cn(
+                  "badge py-0.5 px-2 text-xs font-bold rounded-full",
+                  staff.biometric_status === 'DISABLED' || staff.biometric_status === 'BLOCKED'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                  staff.biometric_status === 'DELETED'
+                    ? 'bg-slate-50 text-slate-700 border border-slate-200' :
+                  staff.biometric_status === 'PENDING'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                )}>
+                  {staff.biometric_status || 'ENABLED'}
+                </span>
+              </div>
+            </div>
+          </div>
+          {(staff.biometric_gents_id || staff.biometric_ladies_id) && (
+            <>
+              <InfoRow 
+                label="Last Sync" 
+                value={staff.biometric_last_sync ? new Date(staff.biometric_last_sync).toLocaleString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : 'Never'} 
+                icon={Fingerprint} 
+              />
+              <InfoRow 
+                label="Last Verification" 
+                value={staff.biometric_last_verification ? new Date(staff.biometric_last_verification).toLocaleString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) : 'Never'} 
+                icon={Fingerprint} 
+              />
+              <InfoRow 
+                label="Last Device Response" 
+                value={staff.biometric_last_device_response || 'None'} 
+                icon={Fingerprint} 
+              />
+            </>
+          )}
         </SectionCard>
 
         {/* Trainer Details */}

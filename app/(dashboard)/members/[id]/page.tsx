@@ -515,14 +515,50 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                 <span className="font-bold text-slate-900 text-right">
                   <span className={cn(
                     "badge py-0.5 px-2 text-xs font-bold rounded-full",
-                    member.biometric_status === 'DISABLED' 
-                      ? 'bg-rose-50 text-rose-700 border border-rose-200' 
+                    member.biometric_status === 'DISABLED' || member.biometric_status === 'BLOCKED'
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                    member.biometric_status === 'DELETED'
+                      ? 'bg-slate-50 text-slate-700 border border-slate-200' :
+                    member.biometric_status === 'PENDING'
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   )}>
                     {member.biometric_status || 'ENABLED'}
                   </span>
                 </span>
               </div>
+              {member.biometric_user_id && (
+                <>
+                  <div className="flex justify-between gap-4 border-t border-slate-100 pt-2.5">
+                    <span className="text-slate-400 font-semibold">Last Sync</span>
+                    <span className="font-semibold text-slate-800 text-right">
+                      {member.biometric_last_sync ? new Date(member.biometric_last_sync).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Never'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-400 font-semibold">Last Verification</span>
+                    <span className="font-semibold text-slate-800 text-right">
+                      {member.biometric_last_verification ? new Date(member.biometric_last_verification).toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Never'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-slate-400 font-semibold">Last Device Response</span>
+                    <span className="font-semibold text-slate-800 text-right max-w-[150px] truncate select-text" title={member.biometric_last_device_response}>
+                      {member.biometric_last_device_response || 'None'}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

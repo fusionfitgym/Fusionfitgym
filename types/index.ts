@@ -38,7 +38,10 @@ export interface Member {
   status: 'Active' | 'Inactive' | 'Expired' | 'Frozen';
   profile_photo?: string | null;
   biometric_user_id?: string | null;
-  biometric_status?: 'ENABLED' | 'DISABLED' | null;
+  biometric_status?: 'ENABLED' | 'DISABLED' | 'BLOCKED' | 'DELETED' | 'PENDING' | null;
+  biometric_last_sync?: string | null;
+  biometric_last_verification?: string | null;
+  biometric_last_device_response?: string | null;
   membership_status?: string | null;
   last_checkin?: string | null;
   sms_sent?: boolean;
@@ -374,6 +377,10 @@ export interface Staff {
   notes?: string | null;
   biometric_gents_id?: string | null;
   biometric_ladies_id?: string | null;
+  biometric_status?: 'ENABLED' | 'DISABLED' | 'BLOCKED' | 'DELETED' | 'PENDING' | null;
+  biometric_last_sync?: string | null;
+  biometric_last_verification?: string | null;
+  biometric_last_device_response?: string | null;
   created_at?: string;
   updated_at?: string;
 }

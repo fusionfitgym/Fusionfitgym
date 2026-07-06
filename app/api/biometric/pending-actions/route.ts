@@ -25,12 +25,13 @@ export async function GET(request: NextRequest) {
       value: new Date().toISOString()
     }, { onConflict: 'key' });
 
-    // 3. Retrieve the oldest pending biometric action from queue
+    // 3. Retrieve the oldest pending biometric action from queue ordered by priority and creation time
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('biometric_actions')
-      .select('id, member_id, biometric_id, action')
+      .select('id, member_id, staff_id, biometric_id, action, disable_method, entity_type, priority, created_at')
       .eq('status', 'pending')
+      .order('priority', { ascending: false })
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -58,11 +59,22 @@ export async function GET(request: NextRequest) {
       // We still return the data as it was retrieved
     }
 
-    // 5. Return matching camelCase format: { memberId, biometricId, action }
+    // 5. Return matching camelCase & snake_case formats for backward & forward compatibility
     return NextResponse.json({
-      memberId: data.member_id,
+      memberId: data.member_id || data.staff_id,
+      member_id: data.member_id || data.staff_id,
       biometricId: data.biometric_id,
-      action: data.action
+      biometric_id: data.biometric_id,
+      action: data.action,
+      commandId: data.id,
+      command_id: data.id,
+      entityType: data.entity_type,
+      entity_type: data.entity_type,
+      disableMethod: data.disable_method,
+      disable_method: data.disable_method,
+      priority: data.priority,
+      createdAt: data.created_at,
+      created_at: data.created_at
     });
   } catch (err: any) {
     console.error('Unhandled GET pending-actions error:', err);

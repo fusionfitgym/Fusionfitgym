@@ -75,7 +75,15 @@ const navItems = [
   },
   { href: '/attendance', label: 'Attendance', icon: Activity },
   { href: '/monitor', label: 'Live Monitor', icon: Tv },
-  { href: '/devices', label: 'Device Management', icon: Cpu },
+  {
+    label: 'Device Management',
+    icon: Cpu,
+    children: [
+      { href: '/devices', label: 'Device Status', icon: Cpu },
+      { href: '/devices/command-center', label: 'Command Center', icon: Activity },
+      { href: '/devices/inspector', label: 'Device Inspector', icon: ClipboardList },
+    ],
+  },
   { href: '/reports', label: 'Reports', icon: FileSpreadsheet },
   { href: '/health', label: 'Health Assessments', icon: HeartPulse },
   { href: '/parq', label: 'PAR-Q Forms', icon: ClipboardList },
@@ -215,6 +223,10 @@ function NavContent({
           return false;
         }
 
+        if (child.href.startsWith('/devices')) {
+          return role === 'Super Admin' || role === 'Admin';
+        }
+
         if (role === 'Admin' || role === 'Receptionist') {
           return ['/staff', '/staff/attendance'].includes(child.href);
         }
@@ -262,6 +274,7 @@ function NavContent({
 
   const [staffExpanded, setStaffExpanded] = useState(pathname.startsWith('/staff'));
   const [ptExpanded, setPtExpanded] = useState(pathname.startsWith('/pt'));
+  const [devicesExpanded, setDevicesExpanded] = useState(pathname.startsWith('/devices'));
 
   useEffect(() => {
     if (pathname.startsWith('/staff')) {
@@ -269,6 +282,9 @@ function NavContent({
     }
     if (pathname.startsWith('/pt')) {
       setPtExpanded(true);
+    }
+    if (pathname.startsWith('/devices')) {
+      setDevicesExpanded(true);
     }
   }, [pathname]);
 
@@ -315,8 +331,14 @@ function NavContent({
             if (item.children) {
               const isChildActive = item.children.some(child => isRouteActive(pathname, child.href));
               const isPt = item.label === 'Personal Training';
-              const expanded = isPt ? ptExpanded : staffExpanded;
-              const toggleExpand = () => isPt ? setPtExpanded(!ptExpanded) : setStaffExpanded(!staffExpanded);
+              const isStaff = item.label === 'Staff';
+              const isDevices = item.label === 'Device Management';
+              const expanded = isPt ? ptExpanded : (isStaff ? staffExpanded : devicesExpanded);
+              const toggleExpand = () => {
+                if (isPt) setPtExpanded(!ptExpanded);
+                else if (isStaff) setStaffExpanded(!staffExpanded);
+                else if (isDevices) setDevicesExpanded(!devicesExpanded);
+              };
               return (
                 <div key={item.label} className="space-y-1">
                   <button
