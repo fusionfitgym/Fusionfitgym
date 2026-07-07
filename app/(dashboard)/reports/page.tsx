@@ -282,7 +282,7 @@ export default function ReportsPage() {
                       'Employee ID': row.employee_id || '',
                       'Employee Name': row.full_name || '',
                       'Role': row.role || '',
-                      'Biometric ID': row.biometric_user_id || '',
+                      'Biometric ID': row.biometric_gents_id || row.biometric_ladies_id || '',
                       'Check In': row.check_in || '',
                       'Check Out': row.check_out || '',
                       'Shift': row.shift || '',
@@ -550,7 +550,7 @@ export default function ReportsPage() {
                           </div>
                         </td>
                         <td><span className="text-xs text-slate-600 font-semibold">{row.role}</span></td>
-                        <td><span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{row.biometric_user_id || '—'}</span></td>
+                        <td><span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{row.biometric_gents_id || row.biometric_ladies_id || '—'}</span></td>
                         <td><span className="text-xs text-slate-800">{row.check_in ? new Date(row.check_in).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}</span></td>
                         <td><span className="text-xs text-slate-800">{row.check_out ? new Date(row.check_out).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}</span></td>
                         <td><span className="text-xs text-slate-800">{row.working_hours !== null && row.working_hours !== undefined ? `${row.working_hours} hrs` : '—'}</span></td>

@@ -257,7 +257,7 @@ export default function StaffAttendancePage() {
                       <td className="font-mono text-xs text-slate-700 font-semibold">
                         <span className="inline-flex items-center gap-1">
                           <Fingerprint className="h-3 w-3 text-slate-400" />
-                          {row.biometric_user_id || '—'}
+                          {row.biometric_gents_id || row.biometric_ladies_id || '—'}
                         </span>
                       </td>
                       <td className="text-slate-900 text-xs font-medium">

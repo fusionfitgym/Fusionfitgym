@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sendExpiryWarningSMS, sendExpiredMembershipSMS, sendRenewalSMS } from '@/lib/sms';
+import { queueBiometricAction } from '@/lib/actions/members';
 
 /**
  * Check if a specific SMS type has been sent to the member since their package started
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     // 2. Fetch all members who are currently Active or Expired
     const { data: members, error: fetchError } = await supabase
       .from('members')
-      .select('id, full_name, phone, package_start_date, package_end_date, status, duration')
+      .select('id, full_name, phone, package_start_date, package_end_date, status, duration, biometric_user_id, biometric_status, machine_type')
       .in('status', ['Active', 'Expired']);
 
     if (fetchError) {
@@ -126,7 +127,11 @@ export async function POST(request: NextRequest) {
         if (member.status === 'Active') {
           const { error: updateErr } = await supabase
             .from('members')
-            .update({ status: 'Expired' })
+            .update({ 
+              status: 'Expired',
+              biometric_status: 'DISABLED',
+              updated_at: new Date().toISOString()
+            })
             .eq('id', member.id);
 
           if (updateErr) {
@@ -134,6 +139,15 @@ export async function POST(request: NextRequest) {
           } else {
             results.statusUpdates++;
             member.status = 'Expired'; // update in-memory status
+            
+            // Queue biometric disable command
+            if (member.biometric_user_id) {
+              try {
+                await queueBiometricAction(member.id, member.biometric_user_id, 'disable');
+              } catch (bioErr) {
+                console.error(`Failed to queue biometric disable for expired member ${member.full_name}:`, bioErr);
+              }
+            }
           }
         }
 

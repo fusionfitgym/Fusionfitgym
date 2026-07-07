@@ -61,7 +61,7 @@ export async function getBiometricMetrics(): Promise<BiometricMetrics> {
   let totalExecTime = 0;
   let execTimeCount = 0;
 
-  (actions || []).forEach(a => {
+  (actions || []).forEach((a: { status: string; execution_time_ms: number; }) => {
     if (a.status === 'pending' || a.status === 'sent') pendingCount++;
     else if (a.status === 'executing') executingCount++;
     else if (a.status === 'verifying') verifyingCount++;
@@ -170,7 +170,7 @@ export async function getInspectorCommands(filters: {
 
   if (filters.search && filters.search.trim()) {
     const s = filters.search.trim().toLowerCase();
-    results = results.filter(r => 
+    results = results.filter((r: { id: string; biometric_id: string | string[]; entity_name: string; notes: string; }) => 
       r.id.toLowerCase().includes(s) ||
       r.biometric_id.includes(s) ||
       (r.entity_name && r.entity_name.toLowerCase().includes(s)) ||

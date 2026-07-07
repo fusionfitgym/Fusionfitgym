@@ -14,6 +14,7 @@ import { useDemoState } from '@/components/auth/DemoStateProvider';
 import { toast } from 'sonner';
 import { formatDate, cn } from '@/lib/utils';
 import { TableSkeleton, MobileListSkeleton } from '@/components/ui/Skeleton';
+import { createClient } from '@/lib/supabase/client';
 
 export default function MembersPage() {
   const { profile } = useAuth();
@@ -30,6 +31,7 @@ export default function MembersPage() {
   const [machineFilter, setMachineFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const limit = 10;
   const totalPages = Math.ceil(totalCount / limit);
@@ -81,7 +83,27 @@ export default function MembersPage() {
       })
       .catch((err) => console.error('Failed to load paginated members:', err))
       .finally(() => setLoading(false));
-  }, [page, debouncedSearch, statusFilter, planFilter, machineFilter, isDemo, demo.members]);
+  }, [page, debouncedSearch, statusFilter, planFilter, machineFilter, isDemo, demo.members, refreshCount]);
+
+  // Real-time subscription to auto-refresh the member list on database changes
+  useEffect(() => {
+    if (isDemo) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel('members_realtime_list')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'members' },
+        () => {
+          setRefreshCount((c) => c + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isDemo]);
 
   async function handleDelete(id: string) {
     setDeleting(id);

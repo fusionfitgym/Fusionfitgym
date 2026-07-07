@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
 import { revalidatePath } from 'next/cache';
+import { table } from 'console';
 
 export interface SearchMemberResult {
   id: string;
@@ -178,10 +179,10 @@ export async function queueBlockAction(entityId: string, entityType: 'member' | 
     const { user } = await validateRole(['Super Admin']);
     const supabase = await createClient();
 
-    const table = entityType === 'member' ? 'members' : 'staff';
+    const selectCols = entityType === 'member' ? 'full_name, biometric_user_id' : 'full_name, biometric_gents_id, biometric_ladies_id';
     const { data: entity, error: fetchErr } = await supabase
       .from(table)
-      .select('full_name, biometric_user_id, biometric_gents_id, biometric_ladies_id')
+      .select(selectCols)
       .eq('id', entityId)
       .single();
 
@@ -212,10 +213,10 @@ export async function queueUnblockAction(entityId: string, entityType: 'member' 
     const { user } = await validateRole(['Super Admin']);
     const supabase = await createClient();
 
-    const table = entityType === 'member' ? 'members' : 'staff';
+    const selectCols = entityType === 'member' ? 'full_name, biometric_user_id' : 'full_name, biometric_gents_id, biometric_ladies_id';
     const { data: entity, error: fetchErr } = await supabase
       .from(table)
-      .select('full_name, biometric_user_id, biometric_gents_id, biometric_ladies_id')
+      .select(selectCols)
       .eq('id', entityId)
       .single();
 
@@ -246,10 +247,10 @@ export async function queueDeleteAction(entityId: string, entityType: 'member' |
     const { user } = await validateRole(['Super Admin']);
     const supabase = await createClient();
 
-    const table = entityType === 'member' ? 'members' : 'staff';
+    const selectCols = entityType === 'member' ? 'full_name, biometric_user_id' : 'full_name, biometric_gents_id, biometric_ladies_id';
     const { data: entity, error: fetchErr } = await supabase
       .from(table)
-      .select('full_name, biometric_user_id, biometric_gents_id, biometric_ladies_id')
+      .select(selectCols)
       .eq('id', entityId)
       .single();
 
@@ -280,10 +281,10 @@ export async function queueVerifyUserAction(entityId: string, entityType: 'membe
     const { user } = await validateRole(['Super Admin']);
     const supabase = await createClient();
 
-    const table = entityType === 'member' ? 'members' : 'staff';
+    const selectCols = entityType === 'member' ? 'full_name, biometric_user_id' : 'full_name, biometric_gents_id, biometric_ladies_id';
     const { data: entity, error: fetchErr } = await supabase
       .from(table)
-      .select('full_name, biometric_user_id, biometric_gents_id, biometric_ladies_id')
+      .select(selectCols)
       .eq('id', entityId)
       .single();
 
@@ -311,10 +312,10 @@ export async function queueReadUserAction(entityId: string, entityType: 'member'
     const { user } = await validateRole(['Super Admin']);
     const supabase = await createClient();
 
-    const table = entityType === 'member' ? 'members' : 'staff';
+    const selectCols = entityType === 'member' ? 'full_name, biometric_user_id' : 'full_name, biometric_gents_id, biometric_ladies_id';
     const { data: entity, error: fetchErr } = await supabase
       .from(table)
-      .select('full_name, biometric_user_id, biometric_gents_id, biometric_ladies_id')
+      .select(selectCols)
       .eq('id', entityId)
       .single();
 

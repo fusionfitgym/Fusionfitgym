@@ -109,25 +109,60 @@ export async function POST(request: NextRequest) {
       const dd = String(istPunch.getUTCDate()).padStart(2, '0');
       const dateStr = `${yyyy}-${mm}-${dd}`;
 
-      // Check if attendance record exists for this staff and date
-      const { data: existing, error: existingError } = await supabase
-        .from('staff_attendance')
-        .select('*')
-        .eq('staff_id', staffMember.id)
-        .eq('date', dateStr)
-        .maybeSingle();
+      // 1. Resolve whether we have an active check-in in the last 16 hours that lacks a checkout.
+      // This allows checking out night shift staff on Date 2 when they checked in on Date 1.
+      let existingRecord = null;
+      let existingError = null;
+
+      if (punchType === 'checkout') {
+        const sixteenHoursAgo = new Date(new Date(punchTime).getTime() - 16 * 60 * 60 * 1000).toISOString();
+        const { data: activeCheckIn, error } = await supabase
+          .from('staff_attendance')
+          .select('*')
+          .eq('staff_id', staffMember.id)
+          .is('check_out', null)
+          .gte('check_in', sixteenHoursAgo)
+          .order('check_in', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (error) {
+          existingError = error;
+        } else if (activeCheckIn) {
+          existingRecord = activeCheckIn;
+        }
+      }
+
+      // If we don't have an active crossover check-in (or it's a check-in event), check by dateStr.
+      if (!existingRecord && !existingError) {
+        const { data: dailyRecord, error } = await supabase
+          .from('staff_attendance')
+          .select('*')
+          .eq('staff_id', staffMember.id)
+          .eq('date', dateStr)
+          .maybeSingle();
+
+        if (error) {
+          existingError = error;
+        } else {
+          existingRecord = dailyRecord;
+        }
+      }
 
       if (existingError) {
         console.error('Database error checking existing staff attendance:', existingError);
         return NextResponse.json({ error: 'Database checking failed' }, { status: 500 });
       }
 
-      if (!existing) {
-        // First punch of the day: check-in
-        let status = 'Present';
-        let lateArrivalMinutes = 0;
+      // 2. Perform the Insert or Update
+      if (!existingRecord) {
+        // If punch type is checkout but no checkin exists, we can still record it
+        const checkInVal = punchType === 'checkin' ? punchTime : null;
+        const checkOutVal = punchType === 'checkout' ? punchTime : null;
 
         // Shift grace calculations (grace limit 15 min)
+        let status = 'Present';
+        let lateArrivalMinutes = 0;
         let shiftStartHour = 9;
         let shiftStartMinute = 0;
 
@@ -139,14 +174,16 @@ export async function POST(request: NextRequest) {
           shiftStartHour = 22;
         }
 
-        const punchHour = istPunch.getUTCHours();
-        const punchMinute = istPunch.getUTCMinutes();
-        const punchTotalMinutes = punchHour * 60 + punchMinute;
-        const shiftTotalMinutes = shiftStartHour * 60 + shiftStartMinute;
+        if (checkInVal) {
+          const punchHour = istPunch.getUTCHours();
+          const punchMinute = istPunch.getUTCMinutes();
+          const punchTotalMinutes = punchHour * 60 + punchMinute;
+          const shiftTotalMinutes = shiftStartHour * 60 + shiftStartMinute;
 
-        if (punchTotalMinutes > shiftTotalMinutes + 15) {
-          status = 'Late';
-          lateArrivalMinutes = punchTotalMinutes - shiftTotalMinutes;
+          if (punchTotalMinutes > shiftTotalMinutes + 15) {
+            status = 'Late';
+            lateArrivalMinutes = punchTotalMinutes - shiftTotalMinutes;
+          }
         }
 
         const { error: insertErr } = await supabase
@@ -154,7 +191,8 @@ export async function POST(request: NextRequest) {
           .insert({
             staff_id: staffMember.id,
             date: dateStr,
-            check_in: punchTime,
+            check_in: checkInVal,
+            check_out: checkOutVal,
             status,
             late_arrival_minutes: lateArrivalMinutes,
             shift: staffMember.shift || 'Default',
@@ -165,29 +203,38 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Failed to create staff attendance' }, { status: 500 });
         }
       } else {
-        // Subsequent punch of the day: check-out
-        const checkInTime = new Date(existing.check_in);
-        const checkOutTime = new Date(punchTime);
+        // Subsequent punch of the day: update check-out (or check-in if it was missing)
+        const checkInTimeStr = existingRecord.check_in || punchTime;
+        const checkOutTimeStr = punchTime;
+        
+        const checkInTime = new Date(checkInTimeStr);
+        const checkOutTime = new Date(checkOutTimeStr);
         const diffMs = checkOutTime.getTime() - checkInTime.getTime();
         const workingHours = Math.max(0, parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2)));
         const overtimeHours = workingHours > 8 ? parseFloat((workingHours - 8).toFixed(2)) : 0;
 
-        let status = existing.status;
+        let status = existingRecord.status;
         if (workingHours < 4) {
           status = 'Half Day';
-        } else if (existing.status === 'Half Day' && workingHours >= 4) {
-          status = existing.late_arrival_minutes > 15 ? 'Late' : 'Present';
+        } else if (existingRecord.status === 'Half Day' && workingHours >= 4) {
+          status = existingRecord.late_arrival_minutes > 15 ? 'Late' : 'Present';
+        }
+
+        const updatePayload: any = {
+          check_out: checkOutTimeStr,
+          working_hours: workingHours,
+          overtime_hours: overtimeHours,
+          status,
+        };
+
+        if (!existingRecord.check_in) {
+          updatePayload.check_in = punchTime;
         }
 
         const { error: updateErr } = await supabase
           .from('staff_attendance')
-          .update({
-            check_out: punchTime,
-            working_hours: workingHours,
-            overtime_hours: overtimeHours,
-            status,
-          })
-          .eq('id', existing.id);
+          .update(updatePayload)
+          .eq('id', existingRecord.id);
 
         if (updateErr) {
           console.error('Database error updating staff attendance:', updateErr);

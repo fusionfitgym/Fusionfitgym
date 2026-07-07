@@ -231,12 +231,13 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
 
 export async function updateMember(id: string, values: Partial<MemberFormValues>): Promise<{ data?: Member; error?: string }> {
   try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
     const supabase = await createClient();
 
-    // Retrieve current member record to check status/plan changes
+    // Retrieve current member record to check status/plan changes and biometric ID shifts
     const { data: oldMember } = await supabase
       .from('members')
-      .select('full_name, phone, package_start_date, package_end_date, status, package_name')
+      .select('full_name, phone, package_start_date, package_end_date, status, package_name, biometric_user_id')
       .eq('id', id)
       .single();
 
@@ -261,9 +262,24 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
       }
     }
 
+    const oldBioId = oldMember?.biometric_user_id;
+    const newBioId = values.biometric_user_id;
+    const isBioIdChanged = newBioId !== undefined && oldBioId !== newBioId;
+
+    // Extract non-members table columns to prevent database exceptions
+    const {
+      id: _, // strip primary key
+      discount,
+      tax,
+      payment_method,
+      paid_amount,
+      pt_package_id,
+      ...allowedValues
+    } = values as any;
+
     const { data, error } = await supabase
       .from('members')
-      .update(values)
+      .update(allowedValues)
       .eq('id', id)
       .select()
       .single();
@@ -280,11 +296,27 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
         data.biometric_status = nextBiometricStatus;
       }
 
+      // Queue block/delete command for old biometric mapping if changed
+      if (isBioIdChanged && oldBioId) {
+        const adminSupabase = createAdminClient();
+        await adminSupabase.from('biometric_actions').insert({
+          member_id: id,
+          biometric_id: oldBioId,
+          action: 'disable',
+          disable_method: 'delete',
+          status: 'pending',
+          notes: `Auto-queued on Biometric ID change from ${oldBioId} to ${newBioId}`
+        });
+      }
+
+      // Queue action for the new/current biometric ID
       if (data.biometric_user_id) {
         const actionType = nextBiometricStatus === 'ENABLED' ? 'enable' : 'disable';
         await queueBiometricAction(data.id, data.biometric_user_id, actionType);
       }
     }
+
+    await logAudit(`Updated member profile: ${data.full_name}`, 'Members', user.id);
 
     // Trigger automated Renewal SMS if membership start shifted or reactivated to Active
     if (oldMember && data && data.phone) {

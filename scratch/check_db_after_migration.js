@@ -1,57 +1,21 @@
 const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
-const path = require('path');
 
-// Read .env.local
-const envPath = path.join(__dirname, '..', '.env.local');
-const envContent = fs.readFileSync(envPath, 'utf8');
-const env = {};
-envContent.split('\n').forEach(line => {
-  const parts = line.split('=');
-  if (parts.length >= 2) {
-    env[parts[0].trim()] = parts.slice(1).join('=').trim();
-  }
-});
+const url = 'https://jfriacldwyfntttnbvwi.supabase.co';
+const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmcmlhY2xkd3lmbnR0dG5idndpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTAxNjA1NSwiZXhwIjoyMDk2NTkyMDU1fQ.tmrf7hQBJ19fPoN0t8UJgt8UofcISQKJUbSprbvARSQ';
 
-const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error('Missing credentials');
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabase = createClient(url, serviceKey);
 
 async function run() {
-  console.log('Verifying members columns...');
-  const { data: memberData, error: memberError } = await supabase
-    .from('members')
-    .select('*')
-    .limit(1);
+  const { data: member } = await supabase.from('members').select('*').limit(1).maybeSingle();
+  const { data: staff } = await supabase.from('staff').select('*').limit(1).maybeSingle();
+  const { data: attendance_log } = await supabase.from('attendance_logs').select('*').limit(1).maybeSingle();
+  const { data: staff_attendance } = await supabase.from('staff_attendance').select('*').limit(1).maybeSingle();
+  const { data: biometric_action } = await supabase.from('biometric_actions').select('*').limit(1).maybeSingle();
 
-  if (memberError) {
-    console.error('Error querying members:', memberError);
-  } else {
-    const cols = memberData.length > 0 ? Object.keys(memberData[0]) : [];
-    console.log('Members columns:', cols);
-    console.log('trainer_package exists:', cols.includes('trainer_package'));
-    console.log('trainer_fee exists:', cols.includes('trainer_fee'));
-  }
-
-  console.log('\nVerifying invoices columns...');
-  const { data: invoiceData, error: invoiceError } = await supabase
-    .from('invoices')
-    .select('*')
-    .limit(1);
-
-  if (invoiceError) {
-    console.error('Error querying invoices:', invoiceError);
-  } else {
-    const cols = invoiceData.length > 0 ? Object.keys(invoiceData[0]) : [];
-    console.log('Invoices columns:', cols);
-    console.log('trainer_fee exists:', cols.includes('trainer_fee'));
-  }
+  console.log('members columns:', Object.keys(member || {}));
+  console.log('staff columns:', Object.keys(staff || {}));
+  console.log('attendance_logs columns:', Object.keys(attendance_log || {}));
+  console.log('staff_attendance columns:', Object.keys(staff_attendance || {}));
+  console.log('biometric_actions columns:', Object.keys(biometric_action || {}));
 }
-
 run();

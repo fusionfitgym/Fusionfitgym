@@ -28,6 +28,7 @@ import {
   deleteAttendanceLog,
   getSyncLogs,
   assignBiometricId,
+  getAttendanceLogsPaginated,
 } from '@/lib/actions/attendance';
 import { getMembers } from '@/lib/actions/members';
 import { getStaff } from '@/lib/actions/staff';
@@ -53,13 +54,27 @@ function AttendancePageContent() {
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState(deviceIdParam || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(deviceIdParam || '');
   const [machineFilter, setMachineFilter] = useState<'All' | 'Gents' | 'Ladies'>('All');
+  const [timeframeFilter, setTimeframeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('daily');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const limit = 25;
 
   useEffect(() => {
     if (deviceIdParam) {
       setSearchQuery(deviceIdParam);
     }
   }, [deviceIdParam]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(1); // Reset to first page on search
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
   const [loading, setLoading] = useState(true);
   const [syncLogs, setSyncLogs] = useState<BiometricSyncLog[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -144,21 +159,44 @@ function AttendancePageContent() {
 
   const fetchAttendanceData = () => {
     if (isDemo) {
-      const filteredLogs = machineFilter === 'All'
-        ? demo.attendance
-        : demo.attendance.filter((l: any) => l.machine_type === machineFilter);
-      setLogs(filteredLogs as any);
+      let demoLogs = demo.attendance;
+      if (machineFilter !== 'All') {
+        demoLogs = demoLogs.filter((l: any) => l.machine_type === machineFilter);
+      }
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase().trim();
+        demoLogs = demoLogs.filter((l: any) => {
+          const name = l.member?.full_name || l.member_name || '';
+          const bioId = l.biometric_user_id || '';
+          return name.toLowerCase().includes(q) || bioId.includes(q);
+        });
+      }
+      setLogs(demoLogs as any);
+      setTotalCount(demoLogs.length);
       setAnalytics(demo.getAttendanceAnalytics());
       setLoading(false);
       return;
     }
-    Promise.all([getTodayAttendanceLogs(machineFilter === 'All' ? undefined : machineFilter), getAttendanceAnalytics()])
-      .then(([logsData, analyticsData]) => {
-        setLogs(logsData);
-        setAnalytics(analyticsData);
+    
+    // Fetch paginated enriched logs
+    getAttendanceLogsPaginated({
+      page,
+      limit,
+      timeframe: timeframeFilter,
+      search: debouncedSearch,
+      machine: machineFilter
+    })
+      .then((res) => {
+        setLogs(res.logs);
+        setTotalCount(res.totalCount);
       })
-      .catch((err) => console.error('Failed to load attendance:', err))
+      .catch((err) => console.error('Failed to load paginated logs:', err))
       .finally(() => setLoading(false));
+
+    // Fetch analytics summary (non-blocking)
+    getAttendanceAnalytics()
+      .then(setAnalytics)
+      .catch((err) => console.error('Failed to load analytics:', err));
   };
 
   useEffect(() => {
@@ -166,11 +204,27 @@ function AttendancePageContent() {
     // Auto refresh every 30 seconds for live updates
     const interval = setInterval(fetchAttendanceData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [page, timeframeFilter, debouncedSearch, machineFilter]);
 
+  // Real-time subscription to update automatically on new punch
   useEffect(() => {
-    fetchAttendanceData();
-  }, [machineFilter]);
+    if (isDemo) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel('attendance_live_logs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'attendance_logs' },
+        () => {
+          fetchAttendanceData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [page, timeframeFilter, debouncedSearch, machineFilter]);
 
   // Fetch diagnostics sync logs
   useEffect(() => {
@@ -216,21 +270,61 @@ function AttendancePageContent() {
     }
   };
 
-  const searchText = (searchQuery || "").toLowerCase();
+  const handleExportCSV = async () => {
+    try {
+      let exportData: AttendanceLog[] = [];
+      if (isDemo) {
+        exportData = logs;
+      } else {
+        const res = await getAttendanceLogsPaginated({
+          page: 1,
+          limit: 1000,
+          timeframe: timeframeFilter,
+          search: debouncedSearch,
+          machine: machineFilter
+        });
+        exportData = res.logs;
+      }
 
-  const filteredLogs = (logs || []).filter((log) => {
-    const memberName =
-      (log?.member as any)?.name ||
-      log?.member?.full_name ||
-      log?.member_name ||
-      "Unknown Member";
-    const biometricUserId = log?.biometric_user_id || "";
-    
-    return (
-      (memberName || "").toLowerCase().includes(searchText) ||
-      (biometricUserId || "").includes(searchQuery || "")
-    );
-  });
+      if (exportData.length === 0) {
+        toast.error('No logs to export');
+        return;
+      }
+
+      const headers = ['Member Name', 'Biometric ID', 'Machine', 'Time', 'Punch Type'];
+      const csvRows = [headers.join(',')];
+
+      exportData.forEach((log) => {
+        const memberName = (log?.member as any)?.name || log?.member?.full_name || log?.member_name || 'Unknown Member';
+        const biometricId = log?.biometric_user_id || '—';
+        const machine = log.machine_type || 'Gents';
+        const timeStr = log.punch_time ? new Date(log.punch_time).toLocaleString('en-IN') : '—';
+        const typeStr = log.punch_type === 'checkout' ? 'Check-out' : 'Check-in';
+
+        const row = [
+          `"${memberName.replace(/"/g, '""')}"`,
+          `"${biometricId.replace(/"/g, '""')}"`,
+          `"${machine.replace(/"/g, '""')}"`,
+          `"${timeStr.replace(/"/g, '""')}"`,
+          `"${typeStr.replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `attendance_logs_${timeframeFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Attendance logs exported successfully!');
+    } catch (err) {
+      console.error('Failed to export attendance logs:', err);
+      toast.error('Failed to export CSV');
+    }
+  };
 
   return (
     <div className="page page-enter">
@@ -394,21 +488,52 @@ function AttendancePageContent() {
           <section className="mt-6">
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="section-title">Today's activity log</h2>
+                <h2 className="section-title">
+                  {timeframeFilter === 'daily' && "Today's activity log"}
+                  {timeframeFilter === 'weekly' && "Weekly activity log (Last 7 Days)"}
+                  {timeframeFilter === 'monthly' && "Monthly activity log (Last 30 Days)"}
+                  {timeframeFilter === 'all' && "Historical activity log (Last 90 Days)"}
+                </h2>
                 <p className="section-description">Real-time punch records from the biometric machines</p>
               </div>
-              <div className="flex gap-2">
-                <select value={machineFilter} onChange={(e) => setMachineFilter(e.target.value as any)} className="select-field md:w-44">
+              <div className="flex flex-wrap gap-2 items-center">
+                <select 
+                  value={timeframeFilter} 
+                  onChange={(e) => {
+                    setTimeframeFilter(e.target.value as any);
+                    setPage(1);
+                  }} 
+                  className="select-field md:w-36"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="all">90 Days</option>
+                </select>
+                <select 
+                  value={machineFilter} 
+                  onChange={(e) => {
+                    setMachineFilter(e.target.value as any);
+                    setPage(1);
+                  }} 
+                  className="select-field md:w-36"
+                >
                   <option value="All">All Members</option>
                   <option value="Gents">Gents Machine</option>
                   <option value="Ladies">Ladies Machine</option>
                 </select>
+                <button
+                  onClick={handleExportCSV}
+                  className="btn btn-sm btn-ghost border border-slate-200 cursor-pointer font-bold text-xs flex items-center gap-1.5 h-9 px-3 rounded-lg hover:bg-slate-50 bg-white"
+                >
+                  📥 Export CSV
+                </button>
               </div>
               <div className="input-with-icon max-w-xs">
                 <Search className="h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="Search member or biometric user ID..."
+                  placeholder="Search member or ID..."
                   className="input-field"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -416,9 +541,9 @@ function AttendancePageContent() {
               </div>
             </div>
 
-            {filteredLogs.length === 0 ? (
+            {logs.length === 0 ? (
               <div className="card p-12 text-center text-slate-400">
-                No check-in logs found for today matching the filters.
+                No check-in logs found matching the filters.
               </div>
             ) : (
               <div className="card overflow-hidden">
@@ -434,7 +559,7 @@ function AttendancePageContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLogs.map((log) => {
+                      {logs.map((log) => {
                         const memberName =
                           (log?.member as any)?.name ||
                           log?.member?.full_name ||
@@ -505,6 +630,33 @@ function AttendancePageContent() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {totalCount > limit && (
+                  <div className="flex items-center justify-between border-t border-slate-100 p-4 bg-slate-50/30">
+                    <p className="text-xs text-slate-500 font-medium">
+                      Showing <strong className="text-slate-800">{(page - 1) * limit + 1}</strong> to{' '}
+                      <strong className="text-slate-800">{Math.min(page * limit, totalCount)}</strong> of{' '}
+                      <strong className="text-slate-800">{totalCount}</strong> logs
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="btn btn-sm btn-ghost border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-white"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
+                        disabled={page >= Math.ceil(totalCount / limit)}
+                        className="btn btn-sm btn-ghost border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-white"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>

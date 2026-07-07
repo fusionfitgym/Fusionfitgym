@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { 
   Calendar, 
   Clock, 
@@ -26,7 +28,27 @@ export function ExpiryAndBiometricsSection({
   expiredMembers,
   disabledBiometrics
 }: ExpiryAndBiometricsSectionProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'today' | '3days' | 'expired' | 'biometrics'>('today');
+
+  // Real-time subscription to update the dashboard immediately when a biometric action is completed or updated
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('dashboard_realtime_expiry_biometrics')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'biometric_actions' },
+        () => {
+          router.refresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
 
   const tabs = [
     {

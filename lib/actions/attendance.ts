@@ -203,9 +203,9 @@ export async function getAttendanceHistory(filters?: {
   const supabase = await createClient();
   let query = supabase.from('attendance_logs').select('*');
 
-  const fifteenDaysAgo = new Date();
-  fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
-  fifteenDaysAgo.setHours(0, 0, 0, 0);
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  ninetyDaysAgo.setHours(0, 0, 0, 0);
 
   if (filters?.member_id) {
     // If the filter is passing member_id as a UUID, find that member first
@@ -222,13 +222,10 @@ export async function getAttendanceHistory(filters?: {
     }
   }
 
-  // Enforce query limit of last 15 days
-  let queryStartDate = fifteenDaysAgo;
+  // Fallback to last 90 days if no start date is supplied
+  let queryStartDate = ninetyDaysAgo;
   if (filters?.startDate) {
-    const requestedStart = new Date(filters.startDate);
-    if (requestedStart > fifteenDaysAgo) {
-      queryStartDate = requestedStart;
-    }
+    queryStartDate = new Date(filters.startDate);
   }
   query = query.gte('created_at', queryStartDate.toISOString());
 
@@ -246,6 +243,86 @@ export async function getAttendanceHistory(filters?: {
   }
 
   return enrichLogs(data || []);
+}
+
+// Fetch paginated attendance logs with filters (timeframe, machine, search query)
+export async function getAttendanceLogsPaginated(options: {
+  page: number;
+  limit: number;
+  timeframe: 'daily' | 'weekly' | 'monthly' | 'all';
+  search?: string;
+  machine?: 'All' | 'Gents' | 'Ladies';
+}): Promise<{ logs: AttendanceLog[]; totalCount: number }> {
+  const supabase = await createClient();
+  let query = supabase.from('attendance_logs').select('*', { count: 'exact' });
+
+  // 1. Timeframe filter
+  if (options.timeframe === 'daily') {
+    const startOfDay = getStartOfTodayIST();
+    query = query.gte('created_at', startOfDay.toISOString());
+  } else if (options.timeframe === 'weekly') {
+    const weeklyStart = new Date();
+    weeklyStart.setDate(weeklyStart.getDate() - 7);
+    weeklyStart.setHours(0, 0, 0, 0);
+    query = query.gte('created_at', weeklyStart.toISOString());
+  } else if (options.timeframe === 'monthly') {
+    const monthlyStart = new Date();
+    monthlyStart.setDate(monthlyStart.getDate() - 30);
+    monthlyStart.setHours(0, 0, 0, 0);
+    query = query.gte('created_at', monthlyStart.toISOString());
+  } else {
+    // Default to last 90 days to align with retention limits
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    ninetyDaysAgo.setHours(0, 0, 0, 0);
+    query = query.gte('created_at', ninetyDaysAgo.toISOString());
+  }
+
+  // 2. Machine filter
+  if (options.machine && options.machine !== 'All') {
+    query = query.eq('machine_type', options.machine);
+  }
+
+  // 3. Search query (supports name search or biometric ID search)
+  if (options.search && options.search.trim()) {
+    const s = options.search.trim();
+    // Resolve matching member IDs for name searches
+    const { data: matchedMembers } = await supabase
+      .from('members')
+      .select('biometric_user_id')
+      .ilike('full_name', `%${s}%`);
+
+    const bioIds = (matchedMembers || [])
+      .map((m: { biometric_user_id: any; }) => m.biometric_user_id)
+      .filter(Boolean);
+
+    if (bioIds.length > 0) {
+      // Create search matching criteria
+      query = query.or(`biometric_user_id.in.(${bioIds.join(',')}),biometric_user_id.ilike.%${s}%,member_id.ilike.%${s}%`);
+    } else {
+      query = query.or(`biometric_user_id.ilike.%${s}%,member_id.ilike.%${s}%`);
+    }
+  }
+
+  // 4. Order and pagination range
+  const from = (options.page - 1) * options.limit;
+  const to = from + options.limit - 1;
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error in getAttendanceLogsPaginated:', error);
+    throw error;
+  }
+
+  const enriched = await enrichLogs(data || []);
+
+  return {
+    logs: enriched,
+    totalCount: count || 0
+  };
 }
 
 // Calculate current metrics, including check-ins, check-outs, and live occupancy
