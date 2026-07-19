@@ -72,6 +72,11 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       ...memberInsertData
     } = validatedValues as any;
 
+    // Convert empty string to null to avoid unique constraint violations
+    if (memberInsertData.biometric_user_id === '') {
+      memberInsertData.biometric_user_id = null;
+    }
+
     const { data: member, error } = await supabase
       .from('members')
       .insert([memberInsertData])
@@ -276,6 +281,11 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
       pt_package_id,
       ...allowedValues
     } = values as any;
+
+    // Convert empty string to null to avoid unique constraint violations
+    if (allowedValues.biometric_user_id === '') {
+      allowedValues.biometric_user_id = null;
+    }
 
     const { data, error } = await supabase
       .from('members')

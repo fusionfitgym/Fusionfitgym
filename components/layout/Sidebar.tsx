@@ -224,7 +224,7 @@ function NavContent({
         }
 
         if (child.href.startsWith('/devices')) {
-          return role === 'Super Admin' || role === 'Admin';
+          return role === 'Admin';
         }
 
         if (role === 'Admin' || role === 'Receptionist') {

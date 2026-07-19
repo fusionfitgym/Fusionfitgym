@@ -101,8 +101,6 @@ DECLARE
   new_ladies TEXT;
   old_status TEXT;
   new_status TEXT;
-END;
--- Placeholder that will be implemented in the trigger
 BEGIN
   old_gents := OLD.biometric_gents_id;
   new_gents := NEW.biometric_gents_id;
