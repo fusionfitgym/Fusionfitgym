@@ -44,9 +44,13 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Logo upload states
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
+
+  // WhatsApp Test states
+  const [waTestPhone, setWaTestPhone] = useState('');
+  const [waTestMessage, setWaTestMessage] = useState('Hello 👋\n\nThis is a test message sent from Fusion Fit ERP.\n\nIf you received this message, the Wati integration is working successfully.');
+  const [waTesting, setWaTesting] = useState(false);
 
   const { register, handleSubmit, reset } = useForm<GymSettings>();
 
@@ -76,6 +80,38 @@ export default function SettingsPage() {
     if (file) {
       setLogoFile(file);
       setLogoPreview(URL.createObjectURL(file));
+    }
+  }
+
+  async function handleWhatsAppTest() {
+    if (!waTestPhone) {
+      toast.error('Test Phone Number is required.');
+      return;
+    }
+    if (!waTestMessage) {
+      toast.error('Test Message is required.');
+      return;
+    }
+
+    setWaTesting(true);
+    try {
+      const response = await fetch('/api/test-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: waTestPhone, message: waTestMessage }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send WhatsApp message.');
+      }
+      
+      toast.success('WhatsApp test message sent successfully.');
+    } catch (err: any) {
+      toast.error(err.message || 'An error occurred while testing WhatsApp.');
+    } finally {
+      setWaTesting(false);
     }
   }
 
@@ -355,6 +391,51 @@ export default function SettingsPage() {
             </div>
           </div>
         </SectionCard>
+
+        {/* WhatsApp Test Section */}
+        {profile?.role === 'Super Admin' || profile?.role === 'Admin' ? (
+          <SectionCard
+            title="WhatsApp Test"
+            description="Verify that your Wati API configuration is working correctly."
+            icon={<MessageSquare className="h-5 w-5" />}
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
+              <div className="flex flex-col gap-2">
+                <label htmlFor="wa_test_phone" className="text-sm font-semibold text-slate-800">Test Phone Number</label>
+                <input
+                  id="wa_test_phone"
+                  type="text"
+                  placeholder="919876543210"
+                  className="input-field"
+                  value={waTestPhone}
+                  onChange={(e) => setWaTestPhone(e.target.value)}
+                />
+                <span className="text-[10px] text-slate-500">International format without + (e.g. 919876543210)</span>
+              </div>
+              
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <label htmlFor="wa_test_message" className="text-sm font-semibold text-slate-800">Test Message</label>
+                <textarea
+                  id="wa_test_message"
+                  rows={6}
+                  className="input-field py-2"
+                  value={waTestMessage}
+                  onChange={(e) => setWaTestMessage(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleWhatsAppTest}
+              disabled={waTesting}
+              className="btn btn-primary"
+            >
+              {waTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {waTesting ? 'Sending...' : 'Send Test Message'}
+            </button>
+          </SectionCard>
+        ) : null}
 
         {/* Database Administration Section */}
         <SectionCard
