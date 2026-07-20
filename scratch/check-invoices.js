@@ -16,10 +16,20 @@ async function run() {
     return;
   }
 
-  console.log(`Total invoices: ${invoices.length}`);
-  invoices.forEach(inv => {
-    console.log(`ID: ${inv.id}, Amount: ${inv.amount}, Status: ${inv.status}, CreatedAt: ${inv.created_at}, DueDate: ${inv.due_date}`);
-  });
+  const maxSeq = Math.max(...invoices.map(inv => {
+    const match = inv.invoice_number.match(/-(\d+)$/);
+    return match ? parseInt(match[1], 10) : 0;
+  }));
+
+  console.log(`Max sequence in DB: ${maxSeq}`);
+  
+  const { error: rpcError } = await supabase.rpc('set_invoice_sequence', { start_num: maxSeq + 1 });
+  
+  if (rpcError) {
+    console.error('Error resetting sequence:', rpcError);
+  } else {
+    console.log(`Successfully reset invoice sequence to ${maxSeq + 1}`);
+  }
 }
 
 run();
