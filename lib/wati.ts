@@ -9,25 +9,40 @@ export async function sendSessionMessage(phone: string, message: string) {
   // Ensure base URL doesn't end with slash
   const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   
-  // Wati sendSessionMessage expects messageText as a Query Parameter, not a JSON body
-  const endpoint = `${normalizedBaseUrl}/api/v1/sendSessionMessage/${phone}?messageText=${encodeURIComponent(message)}`;
+  // Endpoint remains unchanged without query parameters
+  const endpoint = `${normalizedBaseUrl}/api/v1/sendSessionMessage/${phone}`;
   
-  console.log('[Wati API] Final request URL:', endpoint);
-  console.log('[Wati API] Final JSON payload:', null); // No JSON payload required for this endpoint
-  
-  try {
+  // Using URLSearchParams to format as application/x-www-form-urlencoded
+  const body = new URLSearchParams();
+  body.append("messageText", message);
+  const requestBody = body.toString();
+
+  // Mask token for secure logging
+  const maskedToken = token.length > 8 
+    ? `${token.slice(0, 4)}...${token.slice(-4)}`
+    : '***';
+
+  const makeRequest = async (authHeaderValue: string) => {
+    console.log('\n--- [Wati API] Request Details ---');
+    console.log('Final URL:', endpoint);
+    console.log('Authorization header:', authHeaderValue.replace(token, maskedToken));
+    console.log('Content-Type:', 'application/x-www-form-urlencoded');
+    console.log('Request Body:', requestBody);
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
-      // No body needed for sendSessionMessage since it uses query params
+        'Authorization': authHeaderValue,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: requestBody
     });
 
     const text = await response.text();
     
-    console.log('[Wati API] Wati response status:', response.status);
-    console.log('[Wati API] Wati response body:', text);
+    console.log('HTTP Status:', response.status);
+    console.log('Complete Wati Response:', text);
+    console.log('----------------------------------\n');
 
     let data;
     try {
@@ -36,6 +51,34 @@ export async function sendSessionMessage(phone: string, message: string) {
       throw new Error(`Invalid JSON response from Wati API: ${text}`);
     }
 
+    return { response, data };
+  };
+  
+  try {
+    // Attempt 1: Standard Bearer Token
+    let { response, data } = await makeRequest(`Bearer ${token}`);
+
+    // If we receive an error from Wati, check if it's an authorization/token issue
+    if (!response.ok || data.result === false) {
+      const errorMsg = data.info || data.message || data.error || '';
+      
+      // Some Wati V1 instances require raw token. Retry once if auth failed.
+      if (response.status === 401 || errorMsg.toLowerCase().includes('unauthorized') || errorMsg.includes('invalid token')) {
+        console.log('[Wati API] First attempt failed. Retrying using raw token (without Bearer prefix)...');
+        
+        const retryResult = await makeRequest(token);
+        response = retryResult.response;
+        data = retryResult.data;
+        
+        if (response.ok && data.result !== false) {
+          console.log('[Wati API] SUCCESS: Authenticated successfully using raw token method.');
+        }
+      }
+    } else {
+      console.log('[Wati API] SUCCESS: Authenticated successfully using Bearer token method.');
+    }
+
+    // After retries, if still failing, throw exact Wati error
     if (!response.ok || data.result === false) {
       throw new Error(data.info || data.message || data.error || `Wati API Error (${response.status})`);
     }
