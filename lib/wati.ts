@@ -137,3 +137,41 @@ export async function sendTemplateMessage(phone: string, templateName: string, p
     throw error;
   }
 }
+
+export async function sendAutoWhatsAppMessage(
+  phone: string,
+  message: string,
+  templateName: string,
+  parameters: any[] = [],
+  memberId?: string
+) {
+  try {
+    // 1. Try Session Message first
+    const result = await sendSessionMessage(phone, message);
+    console.log(`[WhatsApp Log] WhatsApp Welcome sent via Session | Phone: ${phone} | Member ID: ${memberId || 'N/A'}`);
+    return result;
+  } catch (error: any) {
+    const errorMsg = error.message || '';
+    const shouldFallback = 
+      errorMsg.toLowerCase().includes('conversation not found') ||
+      errorMsg.toLowerCase().includes('session expired') ||
+      errorMsg.toLowerCase().includes('outside 24 hour window') ||
+      errorMsg.toLowerCase().includes('no active session');
+
+    if (shouldFallback) {
+      console.log(`[WhatsApp Log] Session message failed due to: ${errorMsg}. Falling back to template message. | Phone: ${phone} | Member ID: ${memberId || 'N/A'}`);
+      
+      try {
+        const templateResult = await sendTemplateMessage(phone, templateName, parameters);
+        console.log(`[WhatsApp Log] WhatsApp Welcome sent via Template | Phone: ${phone} | Member ID: ${memberId || 'N/A'} | Template Name: ${templateName}`);
+        return templateResult;
+      } catch (templateError: any) {
+        console.error(`[WhatsApp Log] WhatsApp Failed | Phone: ${phone} | Member ID: ${memberId || 'N/A'} | Template Name: ${templateName} | Wati Response: ${templateError.message}`);
+        throw templateError;
+      }
+    } else {
+      console.error(`[WhatsApp Log] WhatsApp Failed (Session error not eligible for fallback) | Phone: ${phone} | Member ID: ${memberId || 'N/A'} | Wati Response: ${errorMsg}`);
+      throw error;
+    }
+  }
+}

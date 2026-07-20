@@ -51,6 +51,8 @@ export default function SettingsPage() {
   const [waTestPhone, setWaTestPhone] = useState('');
   const [waTestMessage, setWaTestMessage] = useState('Hello 👋\n\nThis is a test message sent from Fusion Fit ERP.\n\nIf you received this message, the Wati integration is working successfully.');
   const [waTesting, setWaTesting] = useState(false);
+  const [waTestMessageType, setWaTestMessageType] = useState('auto');
+  const [waTestTemplateName, setWaTestTemplateName] = useState('welcome_member');
 
   const { register, handleSubmit, reset } = useForm<GymSettings>();
 
@@ -98,7 +100,7 @@ export default function SettingsPage() {
       const response = await fetch('/api/test-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: waTestPhone, message: waTestMessage }),
+        body: JSON.stringify({ phone: waTestPhone, message: waTestMessage, messageType: waTestMessageType, templateName: waTestTemplateName }),
       });
       
       const data = await response.json();
@@ -392,6 +394,24 @@ export default function SettingsPage() {
           </div>
         </SectionCard>
 
+        <SectionCard
+          title="WhatsApp Settings"
+          description="Configure default WhatsApp templates for automatic messaging."
+          icon={<MessageSquare className="h-5 w-5" />}
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Default Welcome Template" htmlFor="default_welcome_template">
+              <input
+                id="default_welcome_template"
+                type="text"
+                placeholder="welcome_member"
+                className="input-field"
+                {...register('default_welcome_template')}
+              />
+            </FormField>
+          </div>
+        </SectionCard>
+
         {/* WhatsApp Test Section */}
         {profile?.role === 'Super Admin' || profile?.role === 'Admin' ? (
           <SectionCard
@@ -423,6 +443,33 @@ export default function SettingsPage() {
                   onChange={(e) => setWaTestMessage(e.target.value)}
                 />
               </div>
+
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <label htmlFor="wa_test_message_type" className="text-sm font-semibold text-slate-800">Message Type</label>
+                <select
+                  id="wa_test_message_type"
+                  className="input-field"
+                  value={waTestMessageType}
+                  onChange={(e) => setWaTestMessageType(e.target.value)}
+                >
+                  <option value="auto">Auto</option>
+                  <option value="session">Session</option>
+                  <option value="template">Template</option>
+                </select>
+              </div>
+
+              {waTestMessageType === 'template' && (
+                <div className="flex flex-col gap-2 sm:col-span-2">
+                  <label htmlFor="wa_test_template_name" className="text-sm font-semibold text-slate-800">Template Name</label>
+                  <input
+                    id="wa_test_template_name"
+                    type="text"
+                    className="input-field"
+                    value={waTestTemplateName}
+                    onChange={(e) => setWaTestTemplateName(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
             
             <button

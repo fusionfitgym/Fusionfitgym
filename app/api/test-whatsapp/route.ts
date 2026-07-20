@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserProfile } from '@/lib/actions/auth';
-import { sendSessionMessage } from '@/lib/wati';
+import { sendSessionMessage, sendTemplateMessage, sendAutoWhatsAppMessage } from '@/lib/wati';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
     }
 
-    const { phone, message } = body;
+    const { phone, message, messageType = 'auto', templateName = 'welcome_member' } = body;
 
     // 3. Validation
     if (!phone || typeof phone !== 'string') {
@@ -47,7 +47,19 @@ export async function POST(request: NextRequest) {
     // 4. Send Message via Wati API
     const startTime = Date.now();
     try {
-      const result = await sendSessionMessage(cleanPhone, message);
+      let result;
+      if (messageType === 'template') {
+        result = await sendTemplateMessage(cleanPhone, templateName, [
+          { name: 'full_name', value: 'Test User' }
+        ]);
+      } else if (messageType === 'session') {
+        result = await sendSessionMessage(cleanPhone, message);
+      } else {
+        result = await sendAutoWhatsAppMessage(cleanPhone, message, templateName, [
+          { name: 'full_name', value: 'Test User' }
+        ], 'test-user');
+      }
+      
       const responseTime = Date.now() - startTime;
       
       console.log(`[WhatsApp Test] SUCCESS | Time: ${new Date().toISOString()} | Phone: ${cleanPhone} | Response Time: ${responseTime}ms`);

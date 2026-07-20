@@ -288,6 +288,7 @@ export interface GymSettings {
   invoice_footer?: string;
   invoice_terms?: string;
   invoice_auto_generation?: boolean;
+  default_welcome_template?: string;
 }
 
 // ── SMS Logs ────────────────────────────────────────────────

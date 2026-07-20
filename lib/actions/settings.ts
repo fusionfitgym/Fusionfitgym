@@ -56,6 +56,7 @@ export async function getSettings(): Promise<GymSettings> {
     invoice_footer: map.invoice_footer ?? 'Thank you for your business!',
     invoice_terms: map.invoice_terms ?? 'Terms & Conditions apply. Fees once paid are non-refundable.',
     invoice_auto_generation: map.invoice_auto_generation !== 'false',
+    default_welcome_template: map.default_welcome_template ?? 'welcome_member',
   };
 }
 

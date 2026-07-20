@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Member, MemberFormValues, memberSchema } from '@/types';
 import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
+import { sendAutoWhatsAppMessage } from '@/lib/wati';
 import { formatDate } from '@/lib/utils';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
@@ -223,6 +224,30 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
           console.error('Error creating PT client entry:', ptErr);
         }
       }
+    }
+
+    // Trigger WhatsApp Welcome Message non-blocking
+    if (member.phone) {
+      const templateName = settings.default_welcome_template || 'welcome_member';
+      const welcomeMsg = `Hello ${member.full_name},\n\nWelcome to FusionFit Gym! We're excited to have you on board.\nYour membership is now active.`;
+      
+      // Dispatch asynchronously without blocking return
+      Promise.resolve().then(async () => {
+        try {
+          await sendAutoWhatsAppMessage(
+            member.phone,
+            welcomeMsg,
+            templateName,
+            [{
+              name: 'full_name',
+              value: member.full_name
+            }],
+            member.id
+          );
+        } catch (err) {
+          console.error('[WhatsApp Log] Non-blocking WhatsApp dispatch failed:', err);
+        }
+      });
     }
 
     revalidatePath('/');
