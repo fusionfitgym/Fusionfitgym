@@ -1,48 +1,7 @@
-import { getSettings } from '@/lib/actions/settings';
-import { createClient } from '@/lib/supabase/server';
 import { normalizeToE164 } from './phone';
+import { renderTemplate, BUILTIN_TEMPLATES } from './sms-templates';
 
-/**
- * Replace placeholders in template strings. Supports both {key} and {{key}}.
- */
-export function renderTemplate(template: string, data: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(data)) {
-    result = result.replace(new RegExp(`{+\\s*${key}\\s*}+`, 'g'), value);
-  }
-  return result;
-}
-
-export const BUILTIN_TEMPLATES = {
-  renewal: `🏋️ Fusion Fit Gym
-
-Hi {memberName},
-
-Your membership has been renewed successfully.
-
-📦 Plan: {planName}
-📅 Renewal Date: {renewalDate}
-📆 Valid Until: {expiryDate}
-💰 Amount Paid: ₹{amount}
-
-Thank you for choosing Fusion Fit Gym.
-Keep training and stay healthy!`,
-
-  invoice: `🏋️ Fusion Fit Gym
-
-Hi {memberName},
-
-Your payment has been received successfully.
-
-🧾 Invoice No: {invoiceNumber}
-📅 Date: {invoiceDate}
-📦 Plan: {planName}
-💰 Amount: ₹{amount}
-💳 Payment Mode: {paymentMethod}
-📆 Membership Valid Until: {expiryDate}
-
-Thank you for choosing Fusion Fit Gym.`
-};
+export { renderTemplate, BUILTIN_TEMPLATES };
 
 /**
  * Core function to insert SMS notifications into the queue and trigger async gateway dispatch
@@ -62,6 +21,9 @@ export async function sendSMS(
   }
   
   // 2. Fetch SMS settings from settings table
+  const { getSettings } = await import('@/lib/actions/settings');
+  const { createClient } = await import('@/lib/supabase/server');
+
   let settings;
   try {
     settings = await getSettings();

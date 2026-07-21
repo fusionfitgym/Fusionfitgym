@@ -59,7 +59,7 @@ import {
 } from '@/lib/actions/sms';
 import { SMSLog } from '@/types';
 import { normalizeToE164 } from '@/lib/phone';
-import { BUILTIN_TEMPLATES, renderTemplate } from '@/lib/sms';
+import { BUILTIN_TEMPLATES, renderTemplate } from '@/lib/sms-templates';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
