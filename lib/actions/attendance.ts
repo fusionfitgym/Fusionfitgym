@@ -70,6 +70,20 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
     return [];
   }
 
+  // Fetch biometric devices to build a mapping from serial number to machine type (Ladies/Gents)
+  const { data: devices } = await supabase
+    .from('biometric_devices')
+    .select('serial_number, name');
+
+  const deviceMachineMap = new Map<string, string>();
+  if (devices) {
+    devices.forEach((d: any) => {
+      const name = d.name || '';
+      const machine = name.toLowerCase().includes('ladies') ? 'Ladies' : 'Gents';
+      deviceMachineMap.set(d.serial_number, machine);
+    });
+  }
+
   // Create lookup map (key: `${machine}_${cleanId}`, value: member object)
   const membersMap = new Map<string, any>();
   members.forEach((member: any) => {
@@ -99,8 +113,9 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
     const rawBiometricId = log.member_id || '';
     const cleanId = cleanBiometricId(rawBiometricId);
 
-    // Determine machine for this raw log
-    const logMachine = log.machine_type || log.device_id || 'Gents';
+    // Determine machine for this raw log using database mapping fallback
+    const resolvedDeviceMachine = log.device_id ? deviceMachineMap.get(log.device_id) : undefined;
+    const logMachine = log.machine_type || resolvedDeviceMachine || log.device_id || 'Gents';
     const machineKey = String(logMachine).startsWith('Ladies') || String(logMachine).toLowerCase().includes('ladies') ? 'Ladies' : 'Gents';
 
     // Match member using composite key
@@ -181,7 +196,23 @@ export async function getTodayAttendanceLogs(machine?: 'Gents' | 'Ladies' | 'All
     .order('created_at', { ascending: false });
 
   if (machine && machine !== 'All') {
-    query = query.eq('machine_type', machine);
+    // Fetch devices matching the machine type to build robust query filter
+    const { data: matchedDevices } = await supabase
+      .from('biometric_devices')
+      .select('serial_number, name');
+
+    const deviceIds = (matchedDevices || [])
+      .filter((d: any) => {
+        const m = (d.name || '').toLowerCase().includes('ladies') ? 'Ladies' : 'Gents';
+        return m === machine;
+      })
+      .map((d: any) => d.serial_number);
+
+    if (deviceIds.length > 0) {
+      query = query.or(`machine_type.eq.${machine},device_id.in.(${deviceIds.join(',')})`);
+    } else {
+      query = query.eq('machine_type', machine);
+    }
   }
 
   const { data, error } = await query;
@@ -280,7 +311,23 @@ export async function getAttendanceLogsPaginated(options: {
 
   // 2. Machine filter
   if (options.machine && options.machine !== 'All') {
-    query = query.eq('machine_type', options.machine);
+    // Fetch devices matching the machine type to build robust query filter
+    const { data: matchedDevices } = await supabase
+      .from('biometric_devices')
+      .select('serial_number, name');
+
+    const deviceIds = (matchedDevices || [])
+      .filter((d: any) => {
+        const machine = (d.name || '').toLowerCase().includes('ladies') ? 'Ladies' : 'Gents';
+        return machine === options.machine;
+      })
+      .map((d: any) => d.serial_number);
+
+    if (deviceIds.length > 0) {
+      query = query.or(`machine_type.eq.${options.machine},device_id.in.(${deviceIds.join(',')})`);
+    } else {
+      query = query.eq('machine_type', options.machine);
+    }
   }
 
   // 3. Search query (supports name search or biometric ID search)

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Member, MemberFormValues, memberSchema } from '@/types';
-import { sendWelcomeSMS, sendRenewalSMS } from '@/lib/sms';
+import { sendRenewalSMS } from '@/lib/sms';
 import { sendAutoWhatsAppMessage } from '@/lib/wati';
 import { formatDate } from '@/lib/utils';
 import { validateRole } from './auth';
@@ -92,14 +92,7 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
 
     await logAudit(`Created member: ${member.full_name}`, 'Members', user.id);
 
-    // Dispatch welcome SMS to the new member
-    try {
-      if (member.phone) {
-        await sendWelcomeSMS(member.id, member.full_name, member.phone);
-      }
-    } catch (smsErr) {
-      console.error('Failed to trigger welcome SMS:', smsErr);
-    }
+
 
     let createdInvoiceId = null;
 
@@ -360,9 +353,18 @@ export async function updateMember(id: string, values: Partial<MemberFormValues>
 
       if (isPlanRenewed || isStatusActivated) {
         const formattedExpiry = formatDate(data.package_end_date);
+        const formattedRenewal = formatDate(data.package_start_date);
         
         try {
-          await sendRenewalSMS(data.id, data.full_name, formattedExpiry, data.phone);
+          await sendRenewalSMS(
+            data.id,
+            data.full_name,
+            data.package_name,
+            formattedRenewal,
+            formattedExpiry,
+            Number(data.package_price || 0),
+            data.phone
+          );
         } catch (smsErr) {
           console.error('Failed to trigger renewal SMS:', smsErr);
         }
@@ -624,6 +626,7 @@ export async function getMemberByBiometricId(biometricId: string): Promise<Membe
 
 function getDurationInDays(duration: string): number {
   const durStr = duration.toLowerCase().trim();
+  if (durStr === 'cardio') return 30;
   if (durStr.includes('daily')) return 1;
   if (durStr.includes('30 day') || durStr === '1 month') return 30;
   if (durStr.includes('90 day') || durStr === '3 months') return 90;

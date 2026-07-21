@@ -22,6 +22,9 @@ export function getBaseMembershipFee(
   if (dur === 'Daily Pass') {
     return 50;
   }
+  if (dur === 'Cardio') {
+    return 1000;
+  }
   
   // Normalize durations to standard categories
   let normalizedDuration = dur;

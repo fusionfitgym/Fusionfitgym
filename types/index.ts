@@ -289,6 +289,7 @@ export interface GymSettings {
   invoice_terms?: string;
   invoice_auto_generation?: boolean;
   default_welcome_template?: string;
+  sms_textbee_enabled?: boolean;
 }
 
 // ── SMS Logs ────────────────────────────────────────────────
@@ -310,10 +311,15 @@ export interface SMSLog {
   member?: {
     full_name: string;
   } | null;
+  provider?: string | null;
+  provider_metadata?: Record<string, any> | null;
+  notification_key?: string | null;
+  last_attempt_at?: string | null;
+  attempt_count?: number;
 }
 
 
-export const MEMBERSHIP_PLANS = ['Daily Pass', '1 Month', '3 Months', '6 Months'] as const;
+export const MEMBERSHIP_PLANS = ['Daily Pass', '1 Month', '3 Months', '6 Months', 'Cardio'] as const;
 export const MEMBER_STATUSES = ['Active', 'Inactive', 'Expired', 'Frozen'] as const;
 export const INVOICE_STATUSES = ['Paid', 'Partially Paid', 'Unpaid', 'Pending', 'Overdue', 'Cancelled'] as const;
 

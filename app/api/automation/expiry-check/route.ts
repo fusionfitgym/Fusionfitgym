@@ -1,35 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { sendExpiryWarningSMS, sendExpiredMembershipSMS, sendRenewalSMS } from '@/lib/sms';
 import { queueBiometricAction } from '@/lib/actions/members';
-
-/**
- * Check if a specific SMS type has been sent to the member since their package started
- */
-async function hasSentNotification(
-  supabase: any,
-  memberId: string,
-  type: string,
-  startDate: string
-): Promise<boolean> {
-  let typeCol = 'sms_type';
-  try {
-    const { error } = await supabase.from('sms_logs').select('message_type').limit(1);
-    if (!error) {
-      typeCol = 'message_type';
-    }
-  } catch {}
-
-  const { data } = await supabase
-    .from('sms_logs')
-    .select('id')
-    .eq('member_id', memberId)
-    .eq(typeCol, type)
-    .gte('created_at', startDate)
-    .limit(1);
-
-  return !!data && data.length > 0;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,11 +15,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 2. Fetch all members who are currently Active or Expired
+    // 2. Fetch all members who are currently Active
     const { data: members, error: fetchError } = await supabase
       .from('members')
       .select('id, full_name, phone, package_start_date, package_end_date, status, duration, biometric_user_id, biometric_status, machine_type')
-      .in('status', ['Active', 'Expired']);
+      .eq('status', 'Active');
 
     if (fetchError) {
       console.error('Failed to fetch members for expiry automation:', fetchError);
@@ -56,22 +27,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (!members || members.length === 0) {
-      return NextResponse.json({ message: 'No members found to evaluate' });
+      return NextResponse.json({ message: 'No active members found to evaluate' });
     }
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const results = {
-      warningsSent: 0,
-      expiredNoticesSent: 0,
       statusUpdates: 0,
-      skipped: 0,
+      processed: 0,
     };
 
     for (const member of members) {
       if (member.duration === 'Daily Pass') continue;
-      if (!member.phone) continue;
 
       const expiry = new Date(member.package_end_date);
       const expiryDateOnly = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
@@ -79,90 +47,35 @@ export async function POST(request: NextRequest) {
       const diffTime = expiryDateOnly.getTime() - today.getTime();
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-      // Case 1: 7 days before expiry
-      if (diffDays === 7 && member.status === 'Active') {
-        const alreadySent = await hasSentNotification(supabase, member.id, 'Expiry Warning (7 days)', member.package_start_date);
-        
-        if (!alreadySent) {
-          const smsResult = await sendExpiryWarningSMS(member.id, member.full_name, member.phone, 7);
-          if (smsResult.success) {
-            results.warningsSent++;
-          }
-        } else {
-          results.skipped++;
-        }
-      }
-      
-      // Case 2: 3 days before expiry
-      else if (diffDays === 3 && member.status === 'Active') {
-        const alreadySent = await hasSentNotification(supabase, member.id, 'Expiry Warning (3 days)', member.package_start_date);
-        
-        if (!alreadySent) {
-          const smsResult = await sendExpiryWarningSMS(member.id, member.full_name, member.phone, 3);
-          if (smsResult.success) {
-            results.warningsSent++;
-          }
-        } else {
-          results.skipped++;
-        }
-      }
+      // Case: Expiry date reached or passed (diffDays < 0)
+      if (diffDays < 0) {
+        // Transition status to Expired
+        const { error: updateErr } = await supabase
+          .from('members')
+          .update({ 
+            status: 'Expired',
+            biometric_status: 'DISABLED',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', member.id);
 
-      // Case 3: Expires today (0 days)
-      else if (diffDays === 0 && member.status === 'Active') {
-        const alreadySent = await hasSentNotification(supabase, member.id, 'Renewal', member.package_start_date);
-        
-        if (!alreadySent) {
-          const smsResult = await sendRenewalSMS(member.id, member.full_name, member.package_end_date, member.phone);
-          if (smsResult.success) {
-            results.warningsSent++;
-          }
+        if (updateErr) {
+          console.error(`Failed to update status to Expired for ${member.full_name}:`, updateErr);
         } else {
-          results.skipped++;
-        }
-      }
-
-      // Case 4: Expiry date reached or passed
-      else if (diffDays < 0) {
-        // Transition status to Expired if not already done
-        if (member.status === 'Active') {
-          const { error: updateErr } = await supabase
-            .from('members')
-            .update({ 
-              status: 'Expired',
-              biometric_status: 'DISABLED',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', member.id);
-
-          if (updateErr) {
-            console.error(`Failed to update status to Expired for ${member.full_name}:`, updateErr);
-          } else {
-            results.statusUpdates++;
-            member.status = 'Expired'; // update in-memory status
-            
-            // Queue biometric disable command
-            if (member.biometric_user_id) {
-              try {
-                await queueBiometricAction(member.id, member.biometric_user_id, 'disable');
-              } catch (bioErr) {
-                console.error(`Failed to queue biometric disable for expired member ${member.full_name}:`, bioErr);
-              }
+          results.statusUpdates++;
+          
+          // Queue biometric disable command
+          if (member.biometric_user_id) {
+            try {
+              await queueBiometricAction(member.id, member.biometric_user_id, 'disable');
+            } catch (bioErr) {
+              console.error(`Failed to queue biometric disable for expired member ${member.full_name}:`, bioErr);
             }
           }
         }
-
-        // Check if expired notice already dispatched since join_date
-        const alreadySentExpired = await hasSentNotification(supabase, member.id, 'Expired', member.package_start_date);
-
-        if (!alreadySentExpired) {
-          const smsResult = await sendExpiredMembershipSMS(member.id, member.full_name, member.phone);
-          if (smsResult.success) {
-            results.expiredNoticesSent++;
-          }
-        } else {
-          results.skipped++;
-        }
       }
+      
+      results.processed++;
     }
 
     return NextResponse.json({

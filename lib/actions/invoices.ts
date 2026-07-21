@@ -7,6 +7,7 @@ import { sendInvoiceSMS } from '@/lib/sms';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
 import { buildInvoicePublicUrl, generateInvoiceToken } from '@/lib/invoice-links';
+import { formatDate } from '@/lib/utils';
 
 export async function getInvoices(): Promise<Invoice[]> {
   const supabase = await createClient();
@@ -186,11 +187,13 @@ export async function createInvoice(
         await sendInvoiceSMS(
           data.member_id,
           data.invoice_number,
+          formatDate(data.created_at),
           member.package_name || 'Membership',
-          data.amount,
+          Number(data.amount),
+          data.payment_method || 'N/A',
+          formatDate(data.membership_expiry_date || data.due_date),
           member.phone,
-          member.full_name || 'Member',
-          invoiceLink
+          member.full_name || 'Member'
         );
       }
     } catch (smsErr) {
@@ -399,11 +402,13 @@ export async function sendManualInvoiceSMS(invoiceId: string): Promise<{ success
     await sendInvoiceSMS(
       invoice.member_id,
       invoice.invoice_number,
+      formatDate(invoice.created_at),
       member.package_name || 'Membership',
       Number(invoice.amount),
+      invoice.payment_method || 'N/A',
+      formatDate(invoice.membership_expiry_date || invoice.due_date),
       member.phone,
-      member.full_name || 'Member',
-      invoiceLink
+      member.full_name || 'Member'
     );
 
     return { success: true };

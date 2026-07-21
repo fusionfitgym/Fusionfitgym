@@ -121,7 +121,7 @@ export function MemberForm({
     gender: initialValues?.gender || legacyInitial?.gender || 'Gents',
     duration: (() => {
       const dVal = initialValues?.duration || legacyInitial?.duration || legacyInitial?.package_duration || '1 Month';
-      if (['Daily Pass', '1 Month', '3 Months', '6 Months', '30 Days', '90 Days', '180 Days', '365 Days'].includes(dVal)) {
+      if (['Daily Pass', '1 Month', '3 Months', '6 Months', '30 Days', '90 Days', '180 Days', '365 Days', 'Cardio'].includes(dVal)) {
         return dVal;
       }
       if (dVal && /\d+/.test(dVal)) {
@@ -307,6 +307,7 @@ export function MemberForm({
         if (duration === '1 Month') days = 30;
         else if (duration === '3 Months') days = 90;
         else if (duration === '6 Months') days = 180;
+        else if (duration === 'Cardio') days = 30;
       }
     }
 
@@ -347,6 +348,7 @@ export function MemberForm({
     if (!gender || !duration || !trainingType) return;
     
     const isDailyPass = duration === 'Daily Pass';
+    const isCardio = duration === 'Cardio';
     const displayDuration = duration === 'Custom Days' ? `${customDays} Days` : duration;
     
     const result = calculatePackagePrice({
@@ -376,7 +378,7 @@ export function MemberForm({
     const finalPackagePrice = result.membershipFee + result.addOnFees['parq_purchased'] + currentTrainerFee + admissionFee;
     setValue('package_price', finalPackagePrice, { shouldDirty: true, shouldValidate: true });
 
-    const name = isDailyPass ? 'Daily Pass' : `${gender} - ${displayDuration} - ${trainingType}`;
+    const name = isDailyPass ? 'Daily Pass' : isCardio ? 'Cardio' : `${gender} - ${displayDuration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
     setValue('package_duration', displayDuration, { shouldDirty: true, shouldValidate: true });
   }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, ptPackageId, ptPackages, gymSettings, setValue]);
@@ -608,6 +610,7 @@ export function MemberForm({
                   {...register('duration')}
                 >
                   <option value="Daily Pass">Daily Pass</option>
+                  <option value="Cardio">Cardio</option>
                   <option value="1 Month">1 Month</option>
                   <option value="3 Months">3 Months</option>
                   <option value="6 Months">6 Months</option>
