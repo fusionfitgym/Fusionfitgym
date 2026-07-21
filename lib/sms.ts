@@ -3,12 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { normalizeToE164 } from './phone';
 
 /**
- * Replace placeholders in template strings
+ * Replace placeholders in template strings. Supports both {key} and {{key}}.
  */
 export function renderTemplate(template: string, data: Record<string, string>): string {
   let result = template;
   for (const [key, value] of Object.entries(data)) {
-    result = result.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value);
+    result = result.replace(new RegExp(`{+\\s*${key}\\s*}+`, 'g'), value);
   }
   return result;
 }
@@ -16,30 +16,30 @@ export function renderTemplate(template: string, data: Record<string, string>): 
 export const BUILTIN_TEMPLATES = {
   renewal: `🏋️ Fusion Fit Gym
 
-Hi {{member_name}},
+Hi {memberName},
 
 Your membership has been renewed successfully.
 
-📦 Plan: {{plan_name}}
-📅 Renewal Date: {{renewal_date}}
-📆 Valid Until: {{expiry_date}}
-💰 Amount Paid: ₹{{amount}}
+📦 Plan: {planName}
+📅 Renewal Date: {renewalDate}
+📆 Valid Until: {expiryDate}
+💰 Amount Paid: ₹{amount}
 
 Thank you for choosing Fusion Fit Gym.
-Keep training and stay healthy! 💪`,
+Keep training and stay healthy!`,
 
   invoice: `🏋️ Fusion Fit Gym
 
-Hi {{member_name}},
+Hi {memberName},
 
 Your payment has been received successfully.
 
-🧾 Invoice No: {{invoice_number}}
-📅 Date: {{invoice_date}}
-📦 Plan: {{plan_name}}
-💰 Amount: ₹{{amount}}
-💳 Payment Mode: {{payment_method}}
-📆 Membership Valid Until: {{expiry_date}}
+🧾 Invoice No: {invoiceNumber}
+📅 Date: {invoiceDate}
+📦 Plan: {planName}
+💰 Amount: ₹{amount}
+💳 Payment Mode: {paymentMethod}
+📆 Membership Valid Until: {expiryDate}
 
 Thank you for choosing Fusion Fit Gym.`
 };
@@ -166,10 +166,10 @@ export async function sendSMS(
     logData[typeCol] = smsType;
 
     logData.notification_key = notificationKey;
-    logData.provider = 'manual'; // Default to manual until active gateway dispatches
+    logData.provider = process.env.SMS_PROVIDER || 'textbee';
 
     if (!isModern) {
-      logData.provider_response = 'Queued for manual dispatch via device SMS app';
+      logData.provider_response = 'Queued for dispatch';
     }
 
     const { data: insertedLog, error: insertError } = await supabase
@@ -227,11 +227,18 @@ export async function sendInvoiceSMS(
   memberName = 'Member'
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.invoice, {
+    memberName: memberName,
+    invoiceNumber: invoiceNumber,
+    invoiceDate: invoiceDate,
+    planName: planName,
+    amount: String(amount),
+    paymentMethod: paymentMethod || 'N/A',
+    expiryDate: expiryDate,
+    // legacy key fallbacks
     member_name: memberName,
     invoice_number: invoiceNumber,
     invoice_date: invoiceDate,
     plan_name: planName,
-    amount: String(amount),
     payment_method: paymentMethod || 'N/A',
     expiry_date: expiryDate,
   });
@@ -248,11 +255,16 @@ export async function sendRenewalSMS(
   phone: string
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.renewal, {
+    memberName: name,
+    planName: planName,
+    renewalDate: renewalDate,
+    expiryDate: expiryDate,
+    amount: String(amount),
+    // legacy key fallbacks
     member_name: name,
     plan_name: planName,
     renewal_date: renewalDate,
     expiry_date: expiryDate,
-    amount: String(amount),
   });
   return sendSMS(memberId, phone, message, 'Renewal');
 }

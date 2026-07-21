@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSMSNotificationService } from '@/lib/sms-provider';
+import { getSMSNotificationService } from '@/lib/notification-service';
 import { normalizeToE164 } from '@/lib/phone';
 import { createClient } from '@/lib/supabase/server';
 

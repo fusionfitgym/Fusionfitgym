@@ -78,29 +78,38 @@ function statusBadge(status: string | null) {
 
 const builtInTemplates = [
   {
-    key: 'Welcome',
-    name: 'Welcome Template',
-    text: 'Hello {{member_name}},\nWelcome to FusionFit Gym.\nWe are excited to be part of your fitness journey.',
-  },
-  {
     key: 'Renewal',
-    name: 'Renewal Reminder',
-    text: 'Hello {{member_name}},\nYour membership expires on {{expiry_date}}.\nPlease renew your membership to continue training without interruption.',
-  },
-  {
-    key: 'ExpiryWarning',
-    name: 'Expiry Warning',
-    text: 'Hello {{member_name}},\nYour membership will expire in {{days_left}} days.\nPlease renew to avoid interruption.',
-  },
-  {
-    key: 'Payment',
-    name: 'Payment Reminder',
-    text: 'Hello {{member_name}},\nYour payment is pending.\nPlease contact us to complete your payment.',
+    name: 'Renewal Confirmation',
+    text: `🏋️ Fusion Fit Gym
+
+Hi {memberName},
+
+Your membership has been renewed successfully.
+
+📦 Plan: {planName}
+📅 Renewal Date: {renewalDate}
+📆 Valid Until: {expiryDate}
+💰 Amount Paid: ₹{amount}
+
+Thank you for choosing Fusion Fit Gym.`,
   },
   {
     key: 'Invoice',
     name: 'Invoice Notification',
-    text: 'Hi {{member_name}},\nYour FusionFit Gym invoice is ready.\nInvoice No: {{invoice_number}}\nAmount: ₹{{amount}}\nView Invoice:\n{{invoice_link}}\nThank you.\n- FusionFit Gym',
+    text: `🏋️ Fusion Fit Gym
+
+Hi {memberName},
+
+Your payment has been received successfully.
+
+🧾 Invoice No: {invoiceNumber}
+📅 Date: {invoiceDate}
+📦 Plan: {planName}
+💰 Amount: ₹{amount}
+💳 Payment Mode: {paymentMethod}
+📆 Membership Valid Until: {expiryDate}
+
+Thank you for choosing Fusion Fit Gym.`,
   },
 ];
 

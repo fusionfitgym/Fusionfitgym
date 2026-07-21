@@ -312,6 +312,7 @@ export interface SMSLog {
     full_name: string;
   } | null;
   provider?: string | null;
+  provider_message_id?: string | null;
   provider_metadata?: Record<string, any> | null;
   notification_key?: string | null;
   last_attempt_at?: string | null;
