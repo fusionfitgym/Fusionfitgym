@@ -87,6 +87,7 @@ function NewInvoiceForm() {
   }
 
   async function onSubmit(data: InvoiceFormValues) {
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     if (isDemo) {

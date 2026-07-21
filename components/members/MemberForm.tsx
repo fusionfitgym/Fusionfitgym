@@ -217,6 +217,8 @@ export function MemberForm({
   };
 
   const handleFormSubmit = handleSubmit((data) => {
+    if (submitting) return;
+    
     if (data.biometric_user_id) {
       const currentMemberId = (initialValues as any)?.id;
       const duplicate = allMembers.find(
