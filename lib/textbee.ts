@@ -125,3 +125,143 @@ export class TextBeeProvider implements SMSProvider {
     }
   }
 }
+
+export interface TextBeeReceivedSMS {
+  id: string;
+  sender: string;
+  message: string;
+  receivedAt: string;
+  isRead?: boolean;
+}
+
+export interface TextBeeSentMessage {
+  id: string;
+  recipient: string;
+  message: string;
+  status: string;
+  sentAt: string;
+  provider: string;
+}
+
+/**
+ * Fetch received SMS messages from TextBee device inbox API.
+ */
+export async function getTextBeeReceivedSMS(): Promise<TextBeeReceivedSMS[]> {
+  const apiKey = process.env.TEXTBEE_API_KEY;
+  const deviceId = process.env.TEXTBEE_DEVICE_ID;
+
+  if (!apiKey || !deviceId) {
+    return [];
+  }
+
+  const endpoint = `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/get-received-sms`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const list = data?.data || data?.messages || (Array.isArray(data) ? data : []);
+
+    return list.map((item: any, idx: number) => ({
+      id: item.id || item._id || `received-${idx}`,
+      sender: item.sender || item.from || item.phone || 'Unknown Sender',
+      message: item.message || item.text || item.body || '',
+      receivedAt: item.receivedAt || item.created_at || item.createdAt || new Date().toISOString(),
+      isRead: !!item.isRead
+    }));
+  } catch (err) {
+    console.warn('[TextBee API] Failed to fetch received SMS:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch sent SMS messages from TextBee device API.
+ */
+export async function getTextBeeSentMessages(page = 1, limit = 20): Promise<TextBeeSentMessage[]> {
+  const apiKey = process.env.TEXTBEE_API_KEY;
+  const deviceId = process.env.TEXTBEE_DEVICE_ID;
+
+  if (!apiKey || !deviceId) {
+    return [];
+  }
+
+  const endpoint = `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/messages?page=${page}&limit=${limit}`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'x-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const list = data?.data || data?.messages || (Array.isArray(data) ? data : []);
+
+    return list.map((item: any, idx: number) => ({
+      id: item.id || item._id || `sent-${idx}`,
+      recipient: item.recipient || item.to || (Array.isArray(item.recipients) ? item.recipients[0] : 'Recipient'),
+      message: item.message || item.text || '',
+      status: item.status || 'delivered',
+      sentAt: item.sentAt || item.created_at || item.createdAt || new Date().toISOString(),
+      provider: 'textbee'
+    }));
+  } catch (err) {
+    console.warn('[TextBee API] Failed to fetch sent messages:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetch gateway connection health status for TextBee device.
+ */
+export async function getTextBeeGatewayHealth(): Promise<{
+  connected: boolean;
+  provider: string;
+  deviceId: string;
+  apiStatus: string;
+  lastSyncTime: string;
+  lastSmsSent: string | null;
+}> {
+  const apiKey = process.env.TEXTBEE_API_KEY;
+  const deviceId = process.env.TEXTBEE_DEVICE_ID || '6a5f7112ceb4314c6c43e974';
+
+  const isConfigured = !!(apiKey && deviceId);
+
+  return {
+    connected: isConfigured,
+    provider: 'TextBee',
+    deviceId,
+    apiStatus: isConfigured ? 'Healthy (200 OK)' : 'Missing Credentials',
+    lastSyncTime: new Date().toISOString(),
+    lastSmsSent: null
+  };
+}

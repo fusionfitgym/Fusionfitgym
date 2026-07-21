@@ -451,3 +451,33 @@ export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
     created_at: row.created_at as string,
   })) as SMSLog[];
 }
+
+export async function fetchReceivedSMSAction() {
+  const { getTextBeeReceivedSMS } = await import('@/lib/textbee');
+  return getTextBeeReceivedSMS();
+}
+
+export async function fetchSentMessagesAction(page = 1, limit = 20) {
+  const { getTextBeeSentMessages } = await import('@/lib/textbee');
+  return getTextBeeSentMessages(page, limit);
+}
+
+export async function fetchGatewayHealthAction() {
+  const { getTextBeeGatewayHealth } = await import('@/lib/textbee');
+  const health = await getTextBeeGatewayHealth();
+
+  const supabase = await createClient();
+  const { data: lastLog } = await supabase
+    .from('sms_logs')
+    .select('created_at')
+    .eq('status', 'Sent')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastLog) {
+    health.lastSmsSent = lastLog.created_at;
+  }
+
+  return health;
+}
