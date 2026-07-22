@@ -6,8 +6,10 @@ import {
   Activity,
   ArrowRight,
   ClipboardList,
+  Clock,
   Dumbbell,
   FileText,
+  RefreshCw,
   TrendingUp,
   UserCheck,
   UserPlus,
@@ -26,7 +28,7 @@ import DashboardChartsSection from '@/components/dashboard/DashboardChartsSectio
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
 
 export default function DashboardClientPage() {
-  const { members, invoices, trainers, expenses, callLogs, notifications, attendance, getAttendanceAnalytics, getStaffStats, getStaffAttendanceTodayStats } = useDemoState();
+  const { members, invoices, trainers, expenses, callLogs, notifications, attendance, renewals, getAttendanceAnalytics, getStaffStats, getStaffAttendanceTodayStats } = useDemoState();
 
   const analytics = useMemo(() => getAttendanceAnalytics(), [attendance, getAttendanceAnalytics]);
 
@@ -212,6 +214,40 @@ export default function DashboardClientPage() {
           icon={<Activity className="h-5 w-5 text-indigo-500" />}
           subtitle="Active cardio or strength training"
         />
+      </div>
+
+      {/* Membership Renewal Statistics Grid */}
+      <div className="mt-6">
+        <h2 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-wider text-xs text-slate-500">Membership Renewal Statistics</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            title="Renewals Today"
+            value={useMemo(() => {
+              const todayStr = '2026-06-30';
+              return (renewals || []).filter((r: any) => r.renewal_date && r.renewal_date.startsWith(todayStr)).length;
+            }, [renewals])}
+            icon={<RefreshCw className="h-5 w-5 text-amber-500" />}
+            subtitle="Renewals processed today"
+          />
+          <StatCard
+            title="Renewals This Month"
+            value={(renewals || []).length}
+            icon={<RefreshCw className="h-5 w-5 text-emerald-600" />}
+            subtitle="Total renewals this month"
+          />
+          <StatCard
+            title="Upcoming Renewals"
+            value={expiringSoon}
+            icon={<Clock className="h-5 w-5 text-amber-600" />}
+            subtitle="Expiring in next 7 days"
+          />
+          <StatCard
+            title="Expired Memberships"
+            value={expiredMembers.length}
+            icon={<Users className="h-5 w-5 text-rose-500" />}
+            subtitle="Memberships currently expired"
+          />
+        </div>
       </div>
 
       {/* Staff Stats Row */}

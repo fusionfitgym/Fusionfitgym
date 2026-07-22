@@ -16,6 +16,7 @@ import {
   MapPin,
   Phone,
   Plus,
+  RefreshCw,
   Trash2,
 } from 'lucide-react';
 import {
@@ -44,7 +45,9 @@ import { getInvoicesByMember } from '@/lib/actions/invoices';
 import { getAttendanceHistory } from '@/lib/actions/attendance';
 import { getDevices } from '@/lib/actions/devices';
 import { getSMSLogsByMember, sendSMSAction } from '@/lib/actions/sms';
-import { AttendanceLog, BiometricDevice, HealthAssessment, Invoice, Member, ParqResponse, SMSLog } from '@/types';
+import { getMemberRenewals } from '@/lib/actions/renewals';
+import { RenewalModal } from '@/components/members/RenewalModal';
+import { AttendanceLog, BiometricDevice, HealthAssessment, Invoice, Member, MembershipRenewal, ParqResponse, SMSLog } from '@/types';
 import {
   calculateAge,
   cn,
@@ -70,8 +73,10 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [smsLogs, setSmsLogs] = useState<SMSLog[]>([]);
+  const [renewals, setRenewals] = useState<MembershipRenewal[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [isRenewalModalOpen, setIsRenewalModalOpen] = useState(false);
 
   // Send SMS state variables
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
@@ -106,7 +111,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
     }
   }
 
-  useEffect(() => {
+  async function loadAllData() {
     if (isDemo) {
       const memberData = demo.getMemberById(id);
       setMember(memberData || null);
@@ -116,38 +121,40 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
       setAttendance(demo.getAttendanceHistory({ member_id: id }));
       setDevices(demo.devices);
       setSmsLogs(demo.getSMSLogsByMember(id));
+      setRenewals(demo.getMemberRenewals(id));
       setLoading(false);
       return;
     }
 
-    Promise.all([
-      getMemberById(id),
-      getHealthByMember(id),
-      getParqByMember(id),
-      getInvoicesByMember(id),
-      getAttendanceHistory({ member_id: id }).catch((e) => {
-        console.error('Failed to get attendance history:', e);
-        return [];
-      }),
-      getDevices().catch((e) => {
-        console.error('Failed to get devices:', e);
-        return [];
-      }),
-      getSMSLogsByMember(id).catch((e) => {
-        console.error('Failed to get SMS logs:', e);
-        return [];
-      }),
-    ])
-      .then(([memberData, healthData, parqData, invoiceData, attendanceData, devicesData, smsData]) => {
-        setMember(memberData);
-        setAssessments(healthData);
-        setParqs(parqData);
-        setInvoices(invoiceData);
-        setAttendance(attendanceData || []);
-        setDevices(devicesData || []);
-        setSmsLogs(smsData || []);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const [memberData, healthData, parqData, invoiceData, attendanceData, devicesData, smsData, renewalData] = await Promise.all([
+        getMemberById(id),
+        getHealthByMember(id),
+        getParqByMember(id),
+        getInvoicesByMember(id),
+        getAttendanceHistory({ member_id: id }).catch(() => []),
+        getDevices().catch(() => []),
+        getSMSLogsByMember(id).catch(() => []),
+        getMemberRenewals(id).catch(() => []),
+      ]);
+
+      setMember(memberData);
+      setAssessments(healthData);
+      setParqs(parqData);
+      setInvoices(invoiceData);
+      setAttendance(attendanceData || []);
+      setDevices(devicesData || []);
+      setSmsLogs(smsData || []);
+      setRenewals(renewalData || []);
+    } catch (err) {
+      console.error('Error loading member details:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAllData();
   }, [id]);
 
   async function handleDelete() {
@@ -367,6 +374,25 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         subtitle={`Member since ${formatDate(start)}`}
         action={
           <>
+            {(() => {
+              const today = new Date();
+              today.setHours(0,0,0,0);
+              const exp = member.package_end_date ? new Date(member.package_end_date) : null;
+              if (exp) exp.setHours(0,0,0,0);
+              const daysUntilExpiry = exp ? Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 999;
+              const canRenew = member.status === 'Expired' || (daysUntilExpiry <= 7 && member.duration !== 'Daily Pass');
+
+              return canRenew ? (
+                <button
+                  type="button"
+                  onClick={() => setIsRenewalModalOpen(true)}
+                  className="btn btn-primary bg-amber-500 hover:bg-amber-600 border-amber-500 text-zinc-950 font-bold shadow-md"
+                >
+                  <RefreshCw className="h-4 w-4 mr-1.5" />
+                  Renew Membership
+                </button>
+              ) : null;
+            })()}
             <button
               type="button"
               onClick={() => setIsSmsModalOpen(true)}
@@ -553,7 +579,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                   <div className="flex justify-between gap-4">
                     <span className="text-slate-400 font-semibold">Last Device Response</span>
-                    <span className="font-semibold text-slate-800 text-right max-w-[150px] truncate select-text" title={member.biometric_last_device_response}>
+                    <span className="font-semibold text-slate-800 text-right max-w-[150px] truncate select-text" title={member.biometric_last_device_response || undefined}>
                       {member.biometric_last_device_response || 'None'}
                     </span>
                   </div>
@@ -713,6 +739,63 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               </div>
             )}
           </SectionCard>
+
+          <SectionCard
+            title={`Renewal History (${renewals.length})`}
+            description="Historical registry of package renewals, validity shifts, and invoices."
+            icon={<RefreshCw className="h-5 w-5 text-amber-500" />}
+            action={
+              <button
+                type="button"
+                onClick={() => setIsRenewalModalOpen(true)}
+                className="btn btn-secondary btn-sm"
+              >
+                <RefreshCw className="h-3.5 w-3.5 mr-1 text-slate-500" /> Renew
+              </button>
+            }
+          >
+            {renewals.length === 0 ? (
+              <p className="body-text">No renewals recorded for this member yet.</p>
+            ) : (
+              <div className="data-table border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Renewal Date</th>
+                      <th>Previous Package</th>
+                      <th>New Package</th>
+                      <th>Previous End</th>
+                      <th>New End Date</th>
+                      <th>Invoice Number</th>
+                      <th>Amount</th>
+                      <th>Renewed By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {renewals.map((r) => (
+                      <tr key={r.id}>
+                        <td className="table-primary">{formatDate(r.renewal_date)}</td>
+                        <td className="text-slate-600">{r.previous_package}</td>
+                        <td className="font-semibold text-slate-900">{r.new_package}</td>
+                        <td className="text-slate-500">{r.previous_end_date ? formatDate(r.previous_end_date) : '—'}</td>
+                        <td className="font-semibold text-amber-700">{formatDate(r.new_end_date)}</td>
+                        <td>
+                          {r.invoice_number ? (
+                            <Link href={r.invoice_id ? `/invoices/${r.invoice_id}` : '/invoices'} className="font-mono text-xs font-bold text-amber-600 hover:underline">
+                              {r.invoice_number}
+                            </Link>
+                          ) : '—'}
+                        </td>
+                        <td className="font-bold text-slate-900">{formatCurrency(r.amount)}</td>
+                        <td className="text-slate-600">{r.renewed_by || 'Staff'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+
 
           <SectionCard
             title="Attendance History"
@@ -1182,6 +1265,17 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
             </form>
           </div>
         </div>
+      )}
+
+      {/* Renewal Modal */}
+      {isRenewalModalOpen && member && (
+        <RenewalModal
+          member={member}
+          isOpen={isRenewalModalOpen}
+          isDemo={isDemo}
+          onClose={() => setIsRenewalModalOpen(false)}
+          onSuccess={() => void loadAllData()}
+        />
       )}
     </div>
   );

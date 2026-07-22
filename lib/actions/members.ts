@@ -556,7 +556,35 @@ export async function getMembersPaginated({
 
   // Apply status filter
   if (status && status !== 'All') {
-    query = query.eq('status', status);
+    const dObj = new Date();
+    const yr = dObj.getFullYear();
+    const mth = String(dObj.getMonth() + 1).padStart(2, '0');
+    const dy = String(dObj.getDate()).padStart(2, '0');
+    const todayStr = `${yr}-${mth}-${dy}`;
+
+    if (status === 'Expiring in 7 Days') {
+      const in7 = new Date(dObj.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const in7Str = `${in7.getFullYear()}-${String(in7.getMonth() + 1).padStart(2, '0')}-${String(in7.getDate()).padStart(2, '0')}`;
+      query = query.eq('status', 'Active').neq('duration', 'Daily Pass').gte('package_end_date', todayStr).lte('package_end_date', in7Str);
+    } else if (status === 'Expiring in 30 Days') {
+      const in30 = new Date(dObj.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const in30Str = `${in30.getFullYear()}-${String(in30.getMonth() + 1).padStart(2, '0')}-${String(in30.getDate()).padStart(2, '0')}`;
+      query = query.eq('status', 'Active').neq('duration', 'Daily Pass').gte('package_end_date', todayStr).lte('package_end_date', in30Str);
+    } else if (status === 'Renewed This Month') {
+      const monthStart = new Date(dObj.getFullYear(), dObj.getMonth(), 1).toISOString();
+      const { data: renewedData } = await supabase
+        .from('membership_renewals')
+        .select('member_id')
+        .gte('renewal_date', monthStart);
+      const memberIds = (renewedData || []).map((r: { member_id: string }) => r.member_id).filter(Boolean);
+      if (memberIds.length > 0) {
+        query = query.in('id', memberIds);
+      } else {
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // empty fallback
+      }
+    } else {
+      query = query.eq('status', status);
+    }
   }
 
   // Apply plan filter

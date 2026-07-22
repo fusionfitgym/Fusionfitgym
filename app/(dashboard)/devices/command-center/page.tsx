@@ -55,7 +55,7 @@ export default function BiometricCommandCenterPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'biometric_actions' },
-        (payload) => {
+        (payload: any) => {
           console.log('Realtime change in biometric_actions:', payload);
           // Re-fetch metrics immediately when status changes
           fetchMetrics();

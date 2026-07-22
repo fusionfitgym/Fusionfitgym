@@ -434,3 +434,43 @@ export const staffSchema = z.object({
 
 export type StaffFormValues = z.infer<typeof staffSchema>;
 export type StaffFormInput = z.input<typeof staffSchema>;
+
+// ── Membership Renewal ───────────────────────────────────────
+export interface MembershipRenewal {
+  id: string;
+  member_id: string;
+  invoice_id?: string | null;
+  renewal_date: string;
+  previous_package: string;
+  new_package: string;
+  previous_start_date?: string | null;
+  previous_end_date?: string | null;
+  new_start_date: string;
+  new_end_date: string;
+  invoice_number?: string | null;
+  amount: number;
+  discount?: number | null;
+  payment_method?: string | null;
+  renewed_by?: string | null;
+  notes?: string | null;
+  created_at?: string;
+  member?: Pick<Member, 'full_name' | 'phone'>;
+}
+
+export const renewalSchema = z.object({
+  member_id: z.string().uuid('Select a member'),
+  package_name: z.string().min(1, 'Package name is required'),
+  duration: z.string().min(1, 'Duration is required'),
+  training_type: z.enum(['Weight Training Only', 'Weight Training + Cardio', 'Weight Training + Strength Training']),
+  start_date: z.string().min(1, 'Start date is required'),
+  end_date: z.string().min(1, 'End date is required'),
+  payment_method: z.string().min(1, 'Select a payment method'),
+  package_price: z.coerce.number().min(0),
+  discount: z.coerce.number().min(0).optional(),
+  tax: z.coerce.number().min(0).optional(),
+  final_amount: z.coerce.number().min(0),
+  notes: z.string().optional().or(z.literal('')),
+});
+
+export type RenewalFormValues = z.infer<typeof renewalSchema>;
+

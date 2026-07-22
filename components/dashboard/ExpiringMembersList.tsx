@@ -1,6 +1,5 @@
-'use client';
-
-import { Clock } from 'lucide-react';
+import Link from 'next/link';
+import { Clock, RefreshCw } from 'lucide-react';
 import { SmsSendButton } from '@/components/ui/SmsSendButton';
 import { buildExpiryReminderMessage } from '@/lib/native-sms';
 import { formatDate, cn } from '@/lib/utils';
@@ -24,7 +23,7 @@ interface ExpiringMembersListProps {
  * ExpiringMembersList
  *
  * Client Component that renders the expiring memberships roster
- * with native SMS buttons for one-click reminder sending.
+ * with native SMS buttons and quick Renew action.
  */
 export function ExpiringMembersList({
   members,
@@ -55,9 +54,9 @@ export function ExpiringMembersList({
             className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
           >
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-950 truncate">
+              <Link href={`/members/${m.id}`} className="text-sm font-semibold text-slate-950 hover:text-amber-600 hover:underline truncate block">
                 {m.full_name}
-              </p>
+              </Link>
               <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
                 <Clock className="h-3 w-3 shrink-0" />
                 Expires {formatDate(m.expiryDate)}
@@ -67,6 +66,14 @@ export function ExpiringMembersList({
               <span className="badge badge-expired text-[10px] font-bold whitespace-nowrap">
                 {m.daysRemaining} day{m.daysRemaining === 1 ? '' : 's'} left
               </span>
+              <Link
+                href={`/members/${m.id}`}
+                className="btn btn-xs bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold py-1 px-2 text-[10px] rounded-lg"
+                title="Renew Membership"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Renew
+              </Link>
               <SmsSendButton
                 phone={m.phone}
                 message={buildExpiryReminderMessage(

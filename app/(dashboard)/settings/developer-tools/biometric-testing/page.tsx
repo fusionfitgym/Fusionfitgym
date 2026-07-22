@@ -89,7 +89,7 @@ export default function BiometricTestingPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'biometric_actions' },
-        (payload) => {
+        (payload: any) => {
           console.log('Realtime change in biometric testing panel:', payload);
           // Re-fetch queue and agent status
           fetchQueueAndStatus();

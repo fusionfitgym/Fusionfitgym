@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit, Eye, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Edit, Eye, RefreshCw, Search, Trash2, UserPlus, Users } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { RenewalModal } from '@/components/members/RenewalModal';
 import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
 import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -32,6 +33,7 @@ export default function MembersPage() {
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
+  const [selectedRenewalMember, setSelectedRenewalMember] = useState<Member | null>(null);
 
   const limit = 10;
   const totalPages = Math.ceil(totalCount / limit);
@@ -155,11 +157,17 @@ export default function MembersPage() {
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="select-field md:w-44"
+            className="select-field md:w-52"
             aria-label="Filter by status"
           >
             <option value="All">All statuses</option>
-            {MEMBER_STATUSES.map((status) => <option key={status}>{status}</option>)}
+            <option value="Active">Active</option>
+            <option value="Expired">Expired</option>
+            <option value="Expiring in 7 Days">Expiring in 7 Days</option>
+            <option value="Expiring in 30 Days">Expiring in 30 Days</option>
+            <option value="Renewed This Month">Renewed This Month</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Frozen">Frozen</option>
           </select>
           <select
             value={planFilter}
@@ -242,6 +250,26 @@ export default function MembersPage() {
                     <td><StatusBadge variant={member.status} /></td>
                     <td>
                       <div className="table-actions">
+                        {(() => {
+                          const today = new Date();
+                          today.setHours(0,0,0,0);
+                          const exp = member.package_end_date ? new Date(member.package_end_date) : null;
+                          if (exp) exp.setHours(0,0,0,0);
+                          const daysUntilExpiry = exp ? Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 999;
+                          const canRenew = member.status === 'Expired' || (daysUntilExpiry <= 7 && member.duration !== 'Daily Pass');
+
+                          return canRenew ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRenewalMember(member)}
+                              className="table-action text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              title="Renew Membership"
+                              aria-label={`Renew ${member.full_name}`}
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </button>
+                          ) : null;
+                        })()}
                         <Link href={`/members/${member.id}`} className="table-action" title="View member" aria-label={`View ${member.full_name}`}>
                           <Eye className="h-4 w-4" />
                         </Link>
@@ -300,6 +328,25 @@ export default function MembersPage() {
                   </div>
                 </div>
                 <div className="mobile-record-actions">
+                  {(() => {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const exp = member.package_end_date ? new Date(member.package_end_date) : null;
+                    if (exp) exp.setHours(0,0,0,0);
+                    const daysUntilExpiry = exp ? Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : 999;
+                    const canRenew = member.status === 'Expired' || (daysUntilExpiry <= 7 && member.duration !== 'Daily Pass');
+
+                    return canRenew ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRenewalMember(member)}
+                        className="btn btn-primary btn-sm bg-amber-500 hover:bg-amber-600 border-amber-500 text-zinc-950 font-bold"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                        Renew
+                      </button>
+                    ) : null;
+                  })()}
                   <Link href={`/members/${member.id}`} className="btn btn-secondary btn-sm">View</Link>
                   <Link href={`/members/${member.id}/edit`} className="btn btn-secondary btn-sm">Edit</Link>
                   <ConfirmDialog
@@ -390,6 +437,20 @@ export default function MembersPage() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* Renewal Modal */}
+      {selectedRenewalMember && (
+        <RenewalModal
+          member={selectedRenewalMember}
+          isOpen={!!selectedRenewalMember}
+          isDemo={isDemo}
+          onClose={() => setSelectedRenewalMember(null)}
+          onSuccess={() => {
+            setSelectedRenewalMember(null);
+            setRefreshCount((c) => c + 1);
+          }}
+        />
       )}
     </div>
   );

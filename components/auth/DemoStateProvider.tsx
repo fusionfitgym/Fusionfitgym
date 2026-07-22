@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Member, Invoice, AttendanceLog, GymSettings, SMSLog, HealthAssessment, ParqResponse, BiometricDevice, Staff } from '@/types';
+import { Member, Invoice, AttendanceLog, GymSettings, SMSLog, HealthAssessment, ParqResponse, BiometricDevice, Staff, MembershipRenewal } from '@/types';
 import {
   PTTrainer,
   PTPackage,
@@ -40,6 +40,7 @@ interface DemoStateContextType {
   healthAssessments: HealthAssessment[];
   parqResponses: ParqResponse[];
   staff: Staff[];
+  renewals: MembershipRenewal[];
 
   // PT States
   ptTrainers: PTTrainer[];
@@ -57,6 +58,8 @@ interface DemoStateContextType {
   getMemberById: (id: string) => Member | null;
   createMember: (values: any) => { data?: Member; error?: string; invoiceId?: string | null };
   updateMember: (id: string, values: any) => { data?: Member; error?: string };
+  renewMember: (params: any) => { success: boolean; member?: Member; invoiceId?: string; invoiceNumber?: string; error?: string };
+  getMemberRenewals: (memberId: string) => MembershipRenewal[];
   deleteMember: (id: string) => void;
   getMembersPaginated: (args: any) => { members: Member[]; totalCount: number };
   
@@ -309,6 +312,27 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const [smsLogs, setSmsLogs] = useState<SMSLog[]>([]);
   const [healthAssessments, setHealthAssessments] = useState<HealthAssessment[]>([]);
   const [parqResponses, setParqResponses] = useState<ParqResponse[]>([]);
+  const [renewals, setRenewals] = useState<MembershipRenewal[]>([
+    {
+      id: 'demo-renewal-1',
+      member_id: 'demo-member-uuid-0004',
+      renewal_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      previous_package: '1 Month',
+      new_package: '3 Months',
+      previous_start_date: '2025-05-01',
+      previous_end_date: '2025-06-01',
+      new_start_date: '2025-06-01',
+      new_end_date: '2025-09-01',
+      invoice_number: 'INV-2025-000044',
+      amount: 2750,
+      discount: 0,
+      payment_method: 'UPI',
+      renewed_by: 'Admin User',
+      notes: 'Renewed for 3 months package',
+      created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    }
+  ]);
+
 
   // ── PT State Initializers with Mock Data ─────────────────────
   const [ptTrainers, setPtTrainers] = useState<PTTrainer[]>([
@@ -694,7 +718,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         const isPlanRenewed = (values.package_start_date && values.package_start_date !== m.package_start_date) || (values.package_end_date && values.package_end_date !== m.package_end_date);
         const isStatusActivated = (m.status === 'Expired' || m.status === 'Inactive') && values.status === 'Active';
 
-        if (isPlanRenewed || isStatusActivated) {
+        if ((isPlanRenewed || isStatusActivated) && updated) {
           // Auto generate invoice in demo
           if (settings.invoice_auto_generation !== false) {
             const membershipFee = Number(updated.membership_fee || 0);
@@ -759,6 +783,112 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     return updated ? { data: updated } : { error: 'Member not found' };
   };
 
+  const renewMember = (params: any) => {
+    const member = members.find(m => m.id === params.memberId);
+    if (!member) return { success: false, error: 'Member not found' };
+
+    const previousPackage = member.package_name || member.duration || 'Standard';
+    const previousStartDate = member.package_start_date;
+    const previousEndDate = member.package_end_date;
+
+    const invNum = `INV-${new Date().getFullYear()}-${(invoices.length + 1).toString().padStart(6, '0')}`;
+    const invoiceId = `demo-invoice-uuid-${(invoices.length + 1).toString().padStart(4, '0')}`;
+
+    const discountVal = Number(params.discount || 0);
+    const taxVal = Number(params.tax || 0);
+    const finalAmountVal = Number(params.finalAmount || (params.packagePrice - discountVal + taxVal));
+
+    const newInvoice: Invoice = {
+      id: invoiceId,
+      member_id: member.id,
+      invoice_number: invNum,
+      amount: finalAmountVal,
+      due_date: params.endDate,
+      status: 'Paid',
+      notes: params.notes ? `Membership Renewal: ${params.notes}` : `Membership Renewal (${params.packageName})`,
+      membership_fee: Number(params.packagePrice),
+      subtotal: Number(params.packagePrice),
+      discount: discountVal,
+      tax: taxVal,
+      paid_amount: finalAmountVal,
+      balance_due: 0,
+      payment_method: params.paymentMethod,
+      payment_date: new Date().toISOString(),
+      membership_start_date: params.startDate,
+      membership_expiry_date: params.endDate,
+      created_at: new Date().toISOString(),
+      member: {
+        full_name: member.full_name,
+        phone: member.phone,
+        email: member.email,
+        address: member.address,
+        package_name: params.packageName,
+        package_duration: params.duration,
+        package_price: Number(params.packagePrice),
+        package_start_date: params.startDate,
+        package_end_date: params.endDate
+      }
+    };
+
+    setInvoices(prev => [newInvoice, ...prev]);
+
+    let updated: Member | undefined;
+    setMembers(prev => prev.map(m => {
+      if (m.id === params.memberId) {
+        updated = {
+          ...m,
+          package_name: params.packageName,
+          package_duration: params.duration,
+          duration: params.duration,
+          training_type: params.trainingType,
+          package_price: Number(params.packagePrice),
+          membership_fee: Number(params.packagePrice),
+          package_start_date: params.startDate,
+          package_end_date: params.endDate,
+          status: 'Active',
+          biometric_status: 'ENABLED',
+          updated_at: new Date().toISOString()
+        };
+        return updated;
+      }
+      return m;
+    }));
+
+    const newRenewal: MembershipRenewal = {
+      id: `demo-renewal-${Date.now()}`,
+      member_id: member.id,
+      invoice_id: invoiceId,
+      renewal_date: new Date().toISOString(),
+      previous_package: previousPackage,
+      new_package: params.packageName,
+      previous_start_date: previousStartDate,
+      previous_end_date: previousEndDate,
+      new_start_date: params.startDate,
+      new_end_date: params.endDate,
+      invoice_number: invNum,
+      amount: finalAmountVal,
+      discount: discountVal,
+      payment_method: params.paymentMethod,
+      renewed_by: 'Staff',
+      notes: params.notes || null,
+      created_at: new Date().toISOString()
+    };
+
+    setRenewals(prev => [newRenewal, ...prev]);
+
+    return {
+      success: true,
+      member: updated || member,
+      invoiceId,
+      invoiceNumber: invNum
+    };
+  };
+
+  const getMemberRenewals = (memberId: string) => {
+    return renewals.filter(r => r.member_id === memberId);
+  };
+
+
   const deleteMember = (id: string) => {
     setMembers(prev => prev.filter(m => m.id !== id));
   };
@@ -794,7 +924,37 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     }
     
     if (status && status !== 'All') {
-      filtered = filtered.filter(m => m.status === status);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const todayTime = today.getTime();
+
+      if (status === 'Expiring in 7 Days') {
+        filtered = filtered.filter(m => {
+          if (m.status !== 'Active' || m.duration === 'Daily Pass' || !m.package_end_date) return false;
+          const exp = new Date(m.package_end_date);
+          exp.setHours(0,0,0,0);
+          const diffDays = Math.ceil((exp.getTime() - todayTime) / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 7;
+        });
+      } else if (status === 'Expiring in 30 Days') {
+        filtered = filtered.filter(m => {
+          if (m.status !== 'Active' || m.duration === 'Daily Pass' || !m.package_end_date) return false;
+          const exp = new Date(m.package_end_date);
+          exp.setHours(0,0,0,0);
+          const diffDays = Math.ceil((exp.getTime() - todayTime) / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 30;
+        });
+      } else if (status === 'Renewed This Month') {
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getTime();
+        const renewedMemberIds = new Set(
+          renewals
+            .filter(r => new Date(r.renewal_date).getTime() >= startOfMonth)
+            .map(r => r.member_id)
+        );
+        filtered = filtered.filter(m => renewedMemberIds.has(m.id));
+      } else {
+        filtered = filtered.filter(m => m.status === status);
+      }
     }
     
     if (plan && plan !== 'All') {
@@ -1518,11 +1678,14 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         healthAssessments,
         parqResponses,
         staff,
+        renewals,
         
         getMembers,
         getMemberById,
         createMember,
         updateMember,
+        renewMember,
+        getMemberRenewals,
         deleteMember,
         getMembersPaginated,
         

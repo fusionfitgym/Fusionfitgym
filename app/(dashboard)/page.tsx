@@ -6,9 +6,11 @@ import {
   Activity,
   ArrowRight,
   ClipboardList,
+  Clock,
   Dumbbell,
   FileText,
   HardHat,
+  RefreshCw,
   TrendingUp,
   UserCheck,
   UserPlus,
@@ -27,6 +29,7 @@ import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceAnalytics, getStaffAttendanceTodayStats } from '@/lib/actions/attendance';
 import { getSMSStats } from '@/lib/actions/sms';
 import { getStaffStats } from '@/lib/actions/staff';
+import { getDashboardRenewalStats } from '@/lib/actions/renewals';
 import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
@@ -100,6 +103,7 @@ export default async function DashboardPage() {
   let smsStats: any = null;
   let staffStats: { total: number; trainers: number; janitors: number; active: number } = { total: 0, trainers: 0, janitors: 0, active: 0 };
   let staffAttendanceToday: { present: number; trainers: number; janitors: number; total: number } = { present: 0, trainers: 0, janitors: 0, total: 0 };
+  let renewalStats = { renewalsToday: 0, renewalsThisMonth: 0, upcomingRenewals: 0, expiredMemberships: 0 };
 
   // 3. Optimized parallel fetching of data with safety boundaries
   try {
@@ -166,13 +170,20 @@ export default async function DashboardPage() {
       return { present: 0, trainers: 0, janitors: 0, total: 0 };
     }));
 
+    // Renewal stats
+    promises.push(getDashboardRenewalStats().catch((err: any) => {
+      console.error("Error fetching renewal stats:", err);
+      return { renewalsToday: 0, renewalsThisMonth: 0, upcomingRenewals: 0, expiredMemberships: 0 };
+    }));
+
     const [
       membersResult,
       invoicesResult,
       attendanceResult,
       smsStatsResult,
       staffStatsResult,
-      staffAttendanceTodayResult
+      staffAttendanceTodayResult,
+      renewalStatsResult
     ] = await Promise.all(promises);
 
     members = membersResult?.data || [];
@@ -181,6 +192,7 @@ export default async function DashboardPage() {
     smsStats = smsStatsResult;
     staffStats = staffStatsResult || staffStats;
     staffAttendanceToday = staffAttendanceTodayResult || staffAttendanceToday;
+    renewalStats = renewalStatsResult || renewalStats;
   } catch (error) {
     console.error("Failed executing parallel data fetching:", error);
   }
@@ -373,6 +385,37 @@ export default async function DashboardPage() {
           icon={<Activity className="h-5 w-5 text-indigo-500" />}
           subtitle="Active cardio or strength training"
         />
+      </div>
+
+      {/* Membership Renewal Statistics Grid */}
+      <div className="mt-6">
+        <h2 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-wider text-xs text-slate-500">Membership Renewal Statistics</h2>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <StatCard
+            title="Renewals Today"
+            value={renewalStats.renewalsToday}
+            icon={<RefreshCw className="h-5 w-5 text-amber-500" />}
+            subtitle="Renewals processed today"
+          />
+          <StatCard
+            title="Renewals This Month"
+            value={renewalStats.renewalsThisMonth}
+            icon={<RefreshCw className="h-5 w-5 text-emerald-600" />}
+            subtitle="Total renewals this month"
+          />
+          <StatCard
+            title="Upcoming Renewals"
+            value={renewalStats.upcomingRenewals || expiringSoon}
+            icon={<Clock className="h-5 w-5 text-amber-600" />}
+            subtitle="Expiring in next 7 days"
+          />
+          <StatCard
+            title="Expired Memberships"
+            value={renewalStats.expiredMemberships || expiredMembers.length}
+            icon={<Users className="h-5 w-5 text-rose-500" />}
+            subtitle="Memberships currently expired"
+          />
+        </div>
       </div>
 
       {/* Staff Statistics Row */}
