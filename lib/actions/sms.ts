@@ -723,3 +723,105 @@ export async function fetchGatewayHealthAction() {
 
   return health;
 }
+
+/**
+ * Diagnostic Test SMS dispatch action for developer debugging
+ */
+export async function sendTestSMSAction(phone: string): Promise<{
+  success: boolean;
+  message: string;
+  httpStatus?: number;
+  durationMs?: number;
+  requestDetails?: any;
+  rawResponse?: any;
+  logId?: string;
+  error?: string;
+}> {
+  const testMessage = `[FusionFit ERP Test] Diagnostic SMS dispatch at ${new Date().toLocaleTimeString()} (Server Sync Check).`;
+
+  const supabase = await createClient();
+  const providerName = process.env.SMS_PROVIDER || 'textbee';
+  const apiKey = process.env.TEXTBEE_API_KEY;
+  const deviceId = process.env.TEXTBEE_DEVICE_ID;
+
+  if (!apiKey || !deviceId) {
+    return {
+      success: false,
+      message: 'Missing environment configuration: TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID is not configured in .env.local.',
+      error: 'Missing TextBee environment credentials',
+    };
+  }
+
+  // 1. Queue pending log entry
+  const { data: logEntry, error: insertErr } = await supabase
+    .from('sms_logs')
+    .insert({
+      phone_number: phone,
+      phone: phone,
+      message: testMessage,
+      message_type: 'Diagnostic Test',
+      sms_type: 'Diagnostic Test',
+      member_name: 'Developer Test',
+      status: 'Pending',
+      gateway: providerName,
+      provider: providerName,
+    })
+    .select('id')
+    .single();
+
+  if (insertErr || !logEntry) {
+    return {
+      success: false,
+      message: `Failed to insert log entry into database: ${insertErr?.message || 'Database error'}`,
+      error: insertErr?.message,
+    };
+  }
+
+  // 2. Execute synchronous dispatch directly
+  const { getSMSNotificationService } = await import('@/lib/notification-service');
+  const service = getSMSNotificationService();
+  const result = await service.dispatch(logEntry.id, phone, testMessage, null);
+
+  return {
+    success: result.success,
+    message: result.success ? 'Test SMS successfully sent to TextBee gateway!' : `Test SMS dispatch failed: ${result.error || 'Unknown error'}`,
+    httpStatus: result.httpStatus,
+    durationMs: result.durationMs,
+    requestDetails: result.requestDetails,
+    rawResponse: result.rawResponse,
+    logId: logEntry.id,
+    error: result.error,
+  };
+}
+
+/**
+ * Fetch Developer Debug Panel Environment & Last Execution info
+ */
+export async function getDeveloperDebugInfoAction() {
+  const apiKey = process.env.TEXTBEE_API_KEY;
+  const deviceId = process.env.TEXTBEE_DEVICE_ID || '6a61b347ceb4314c6c6a6835';
+  const provider = process.env.SMS_PROVIDER || 'textbee';
+
+  const maskedKey = apiKey
+    ? `${apiKey.substring(0, 8)}...${apiKey.slice(-4)}`
+    : 'MISSING / UNSET';
+
+  const endpoint = `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`;
+
+  const supabase = await createClient();
+  const { data: lastLog } = await supabase
+    .from('sms_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    provider,
+    deviceId,
+    apiKeyConfigured: !!apiKey,
+    maskedKey,
+    endpoint,
+    lastLog: lastLog || null,
+  };
+}

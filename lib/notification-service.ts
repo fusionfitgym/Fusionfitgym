@@ -136,6 +136,8 @@ export class SMSNotificationService {
       messageId: result.messageId,
       error: result.error,
       failureCategory: failureCat,
+      durationMs: result.durationMs || 0,
+      requestDetails: result.requestDetails || null,
       completedAt: completionTime,
       rawResponse: result.rawResponse,
     };

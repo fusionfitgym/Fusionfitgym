@@ -28,12 +28,24 @@ export class TextBeeProvider implements SMSProvider {
     const apiKey = process.env.TEXTBEE_API_KEY;
     const deviceId = process.env.TEXTBEE_DEVICE_ID;
 
+    const requestDetails = {
+      url: deviceId ? `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms` : 'N/A',
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey ? `${apiKey.substring(0, 8)}...${apiKey.slice(-4)}` : 'MISSING',
+        'Content-Type': 'application/json'
+      },
+      body: { recipients: [phone], message }
+    };
+
     if (!apiKey || !deviceId) {
-      const errorMsg = 'Missing TextBee credentials (TEXTBEE_API_KEY, TEXTBEE_DEVICE_ID)';
+      const errorMsg = 'Missing TextBee credentials (TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID)';
       console.error(`[TextBee Provider] Config Error: ${errorMsg}`);
       return {
         success: false,
-        error: errorMsg
+        error: errorMsg,
+        durationMs: 0,
+        requestDetails
       };
     }
 
@@ -43,20 +55,26 @@ export class TextBeeProvider implements SMSProvider {
       console.error(`[TextBee Provider] Invalid phone number passed: ${phone}`);
       return {
         success: false,
-        error: 'Invalid phone number'
+        error: 'Invalid phone number format',
+        durationMs: 0,
+        requestDetails
       };
     }
 
     const endpoint = `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`;
+    requestDetails.url = endpoint;
+    requestDetails.body = { recipients: [normalizedPhone], message };
 
-    // 2. Set up timeout protection (10 seconds)
+    // 2. Set up timeout protection (10 seconds) & timer
+    const startTime = Date.now();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
     }, 10000);
 
     try {
-      console.log(`[TextBee Provider] Sending SMS to ${normalizedPhone} via device ${deviceId}...`);
+      console.log(`[TextBee Provider] Stage 3: Dispatching HTTP POST to TextBee Gateway API...`);
+      console.log(`[TextBee Provider] Endpoint: ${endpoint}`);
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -72,47 +90,61 @@ export class TextBeeProvider implements SMSProvider {
       });
 
       clearTimeout(timeoutId);
+      const durationMs = Date.now() - startTime;
 
       const responseText = await response.text();
       let responseData: TextBeeSuccessResponse | null = null;
       try {
         responseData = JSON.parse(responseText);
       } catch (parseErr) {
-        console.warn(`[TextBee Provider] Failed to parse response as JSON. Raw response: ${responseText}`);
+        console.warn(`[TextBee Provider] Raw non-JSON response (${response.status}): ${responseText}`);
       }
 
       const httpStatus = response.status;
+      console.log(`[TextBee Provider] Stage 4: Received HTTP ${httpStatus} response in ${durationMs}ms`);
 
       if (!response.ok) {
-        const errorMsg = responseData?.message || `HTTP Error ${httpStatus}: ${responseText}`;
+        let errorMsg = responseData?.message || `HTTP ${httpStatus}: ${responseText}`;
+        if (httpStatus === 401) errorMsg = 'Unauthorized: Invalid TextBee API Key (HTTP 401)';
+        else if (httpStatus === 400) errorMsg = `Bad Request: ${responseData?.message || responseText}`;
+        else if (httpStatus === 429) errorMsg = 'Rate Limit Exceeded (HTTP 429)';
+        else if (httpStatus === 500) errorMsg = `TextBee Device Error (HTTP 500): ${responseData?.message || 'Device Offline'}`;
+
         console.error(`[TextBee Provider] HTTP request failed with status ${httpStatus}. Error: ${errorMsg}`);
         return {
           success: false,
           httpStatus,
           error: errorMsg,
+          durationMs,
+          requestDetails,
           rawResponse: responseData || responseText
         };
       }
 
       const messageId = responseData?.data?.id || responseData?.message || 'delivered';
 
-      console.log(`[TextBee Provider] SMS sent successfully. Message ID: ${messageId}`);
+      console.log(`[TextBee Provider] Stage 4 Success: SMS dispatched. Message ID: ${messageId}`);
       return {
         success: true,
         messageId,
         httpStatus,
+        durationMs,
+        requestDetails,
         rawResponse: responseData
       };
 
     } catch (error: any) {
       clearTimeout(timeoutId);
+      const durationMs = Date.now() - startTime;
 
       if (error.name === 'AbortError') {
         console.error('[TextBee Provider] HTTP Request timed out after 10 seconds.');
         return {
           success: false,
-          error: 'Gateway timeout (10 seconds exceeded)',
-          rawResponse: error
+          error: 'Gateway Timeout (10 seconds exceeded - TextBee device offline or unreachable)',
+          durationMs,
+          requestDetails,
+          rawResponse: { error: 'AbortError: Request Timeout' }
         };
       }
 
@@ -120,7 +152,9 @@ export class TextBeeProvider implements SMSProvider {
       return {
         success: false,
         error: error?.message || String(error),
-        rawResponse: error
+        durationMs,
+        requestDetails,
+        rawResponse: { error: error?.message || String(error) }
       };
     }
   }

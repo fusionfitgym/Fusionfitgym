@@ -6,6 +6,13 @@ export interface SMSResult {
   httpStatus?: number;
   rawResponse?: unknown;
   error?: string;
+  durationMs?: number;
+  requestDetails?: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body: unknown;
+  };
 }
 
 export interface SMSProvider {

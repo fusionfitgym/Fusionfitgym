@@ -39,7 +39,9 @@ import {
   Info,
   CheckSquare,
   Square,
-  Play
+  Play,
+  Terminal,
+  Cpu
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -65,7 +67,9 @@ import {
   queueSMSNotificationAction,
   fetchReceivedSMSAction,
   fetchSentMessagesAction,
-  fetchGatewayHealthAction
+  fetchGatewayHealthAction,
+  sendTestSMSAction,
+  getDeveloperDebugInfoAction
 } from '@/lib/actions/sms';
 
 import { getSettings, upsertSettings } from '@/lib/actions/settings';
@@ -93,7 +97,7 @@ const CHART_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#e
 
 export default function SMSOperationsCenterPage() {
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'messages' | 'analytics' | 'inbox'>('messages');
+  const [activeTab, setActiveTab] = useState<'messages' | 'analytics' | 'inbox' | 'developer_debug'>('messages');
 
   // Core Data State
   const [logs, setLogs] = useState<SMSLog[]>([]);
@@ -103,6 +107,7 @@ export default function SMSOperationsCenterPage() {
   const [gatewayHealth, setGatewayHealth] = useState<any>(null);
   const [receivedMessages, setReceivedMessages] = useState<any[]>([]);
   const [sentApiMessages, setSentApiMessages] = useState<any[]>([]);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // Filtering & Pagination State
   const [filters, setFilters] = useState<SMSFilterParams>({
@@ -141,6 +146,12 @@ export default function SMSOperationsCenterPage() {
   const [composeForm, setComposeForm] = useState({ phone: '', name: '', message: '', type: 'Manual' });
   const [isSendingCompose, setIsSendingCompose] = useState<boolean>(false);
 
+  // Send Test SMS Diagnostic Modal & State
+  const [isTestSMSModalOpen, setIsTestSMSModalOpen] = useState<boolean>(false);
+  const [testPhone, setTestPhone] = useState<string>('9876543210');
+  const [isSendingTestSMS, setIsSendingTestSMS] = useState<boolean>(false);
+  const [testSMSResult, setTestSMSResult] = useState<any | null>(null);
+
   // JSON Drawer copy feedback
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
@@ -148,11 +159,12 @@ export default function SMSOperationsCenterPage() {
   const loadData = useCallback(async (isSilent = false) => {
     if (!isSilent) setIsLoading(true);
     try {
-      const [logsData, analyticsData, healthData, settingsData] = await Promise.all([
+      const [logsData, analyticsData, healthData, settingsData, debugData] = await Promise.all([
         getSMSLogsServerAction(filters),
         getSMSAnalyticsAction(),
         fetchGatewayHealthAction(),
-        getSettings()
+        getSettings(),
+        getDeveloperDebugInfoAction()
       ]);
 
       setLogs(logsData.logs);
@@ -160,6 +172,7 @@ export default function SMSOperationsCenterPage() {
       setTotalPages(logsData.totalPages);
       setAnalytics(analyticsData);
       setGatewayHealth(healthData);
+      setDebugInfo(debugData);
 
       setRetrySettings({
         enabled: settingsData.sms_auto_retry_enabled !== 'false',
@@ -186,6 +199,9 @@ export default function SMSOperationsCenterPage() {
         setReceivedMessages(inbox || []);
         setSentApiMessages(sent || []);
       });
+    }
+    if (activeTab === 'developer_debug') {
+      getDeveloperDebugInfoAction().then(setDebugInfo);
     }
   }, [activeTab]);
 
@@ -305,7 +321,41 @@ export default function SMSOperationsCenterPage() {
     }
   };
 
-  // 7. Manual SMS Send
+  // 7. Diagnostic Test SMS Handler
+  const handleSendTestSMS = async () => {
+    if (!testPhone) {
+      toast.error('Recipient phone number required for diagnostic test.');
+      return;
+    }
+
+    setIsSendingTestSMS(true);
+    setTestSMSResult(null);
+    toast.info('Dispatching diagnostic Test SMS to TextBee Gateway...');
+
+    try {
+      const res = await sendTestSMSAction(testPhone);
+      setTestSMSResult(res);
+
+      if (res.success) {
+        toast.success('Diagnostic Test SMS sent successfully!');
+      } else {
+        toast.error(`Diagnostic dispatch failed: ${res.message}`);
+      }
+
+      await loadData(true);
+    } catch (err: any) {
+      toast.error(`Test SMS execution exception: ${err.message}`);
+      setTestSMSResult({
+        success: false,
+        message: err.message,
+        error: err.message
+      });
+    } finally {
+      setIsSendingTestSMS(false);
+    }
+  };
+
+  // 8. Manual SMS Send
   const handleSendCompose = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!composeForm.phone || !composeForm.message) {
@@ -322,7 +372,7 @@ export default function SMSOperationsCenterPage() {
         composeForm.name || undefined
       );
       if (res.success) {
-        toast.success('SMS dispatched to gateway queue.');
+        toast.success('SMS dispatched to TextBee gateway.');
         setIsComposeModalOpen(false);
         setComposeForm({ phone: '', name: '', message: '', type: 'Manual' });
         await loadData(true);
@@ -336,7 +386,7 @@ export default function SMSOperationsCenterPage() {
     }
   };
 
-  // 8. Export Logs (CSV Generator)
+  // 9. Export Logs (CSV Generator)
   const handleExportCSV = () => {
     if (!logs || logs.length === 0) {
       toast.warning('No logs available to export.');
@@ -430,7 +480,7 @@ export default function SMSOperationsCenterPage() {
             </div>
             <div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                SMS Delivery Management & Retry System
+                SMS Delivery Management & Debug Center
               </h1>
               <p className="text-sm text-slate-400 flex items-center gap-2 mt-0.5">
                 <span>TextBee Gateway Integration</span>
@@ -442,6 +492,15 @@ export default function SMSOperationsCenterPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsTestSMSModalOpen(true)}
+            className="border-emerald-500/40 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 font-semibold"
+          >
+            <Terminal className="w-4 h-4 mr-1.5 text-emerald-400" /> Send Test SMS
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -457,7 +516,7 @@ export default function SMSOperationsCenterPage() {
             onClick={handleExportCSV}
             className="border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-slate-200"
           >
-            <Download className="w-4 h-4 mr-1.5 text-emerald-400" /> Export CSV
+            <Download className="w-4 h-4 mr-1.5 text-slate-400" /> Export CSV
           </Button>
 
           <Button
@@ -597,6 +656,17 @@ export default function SMSOperationsCenterPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('developer_debug')}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
+              activeTab === 'developer_debug'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <Terminal className="w-4 h-4" /> Developer Debug & Test Panel
+          </button>
+
+          <button
             onClick={() => setActiveTab('analytics')}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
               activeTab === 'analytics'
@@ -669,6 +739,7 @@ export default function SMSOperationsCenterPage() {
                   <option value="Manual">Manual</option>
                   <option value="Payment">Payment</option>
                   <option value="Fee Alert">Fee Alert</option>
+                  <option value="Diagnostic Test">Diagnostic Test</option>
                 </select>
 
                 {/* Date Range Filter */}
@@ -900,6 +971,129 @@ export default function SMSOperationsCenterPage() {
                   Next <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: DEVELOPER DEBUG PANEL ─────────────────────────── */}
+      {activeTab === 'developer_debug' && (
+        <div className="space-y-6">
+          
+          {/* Debug Header & Environment Grid */}
+          <div className="rounded-2xl border border-emerald-500/30 bg-slate-900/80 p-6 space-y-6 shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                  <Terminal className="w-6 h-6 text-emerald-400" />
+                  TextBee Gateway Developer Debug Panel
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Inspect raw TextBee API requests, verify credentials, monitor execution duration, and run diagnostic tests.
+                </p>
+              </div>
+
+              <Button
+                onClick={() => setIsTestSMSModalOpen(true)}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30"
+              >
+                <Terminal className="w-4 h-4 mr-1.5" /> Launch Test SMS Diagnostic
+              </Button>
+            </div>
+
+            {/* Config Inspection Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase">Provider</span>
+                <p className="text-base font-bold text-white font-mono">{debugInfo?.provider || 'textbee'}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase">Device ID</span>
+                <p className="text-base font-bold text-emerald-400 font-mono truncate">{debugInfo?.deviceId || '6a61b347ceb4314c6c6a6835'}</p>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase">API Key Status</span>
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${debugInfo?.apiKeyConfigured ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                  <p className="text-xs font-mono font-semibold text-slate-200">{debugInfo?.maskedKey || 'Configured'}</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase">API Target Endpoint</span>
+                <p className="text-xs font-mono text-indigo-300 truncate" title={debugInfo?.endpoint}>
+                  https://api.textbee.dev/api/...
+                </p>
+              </div>
+            </div>
+
+            {/* Last Dispatch Details Panel */}
+            <div className="space-y-3">
+              <h3 className="font-bold text-base text-white flex items-center gap-2">
+                <Cpu className="w-5 h-5 text-indigo-400" /> Last Executed SMS Dispatch Metadata
+              </h3>
+
+              {debugInfo?.lastLog ? (
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs border-b border-slate-800 pb-3">
+                    <div>
+                      <span className="text-slate-500 block uppercase font-semibold">Log ID</span>
+                      <span className="font-mono text-slate-300">{debugInfo.lastLog.id}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block uppercase font-semibold">Status</span>
+                      {getStatusBadge(debugInfo.lastLog.status)}
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block uppercase font-semibold">HTTP Status</span>
+                      <span className="font-mono font-bold text-amber-400">{debugInfo.lastLog.http_status || debugInfo.lastLog.provider_metadata?.httpStatus || 'N/A'}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-500 block uppercase font-semibold">Duration</span>
+                      <span className="font-mono font-bold text-sky-400">{debugInfo.lastLog.provider_metadata?.durationMs || 0} ms</span>
+                    </div>
+                  </div>
+
+                  {/* Request Payload JSON */}
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase block mb-1">Request Payload Details</span>
+                    <pre className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-[11px] font-mono text-slate-300 overflow-x-auto">
+                      {JSON.stringify(
+                        debugInfo.lastLog.provider_metadata?.requestDetails || {
+                          url: debugInfo.endpoint,
+                          method: 'POST',
+                          headers: { 'x-api-key': debugInfo.maskedKey, 'Content-Type': 'application/json' },
+                          body: { recipients: [debugInfo.lastLog.phone_number || debugInfo.lastLog.phone], message: debugInfo.lastLog.message }
+                        },
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+
+                  {/* Response Payload JSON */}
+                  <div>
+                    <span className="text-xs font-semibold text-slate-400 uppercase block mb-1">TextBee Response Payload JSON</span>
+                    <pre className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-48">
+                      {JSON.stringify(
+                        debugInfo.lastLog.provider_metadata?.rawResponse || debugInfo.lastLog.provider_metadata || { response: 'No response saved' },
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center text-slate-500 text-xs bg-slate-950 border border-slate-800 rounded-xl">
+                  No dispatch logs recorded yet. Click "Launch Test SMS Diagnostic" to run a test dispatch.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1175,6 +1369,86 @@ export default function SMSOperationsCenterPage() {
                 Retry Now
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DIAGNOSTIC TEST SMS MODAL ───────────────────────────── */}
+      <Dialog open={isTestSMSModalOpen} onOpenChange={setIsTestSMSModalOpen}>
+        <DialogContent className="max-w-xl bg-slate-900 border-slate-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-emerald-400">
+              <Terminal className="w-5 h-5 text-emerald-400" />
+              Run TextBee Diagnostic Test SMS
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Dispatches a test message synchronously to verify TextBee API credentials, endpoint connection, and response logging.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300">Recipient Phone Number</label>
+              <Input
+                value={testPhone}
+                onChange={e => setTestPhone(e.target.value)}
+                placeholder="+919876543210 or 9876543210"
+                className="bg-slate-950 border-slate-800 text-white font-mono text-xs"
+              />
+            </div>
+
+            <Button
+              onClick={handleSendTestSMS}
+              disabled={isSendingTestSMS}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2"
+            >
+              {isSendingTestSMS ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Dispatching to TextBee Gateway...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Play className="w-4 h-4" /> Send Diagnostic Test SMS Now
+                </span>
+              )}
+            </Button>
+
+            {/* Test Execution Result Inspection Panel */}
+            {testSMSResult && (
+              <div className="space-y-3 pt-2">
+                <div className={`p-3 rounded-xl border flex items-center justify-between text-xs font-semibold ${
+                  testSMSResult.success
+                    ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                    : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                }`}>
+                  <span className="flex items-center gap-2">
+                    {testSMSResult.success ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    {testSMSResult.message}
+                  </span>
+                  <span className="font-mono">HTTP {testSMSResult.httpStatus || 500} ({testSMSResult.durationMs || 0}ms)</span>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase">Request Details</span>
+                  <pre className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-[11px] font-mono text-slate-300 overflow-x-auto">
+                    {JSON.stringify(testSMSResult.requestDetails || {}, null, 2)}
+                  </pre>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase">TextBee Raw Response Body</span>
+                  <pre className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-40">
+                    {JSON.stringify(testSMSResult.rawResponse || { error: testSMSResult.error }, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTestSMSModalOpen(false)} className="border-slate-800 text-slate-300">
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -181,17 +181,19 @@ export async function sendSMS(
     return { success: false, error: dbErr?.message || 'Database write error' };
   }
 
-  // 8. Fire-and-forget asynchronous gateway dispatch in the background (Non-blocking)
+  // 8. Execute gateway dispatch synchronously so TextBee request executes and updates DB log
   if (logId) {
-    Promise.resolve().then(async () => {
-      try {
-        const { getSMSNotificationService } = await import('./sms-provider');
-        const service = getSMSNotificationService();
-        await service.dispatch(logId, cleanPhone, message, memberId);
-      } catch (dispatchErr) {
-        console.error('[SMS Dispatch] Failed in background execution block:', dispatchErr);
+    try {
+      const { getSMSNotificationService } = await import('./sms-provider');
+      const service = getSMSNotificationService();
+      const dispatchRes = await service.dispatch(logId, cleanPhone, message, memberId);
+      if (!dispatchRes.success) {
+        return { success: false, error: dispatchRes.error || 'TextBee Gateway dispatch failed' };
       }
-    });
+    } catch (dispatchErr: any) {
+      console.error('[SMS Dispatch] Failed during gateway dispatch:', dispatchErr);
+      return { success: false, error: dispatchErr?.message || 'Gateway dispatch exception' };
+    }
   }
 
   return { success: true };
