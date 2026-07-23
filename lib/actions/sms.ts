@@ -29,43 +29,11 @@ export async function getSMSLogsServerAction(params: SMSFilterParams = {}): Prom
   const limit = Math.min(100, Math.max(10, params.limit || 20));
   const offset = (page - 1) * limit;
 
-  let query = supabase
-    .from('sms_logs')
-    .select(
-      `
-      id,
-      member_id,
-      member_name,
-      phone,
-      phone_number,
-      sms_type,
-      message_type,
-      message,
-      invoice_id,
-      gateway,
-      provider,
-      status,
-      error_message,
-      http_status,
-      textbee_message_id,
-      provider_message_id,
-      retry_count,
-      resend_count,
-      attempt_count,
-      last_retry_at,
-      last_resend_at,
-      last_attempt_at,
-      failure_category,
-      auto_retry_eligible,
-      created_at,
-      updated_at,
-      sent_at,
-      provider_response,
-      provider_metadata,
-      member:members(full_name)
-    `,
-      { count: 'exact' }
-    );
+  const isModern = await detectModernSchema(supabase);
+  const primaryPhoneCol = isModern ? 'phone_number' : 'phone';
+  const primaryTypeCol = isModern ? 'message_type' : 'sms_type';
+
+  let query = supabase.from('sms_logs').select('*, member:members(full_name)', { count: 'exact' });
 
   // Status Filter
   if (params.status && params.status !== 'all') {
@@ -74,14 +42,14 @@ export async function getSMSLogsServerAction(params: SMSFilterParams = {}): Prom
 
   // Message Type Filter
   if (params.messageType && params.messageType !== 'all') {
-    query = query.or(`message_type.eq.${params.messageType},sms_type.eq.${params.messageType}`);
+    query = query.eq(primaryTypeCol, params.messageType);
   }
 
   // Search Filter (Member Name, Phone, Message, or Error)
   if (params.search && params.search.trim()) {
     const searchTerm = `%${params.search.trim()}%`;
     query = query.or(
-      `member_name.ilike.${searchTerm},phone_number.ilike.${searchTerm},phone.ilike.${searchTerm},message.ilike.${searchTerm},error_message.ilike.${searchTerm}`
+      `member_name.ilike.${searchTerm},${primaryPhoneCol}.ilike.${searchTerm},message.ilike.${searchTerm},error_message.ilike.${searchTerm}`
     );
   }
 
@@ -308,6 +276,8 @@ export async function cancelSMSAction(logId: string): Promise<{ success: boolean
  */
 export async function getSMSAnalyticsAction(): Promise<SMSAnalyticsStats> {
   const supabase = await createClient();
+  const isModern = await detectModernSchema(supabase);
+  const primaryTypeCol = isModern ? 'message_type' : 'sms_type';
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -328,7 +298,7 @@ export async function getSMSAnalyticsAction(): Promise<SMSAnalyticsStats> {
     supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Failed'),
     supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
     supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Retrying'),
-    supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Sent').or('message_type.eq.Renewal,sms_type.eq.Renewal'),
+    supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Sent').eq(primaryTypeCol, 'Renewal'),
     supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Sent'),
     supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Failed').eq('auto_retry_eligible', true),
   ]);
@@ -341,7 +311,7 @@ export async function getSMSAnalyticsAction(): Promise<SMSAnalyticsStats> {
   // Failure cause distribution
   const { data: failedLogs } = await supabase
     .from('sms_logs')
-    .select('error_message, provider_response, failure_category, http_status')
+    .select('error_message, failure_category, http_status, provider_metadata')
     .eq('status', 'Failed')
     .limit(200);
 
@@ -753,19 +723,23 @@ export async function sendTestSMSAction(phone: string): Promise<{
   }
 
   // 1. Queue pending log entry
+  const isModern = await detectModernSchema(supabase);
+  const phoneCol = isModern ? 'phone_number' : 'phone';
+  const typeCol = isModern ? 'message_type' : 'sms_type';
+
+  const insertPayload: Record<string, any> = {
+    message: testMessage,
+    member_name: 'Developer Test',
+    status: 'Pending',
+    gateway: providerName,
+    provider: providerName,
+  };
+  insertPayload[phoneCol] = phone;
+  insertPayload[typeCol] = 'Diagnostic Test';
+
   const { data: logEntry, error: insertErr } = await supabase
     .from('sms_logs')
-    .insert({
-      phone_number: phone,
-      phone: phone,
-      message: testMessage,
-      message_type: 'Diagnostic Test',
-      sms_type: 'Diagnostic Test',
-      member_name: 'Developer Test',
-      status: 'Pending',
-      gateway: providerName,
-      provider: providerName,
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
 

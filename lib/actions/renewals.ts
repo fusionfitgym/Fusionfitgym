@@ -10,6 +10,8 @@ import { sendRenewalSMS } from '@/lib/sms';
 import { sendAutoWhatsAppMessage } from '@/lib/wati';
 import { formatDate } from '@/lib/utils';
 import { getSettings } from './settings';
+import { ensureInvoiceToken } from './invoices';
+import { buildInvoicePublicUrl } from '@/lib/invoice-links';
 
 export interface RenewMembershipParams {
   memberId: string;
@@ -103,6 +105,19 @@ export async function renewMembership(params: RenewMembershipParams): Promise<{
     const createdInvoiceId = invoiceData.id;
     const createdInvoiceNumber = invoiceData.invoice_number;
 
+    console.log(`[STEP 1 & 2] Member renewal & payment recorded for: ${member.full_name} (${member.id}), Amount: ₹${finalAmountVal}`);
+    console.log(`[STEP 3] Renewal invoice created: ${createdInvoiceNumber} (${createdInvoiceId})`);
+
+    // [STEP 4] Generate Online Invoice Link
+    let invoiceLink = '';
+    try {
+      const token = invoiceData.invoice_token || (await ensureInvoiceToken(createdInvoiceId));
+      invoiceLink = buildInvoicePublicUrl(token);
+      console.log(`[STEP 4] Online invoice link generated: ${invoiceLink}`);
+    } catch (linkErr: any) {
+      console.error('[STEP 4 ERROR] Failed to generate renewal invoice link:', linkErr);
+    }
+
     // 3. Update Member Record (Do NOT create duplicate member)
     const updatedMemberPayload = {
       package_name: params.packageName,
@@ -172,18 +187,23 @@ export async function renewMembership(params: RenewMembershipParams): Promise<{
       const formattedRenewal = formatDate(params.startDate);
       const formattedExpiry = formatDate(params.endDate);
       
+      console.log(`[STEP 5] Triggering Renewal SMS for ${member.full_name} (${member.phone})`);
       try {
-        await sendRenewalSMS(
+        const smsResult = await sendRenewalSMS(
           member.id,
           member.full_name,
           params.packageName,
           formattedRenewal,
           formattedExpiry,
           finalAmountVal,
-          member.phone
+          member.phone,
+          invoiceLink,
+          createdInvoiceId
         );
+        console.log(`[STEP 8] Renewal SMS dispatch trigger response:`, smsResult);
       } catch (smsErr) {
-        console.error('Renewal SMS send error:', smsErr);
+        console.error('[STEP 8 ERROR] Renewal SMS send error:', smsErr);
+        // Error Isolation: SMS failure MUST NOT roll back renewal!
       }
 
       // WhatsApp non-blocking dispatch

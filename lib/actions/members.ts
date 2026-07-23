@@ -4,11 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Member, MemberFormValues, memberSchema } from '@/types';
-import { sendRenewalSMS } from '@/lib/sms';
+import { sendRenewalSMS, sendInvoiceSMS } from '@/lib/sms';
 import { sendAutoWhatsAppMessage } from '@/lib/wati';
 import { formatDate } from '@/lib/utils';
 import { validateRole } from './auth';
 import { logAudit } from './audit';
+import { ensureInvoiceToken } from './invoices';
+import { buildInvoicePublicUrl } from '@/lib/invoice-links';
 
 export async function getMembers(): Promise<Member[]> {
   try {
@@ -85,14 +87,15 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       .single();
     if (error) return { error: error.message };
 
+    console.log(`[STEP 1] Member saved: ${member.full_name} (${member.id})`);
+    console.log(`[STEP 2] Payment recorded. Amount Paid: ₹${paid_amount}, Method: ${payment_method || 'N/A'}`);
+
     // Queue biometric enable action if biometric_user_id is provided at creation
     if (member.biometric_user_id) {
       await queueBiometricAction(member.id, member.biometric_user_id, 'enable');
     }
 
     await logAudit(`Created member: ${member.full_name}`, 'Members', user.id);
-
-
 
     let createdInvoiceId = null;
 
@@ -173,13 +176,24 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
         .single();
 
       if (invoiceError) {
-        console.error('Database error creating auto invoice:', invoiceError);
+        console.error('[STEP 3 ERROR] Database error creating auto invoice:', invoiceError);
         // Rollback: delete created member
         await supabase.from('members').delete().eq('id', member.id);
         return { error: `Failed to automatically generate invoice: ${invoiceError.message}` };
       }
 
       createdInvoiceId = invoiceData.id;
+      console.log(`[STEP 3] Invoice created: ${invoiceData.invoice_number} (ID: ${invoiceData.id})`);
+
+      // [STEP 4] Generate Online Invoice Link
+      let invoiceLink = '';
+      try {
+        const token = invoiceData.invoice_token || (await ensureInvoiceToken(invoiceData.id));
+        invoiceLink = buildInvoicePublicUrl(token);
+        console.log(`[STEP 4] Invoice link generated: ${invoiceLink}`);
+      } catch (linkErr: any) {
+        console.error('[STEP 4 ERROR] Failed to generate invoice link:', linkErr);
+      }
 
       // Create PT client registration if PT package is selected
       if (pt_package_id) {
@@ -215,6 +229,30 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
           }
         } catch (ptErr) {
           console.error('Error creating PT client entry:', ptErr);
+        }
+      }
+
+      // [STEP 5-8] Trigger Automatic Invoice SMS
+      if (member.phone) {
+        console.log(`[STEP 5] Triggering Invoice SMS for member: ${member.full_name} (${member.phone})`);
+        try {
+          const smsResult = await sendInvoiceSMS(
+            member.id,
+            invoiceData.invoice_number,
+            formatDate(invoiceData.created_at),
+            member.package_name || 'Membership',
+            Number(grandTotal),
+            payment_method || 'Cash',
+            formatDate(member.package_end_date),
+            member.phone,
+            member.full_name || 'Member',
+            invoiceLink,
+            invoiceData.id
+          );
+          console.log(`[STEP 8] Invoice SMS trigger response:`, smsResult);
+        } catch (smsErr: any) {
+          console.error('[STEP 8 ERROR] Exception during invoice SMS dispatch:', smsErr);
+          // Error Isolation: SMS failure MUST NOT roll back invoice or member creation!
         }
       }
     }

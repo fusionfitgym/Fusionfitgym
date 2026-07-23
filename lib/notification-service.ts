@@ -89,6 +89,7 @@ export class SMSNotificationService {
     // Pre-update database log metadata prior to provider call
     try {
       const preUpdateData: Record<string, any> = {
+        status: 'Sending',
         last_attempt_at: attemptTime,
         provider: this.provider.name,
       };
@@ -105,6 +106,7 @@ export class SMSNotificationService {
 
     let result: SMSResult;
     try {
+      console.log(`[STEP 6] Sending SMS to TextBee gateway for log ID: ${logId} (Recipient: ${phone})`);
       // 1. Acquire rate limiter token before dispatching to provider
       const limiter = getGlobalRateLimiter();
       await limiter.acquireToken();
@@ -115,7 +117,9 @@ export class SMSNotificationService {
         1,
         500
       );
+      console.log(`[STEP 7] TextBee response received. Success: ${result.success}, HTTP ${result.httpStatus || 200}`);
     } catch (dispatchErr: any) {
+      console.error('[STEP 7 ERROR] TextBee dispatch exception:', dispatchErr);
       result = {
         success: false,
         error: dispatchErr?.message || String(dispatchErr),
@@ -173,6 +177,8 @@ export class SMSNotificationService {
         .from('sms_logs')
         .update(updateData)
         .eq('id', logId);
+
+      console.log(`[STEP 8] SMS log ${logId} updated to status: '${statusValue}'. Error: ${result.error || 'None'}`);
 
       if (updateError) {
         // Fallback update without optional columns if schema differs

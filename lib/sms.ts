@@ -175,9 +175,10 @@ export async function sendSMS(
 
     if (insertedLog) {
       logId = insertedLog.id;
+      console.log(`[STEP 5] SMS log created with status 'Pending'. Log ID: ${logId} (Recipient: ${cleanPhone}, Type: ${smsType})`);
     }
   } catch (dbErr: any) {
-    console.error('Failed to write pending SMS log:', dbErr);
+    console.error('[STEP 5 ERROR] Failed to write pending SMS log:', dbErr);
     return { success: false, error: dbErr?.message || 'Database write error' };
   }
 
@@ -213,7 +214,8 @@ export async function sendInvoiceSMS(
   expiryDate: string,
   phone: string,
   memberName = 'Member',
-  invoiceLink = ''
+  invoiceLink = '',
+  invoiceId?: string
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.invoice, {
     memberName: memberName,
@@ -233,7 +235,7 @@ export async function sendInvoiceSMS(
     payment_method: paymentMethod || 'N/A',
     expiry_date: expiryDate,
   });
-  return sendSMS(memberId, phone, message, 'Invoice');
+  return sendSMS(memberId, phone, message, 'Invoice', false, memberName, invoiceId);
 }
 
 export async function sendRenewalSMS(
@@ -244,7 +246,8 @@ export async function sendRenewalSMS(
   expiryDate: string,
   amount: number,
   phone: string,
-  invoiceLink = ''
+  invoiceLink = '',
+  invoiceId?: string
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.renewal, {
     memberName: name,
@@ -260,5 +263,5 @@ export async function sendRenewalSMS(
     renewal_date: renewalDate,
     expiry_date: expiryDate,
   });
-  return sendSMS(memberId, phone, message, 'Renewal');
+  return sendSMS(memberId, phone, message, 'Renewal', false, name, invoiceId);
 }
