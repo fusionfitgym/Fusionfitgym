@@ -3,11 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Edit, Eye, RefreshCw, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { EmptyState } from '@/components/ui/Primitives';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { RenewalModal } from '@/components/members/RenewalModal';
+
+const RenewalModal = dynamic(
+  () => import('@/components/members/RenewalModal').then((mod) => mod.RenewalModal),
+  { ssr: false }
+);
 import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
 import { Member, MEMBERSHIP_PLANS, MEMBER_STATUSES } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';

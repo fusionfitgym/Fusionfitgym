@@ -252,7 +252,7 @@ export async function getTextBeeGatewayHealth(): Promise<{
   lastSmsSent: string | null;
 }> {
   const apiKey = process.env.TEXTBEE_API_KEY;
-  const deviceId = process.env.TEXTBEE_DEVICE_ID || '6a5f7112ceb4314c6c43e974';
+  const deviceId = process.env.TEXTBEE_DEVICE_ID || '6a61b347ceb4314c6c6a6835';
 
   const isConfigured = !!(apiKey && deviceId);
 

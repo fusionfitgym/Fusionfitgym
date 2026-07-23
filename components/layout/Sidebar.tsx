@@ -128,6 +128,7 @@ function NavLink({
     <li>
       <Link
         href={href}
+        prefetch={true}
         onClick={onClick}
         title={collapsed ? label : undefined}
         aria-current={active ? 'page' : undefined}

@@ -45,9 +45,14 @@ import { getInvoicesByMember } from '@/lib/actions/invoices';
 import { getAttendanceHistory } from '@/lib/actions/attendance';
 import { getDevices } from '@/lib/actions/devices';
 import { getSMSLogsByMember, sendSMSAction } from '@/lib/actions/sms';
+import dynamic from 'next/dynamic';
 import { getMemberRenewals } from '@/lib/actions/renewals';
-import { RenewalModal } from '@/components/members/RenewalModal';
 import { AttendanceLog, BiometricDevice, HealthAssessment, Invoice, Member, MembershipRenewal, ParqResponse, SMSLog } from '@/types';
+
+const RenewalModal = dynamic(
+  () => import('@/components/members/RenewalModal').then((mod) => mod.RenewalModal),
+  { ssr: false }
+);
 import {
   calculateAge,
   cn,

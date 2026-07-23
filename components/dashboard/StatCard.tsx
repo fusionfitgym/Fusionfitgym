@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, memo } from 'react';
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +11,7 @@ interface StatCardProps {
   accent?: boolean;
 }
 
-export function StatCard({ title, value, icon, trend, subtitle, accent }: StatCardProps) {
+export const StatCard = memo(function StatCard({ title, value, icon, trend, subtitle, accent }: StatCardProps) {
   return (
     <article className={cn('card card-hover flex min-h-40 flex-col justify-between p-5 sm:p-6', accent && 'border-amber-300 bg-amber-300')}>
       <div className="flex items-start justify-between gap-4">
@@ -53,4 +53,4 @@ export function StatCard({ title, value, icon, trend, subtitle, accent }: StatCa
       </div>
     </article>
   );
-}
+});

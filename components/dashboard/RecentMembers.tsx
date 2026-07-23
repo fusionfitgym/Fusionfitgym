@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Users } from 'lucide-react';
 import { Member } from '@/types';
@@ -6,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/Primitives';
 import { formatDate } from '@/lib/utils';
 
-export function RecentMembers({ members }: { members: Member[] }) {
+export const RecentMembers = memo(function RecentMembers({ members }: { members: Member[] }) {
   return (
     <section className="card overflow-hidden">
       <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
@@ -14,7 +15,7 @@ export function RecentMembers({ members }: { members: Member[] }) {
           <h2 className="section-title">Recent registrations</h2>
           <p className="section-description">The latest members added to the workspace</p>
         </div>
-        <Link href="/members" className="btn btn-ghost btn-sm">
+        <Link href="/members" prefetch={true} className="btn btn-ghost btn-sm">
           View all <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -31,6 +32,7 @@ export function RecentMembers({ members }: { members: Member[] }) {
             <Link
               key={member.id}
               href={`/members/${member.id}`}
+              prefetch={true}
               className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50 sm:px-6"
             >
               <Avatar src={member.profile_photo} name={member.full_name} />
@@ -48,4 +50,4 @@ export function RecentMembers({ members }: { members: Member[] }) {
       )}
     </section>
   );
-}
+});

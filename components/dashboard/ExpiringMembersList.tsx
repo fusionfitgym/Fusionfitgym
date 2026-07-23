@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Link from 'next/link';
 import { Clock, RefreshCw } from 'lucide-react';
 import { SmsSendButton } from '@/components/ui/SmsSendButton';
@@ -25,7 +26,7 @@ interface ExpiringMembersListProps {
  * Client Component that renders the expiring memberships roster
  * with native SMS buttons and quick Renew action.
  */
-export function ExpiringMembersList({
+export const ExpiringMembersList = memo(function ExpiringMembersList({
   members,
   expiringSoon,
   showAttendanceAnalytics,
@@ -54,7 +55,7 @@ export function ExpiringMembersList({
             className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
           >
             <div className="min-w-0">
-              <Link href={`/members/${m.id}`} className="text-sm font-semibold text-slate-950 hover:text-amber-600 hover:underline truncate block">
+              <Link href={`/members/${m.id}`} prefetch={true} className="text-sm font-semibold text-slate-950 hover:text-amber-600 hover:underline truncate block">
                 {m.full_name}
               </Link>
               <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
@@ -68,6 +69,7 @@ export function ExpiringMembersList({
               </span>
               <Link
                 href={`/members/${m.id}`}
+                prefetch={true}
                 className="btn btn-xs bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold py-1 px-2 text-[10px] rounded-lg"
                 title="Renew Membership"
               >
@@ -96,4 +98,4 @@ export function ExpiringMembersList({
       </div>
     </section>
   );
-}
+});

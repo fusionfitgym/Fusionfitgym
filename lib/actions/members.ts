@@ -19,7 +19,7 @@ export async function getMembers(): Promise<Member[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('members')
-    .select('*')
+    .select('id, full_name, phone, email, join_date, status, profile_photo, package_name, package_duration, package_price, package_start_date, package_end_date, biometric_user_id, machine_type, duration, training_type')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data as Member[];
