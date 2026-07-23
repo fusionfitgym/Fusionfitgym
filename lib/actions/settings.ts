@@ -57,6 +57,10 @@ export async function getSettings(): Promise<GymSettings> {
     invoice_terms: map.invoice_terms ?? 'Terms & Conditions apply. Fees once paid are non-refundable.',
     invoice_auto_generation: map.invoice_auto_generation !== 'false',
     default_welcome_template: map.default_welcome_template ?? 'welcome_member',
+    sms_auto_retry_enabled: map.sms_auto_retry_enabled ?? 'true',
+    sms_auto_retry_interval: map.sms_auto_retry_interval ?? '15',
+    sms_auto_retry_max_attempts: map.sms_auto_retry_max_attempts ?? '3',
+    sms_retry_temporary_only: map.sms_retry_temporary_only ?? 'true',
   };
 }
 

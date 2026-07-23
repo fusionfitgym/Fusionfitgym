@@ -11,7 +11,9 @@ export async function sendSMS(
   phone: string,
   message: string,
   smsType: string,
-  isManual = false
+  isManual = false,
+  memberName?: string,
+  invoiceId?: string
 ): Promise<{ success: boolean; error?: string }> {
   // 1. Normalize phone to E.164
   const cleanPhone = normalizeToE164(phone);
@@ -49,13 +51,30 @@ export async function sendSMS(
     console.error('Database connection or query issue during schema detection:', err);
   }
 
+  // 3b. Resolve member name if missing
+  let resolvedName = memberName || null;
+  if (!resolvedName && memberId) {
+    try {
+      const { data: memberData } = await supabase
+        .from('members')
+        .select('full_name')
+        .eq('id', memberId)
+        .single();
+      if (memberData?.full_name) {
+        resolvedName = memberData.full_name;
+      }
+    } catch {}
+  }
+
   // 4. Check if SMS system is enabled globally
   if (!settings.sms_enabled) {
     try {
       const logData: Record<string, any> = {
         member_id: memberId,
+        member_name: resolvedName,
         message,
         status: 'Skipped',
+        gateway: process.env.SMS_PROVIDER || 'textbee',
       };
       logData[phoneCol] = cleanPhone;
       logData[typeCol] = smsType;
@@ -87,8 +106,10 @@ export async function sendSMS(
       try {
         const logData: Record<string, any> = {
           member_id: memberId,
+          member_name: resolvedName,
           message,
           status: 'Skipped',
+          gateway: process.env.SMS_PROVIDER || 'textbee',
         };
         logData[phoneCol] = cleanPhone;
         logData[typeCol] = smsType;
@@ -121,14 +142,17 @@ export async function sendSMS(
   try {
     const logData: Record<string, any> = {
       member_id: memberId,
+      member_name: resolvedName,
       message,
       status: 'Pending',
+      gateway: process.env.SMS_PROVIDER || 'textbee',
+      provider: process.env.SMS_PROVIDER || 'textbee',
+      invoice_id: invoiceId || null,
     };
     logData[phoneCol] = cleanPhone;
     logData[typeCol] = smsType;
 
     logData.notification_key = notificationKey;
-    logData.provider = process.env.SMS_PROVIDER || 'textbee';
 
     if (!isModern) {
       logData.provider_response = 'Queued for dispatch';

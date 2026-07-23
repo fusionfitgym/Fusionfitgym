@@ -290,34 +290,94 @@ export interface GymSettings {
   invoice_auto_generation?: boolean;
   default_welcome_template?: string;
   sms_textbee_enabled?: boolean;
+  sms_auto_retry_enabled?: string;
+  sms_auto_retry_interval?: string;
+  sms_auto_retry_max_attempts?: string;
+  sms_retry_temporary_only?: string;
 }
 
-// ── SMS Logs ────────────────────────────────────────────────
+// ── SMS Logs & Delivery System ──────────────────────────────
+export type SMSDeliveryStatus = 'Pending' | 'Sending' | 'Sent' | 'Failed' | 'Retrying' | 'Cancelled' | 'Skipped';
+export type SMSFailureCategory = 'temporary' | 'permanent' | 'none';
+
 export interface SMSLog {
   id: string;
   member_id: string | null;
+  member_name?: string | null;
   phone?: string;
   phone_number?: string;
   sms_type?: string;
   message_type?: string;
   message: string;
-  status: string | null;
+  invoice_id?: string | null;
+  gateway?: string | null;
+  provider?: string | null;
+  status: SMSDeliveryStatus | string | null;
+  error_message?: string | null;
+  http_status?: number | null;
+  textbee_message_id?: string | null;
+  provider_message_id?: string | null;
+  retry_count?: number;
+  resend_count?: number;
+  attempt_count?: number;
+  last_retry_at?: string | null;
+  last_resend_at?: string | null;
+  last_attempt_at?: string | null;
+  failure_category?: SMSFailureCategory | string | null;
+  auto_retry_eligible?: boolean;
+  created_at: string;
+  updated_at?: string;
+  sent_at?: string | null;
   provider_response?: string | null;
   device_id?: string | null;
-  sent_at?: string | null;
-  last_resend_at?: string | null;
-  resend_count?: number;
-  created_at: string;
+  provider_metadata?: Record<string, any> | null;
+  notification_key?: string | null;
   member?: {
     full_name: string;
   } | null;
-  provider?: string | null;
-  provider_message_id?: string | null;
-  provider_metadata?: Record<string, any> | null;
-  notification_key?: string | null;
-  last_attempt_at?: string | null;
-  attempt_count?: number;
 }
+
+export interface SMSAutoRetrySettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  maxAttempts: number;
+  temporaryOnly: boolean;
+}
+
+export interface SMSAnalyticsStats {
+  todaySent: number;
+  monthlySent: number;
+  failed: number;
+  pending: number;
+  retrying: number;
+  renewalRemindersSent: number;
+  notificationQueue: number;
+  totalSent: number;
+  successRate: number;
+  retryQueueCount: number;
+  failureCauses: {
+    cause: string;
+    count: number;
+    category: SMSFailureCategory;
+  }[];
+  dailyTrends: {
+    date: string;
+    sent: number;
+    failed: number;
+  }[];
+}
+
+export interface SMSFilterParams {
+  status?: string;
+  messageType?: string;
+  search?: string;
+  dateRange?: 'all' | 'today' | 'week' | 'month';
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
 
 
 export const MEMBERSHIP_PLANS = ['Daily Pass', '1 Month', '3 Months', '6 Months', 'Cardio'] as const;

@@ -3,6 +3,28 @@ import { getActiveProvider, SMSProvider, SMSResult } from './sms-provider';
 import { withRetry } from './retry';
 import { getGlobalRateLimiter } from './rate-limiter';
 
+export function categorizeSMSError(errorMsg?: string, httpStatus?: number): 'temporary' | 'permanent' | 'none' {
+  if (!errorMsg && (!httpStatus || (httpStatus >= 200 && httpStatus < 300))) {
+    return 'none';
+  }
+  const msg = (errorMsg || '').toLowerCase();
+
+  // Permanent failure indicators
+  if (
+    msg.includes('invalid phone') ||
+    msg.includes('unallocated') ||
+    msg.includes('missing credentials') ||
+    msg.includes('invalid recipient') ||
+    httpStatus === 400 ||
+    httpStatus === 404
+  ) {
+    return 'permanent';
+  }
+
+  // Temporary failure indicators
+  return 'temporary';
+}
+
 /**
  * SMS Notification Service
  * Core orchestrator for gateway dispatches, rate limiting, retries, and database log sync.
@@ -102,6 +124,9 @@ export class SMSNotificationService {
     }
 
     const completionTime = new Date().toISOString();
+    const failureCat = result.success
+      ? 'none'
+      : categorizeSMSError(result.error, result.httpStatus);
 
     // Build provider metadata payload
     const providerMetadata = {
@@ -110,6 +135,7 @@ export class SMSNotificationService {
       httpStatus: result.httpStatus,
       messageId: result.messageId,
       error: result.error,
+      failureCategory: failureCat,
       completedAt: completionTime,
       rawResponse: result.rawResponse,
     };
@@ -120,11 +146,17 @@ export class SMSNotificationService {
       const updateData: Record<string, any> = {
         status: statusValue,
         provider: this.provider.name,
+        gateway: this.provider.name,
+        error_message: result.error || null,
+        http_status: result.httpStatus || null,
+        failure_category: failureCat,
+        auto_retry_eligible: failureCat === 'temporary',
         provider_metadata: providerMetadata,
       };
 
       if (result.messageId) {
         updateData.provider_message_id = result.messageId;
+        updateData.textbee_message_id = result.messageId;
       }
 
       if (isModern) {
@@ -143,6 +175,13 @@ export class SMSNotificationService {
       if (updateError) {
         // Fallback update without optional columns if schema differs
         delete updateData.provider_message_id;
+        delete updateData.textbee_message_id;
+        delete updateData.gateway;
+        delete updateData.error_message;
+        delete updateData.http_status;
+        delete updateData.failure_category;
+        delete updateData.auto_retry_eligible;
+
         await supabase
           .from('sms_logs')
           .update(updateData)
