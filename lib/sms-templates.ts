@@ -6,6 +6,7 @@
 export function renderTemplate(template: string, data: Record<string, string>): string {
   let result = template;
   for (const [key, value] of Object.entries(data)) {
+    // Replace {key} or {{key}} with value
     result = result.replace(new RegExp(`{+\\s*${key}\\s*}+`, 'g'), value);
   }
   return result;
@@ -23,6 +24,9 @@ Your membership has been renewed successfully.
 📆 Valid Until: {expiryDate}
 💰 Amount Paid: ₹{amount}
 
+View Invoice:
+{invoice_link}
+
 Thank you for choosing Fusion Fit Gym.
 Keep training and stay healthy!`,
 
@@ -38,6 +42,9 @@ Your payment has been received successfully.
 💰 Amount: ₹{amount}
 💳 Payment Mode: {paymentMethod}
 📆 Membership Valid Until: {expiryDate}
+
+View Invoice:
+{invoice_link}
 
 Thank you for choosing Fusion Fit Gym.`
 };

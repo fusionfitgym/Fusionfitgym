@@ -18,7 +18,9 @@ import {
   DollarSign,
   Send,
   Plus,
-  MessageSquare
+  MessageSquare,
+  QrCode,
+  RefreshCw
 } from 'lucide-react';
 import {
   Breadcrumb,
@@ -33,6 +35,7 @@ import {
   getInvoiceById, 
   updateInvoiceStatus, 
   ensureInvoiceToken,
+  regenerateInvoiceToken,
   duplicateInvoice,
   cancelInvoice,
   recordAdditionalPayment,
@@ -44,6 +47,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { buildInvoiceMessage } from '@/lib/native-sms';
 import { buildInvoicePublicUrl } from '@/lib/invoice-links';
+import { generateQRCodeDataUrl } from '@/lib/qr';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
 import { toast } from 'sonner';
@@ -207,6 +211,49 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const [regeneratingLink, setRegeneratingLink] = useState(false);
+
+  const handleCopyLink = async () => {
+    if (!invoiceLink) return;
+    try {
+      await navigator.clipboard.writeText(invoiceLink);
+      toast.success('Online invoice link copied to clipboard!');
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  const handleOpenPublicInvoice = () => {
+    if (invoiceLink) {
+      window.open(invoiceLink, '_blank');
+    } else {
+      toast.error('Invoice link not available');
+    }
+  };
+
+  const handleRegenerateLink = async () => {
+    if (!confirm('Are you sure you want to regenerate the online invoice link? The previous link will no longer work.')) return;
+    setRegeneratingLink(true);
+    try {
+      if (isDemo) {
+        const fakeToken = 'demo_' + Math.random().toString(36).substring(2, 12);
+        const newUrl = buildInvoicePublicUrl(fakeToken);
+        setInvoiceLink(newUrl);
+        toast.success('Online invoice link regenerated (Demo Mode)');
+      } else {
+        const newToken = await regenerateInvoiceToken(id);
+        const newUrl = buildInvoicePublicUrl(newToken);
+        setInvoiceLink(newUrl);
+        setInvoice((current) => (current ? { ...current, invoice_token: newToken } : null));
+        toast.success('Online invoice link regenerated successfully!');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to regenerate link');
+    } finally {
+      setRegeneratingLink(false);
+    }
+  };
+
   const handleDuplicate = async () => {
     if (!confirm('Are you sure you want to duplicate this invoice?')) return;
     setDuplicating(true);
@@ -366,7 +413,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Link href="/invoices" className="btn btn-secondary">
               <ArrowLeft className="h-4 w-4" /> Back
             </Link>
-            
+
+            <button
+              type="button"
+              onClick={handleOpenPublicInvoice}
+              className="btn btn-secondary text-indigo-600 hover:text-indigo-700"
+            >
+              <ExternalLink className="mr-1.5 h-4 w-4" />
+              Open Invoice
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="btn btn-secondary"
+            >
+              <Copy className="mr-1.5 h-4 w-4" />
+              Copy Link
+            </button>
+
             <button
               type="button"
               onClick={() => window.print()}
@@ -689,6 +754,111 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </section>
+
+        {/* Online Invoice Link & QR Code Toolbar */}
+        <SectionCard
+          title="Online Invoice Link & Digital Verification"
+          description="Shareable secure public invoice URL and QR code."
+          className="no-print"
+        >
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                  Secure Public Link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={invoiceLink || 'Generating link...'}
+                    className="input-field font-mono text-xs text-slate-700 bg-white border-slate-300 select-all"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="btn btn-secondary text-xs"
+                >
+                  <Copy className="mr-1.5 h-3.5 w-3.5" />
+                  Copy Link
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenPublicInvoice}
+                  className="btn btn-secondary text-xs text-indigo-600 hover:text-indigo-700"
+                >
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  Open Public Invoice
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRegenerateLink}
+                  disabled={regeneratingLink}
+                  className="btn btn-secondary text-xs text-amber-700 hover:text-amber-800"
+                >
+                  {regeneratingLink ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Regenerate Link
+                </button>
+              </div>
+            </div>
+
+            {/* QR Code Card */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-amber-50/50 p-4 rounded-xl border border-amber-200">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-white rounded-xl border border-amber-200 shadow-sm shrink-0">
+                  <img
+                    src={generateQRCodeDataUrl(invoiceLink || 'https://fusionfitgym.com', { size: 140 })}
+                    alt="Invoice QR Code"
+                    className="w-24 h-24 object-contain"
+                  />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <QrCode className="w-4 h-4 text-amber-600" /> Digital Verification QR Code
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed max-w-md">
+                    Scanning this QR code with any smartphone camera instantly opens the secure digital invoice web page. Included automatically on PDF downloads and printouts.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleWhatsAppShare}
+                  className="btn btn-secondary text-xs text-green-700 hover:bg-green-50"
+                >
+                  <Share2 className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEmailShare}
+                  className="btn btn-secondary text-xs text-blue-700 hover:bg-blue-50"
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" /> Email
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendSMS}
+                  disabled={sendingSMS}
+                  className="btn btn-secondary text-xs text-amber-800 hover:bg-amber-100"
+                >
+                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> SMS
+                </button>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
 
         {/* Record Additional Payment Box */}
         {invoice.status !== 'Paid' && invoice.status !== 'Cancelled' && (

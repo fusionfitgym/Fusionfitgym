@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 
 /** Generate a URL-safe random token for public invoice links */
 export function generateInvoiceToken(): string {
-  return randomBytes(18).toString('base64url');
+  return randomBytes(16).toString('hex');
 }
 
 /** Resolve the application base URL (server or client) */
@@ -19,18 +19,27 @@ export function getAppBaseUrl(): string {
   return 'http://localhost:3000';
 }
 
-/** Build the public invoice URL using the short /i/{token} route */
+/** Build the public online invoice URL (primary format: /invoice/{token}) */
 export function buildInvoicePublicUrl(token: string, baseUrl?: string): string {
+  const base = (baseUrl || getAppBaseUrl()).replace(/\/$/, '');
+  return `${base}/invoice/${token}`;
+}
+
+/** Build short public online invoice URL (/i/{token}) */
+export function buildInvoiceShortUrl(token: string, baseUrl?: string): string {
   const base = (baseUrl || getAppBaseUrl()).replace(/\/$/, '');
   return `${base}/i/${token}`;
 }
 
 export const INVOICE_SMS_TEMPLATE = `Hi {{member_name}},
 Your FusionFit Gym invoice is ready.
+
 Invoice No: {{invoice_number}}
 Amount: ₹{{amount}}
+
 View Invoice:
 {{invoice_link}}
+
 Thank you.
 - FusionFit Gym`;
 

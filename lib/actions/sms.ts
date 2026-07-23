@@ -263,9 +263,9 @@ export async function bulkRetrySMSDeliveryAction(
     return { success: false, processed: 0, succeeded: 0, failed: 0, message: 'No valid logs found.' };
   }
 
-  let targetLogs = logs.filter((l) => l.status !== 'Sent');
+  let targetLogs = logs.filter((l: any) => l.status !== 'Sent');
   if (temporaryOnly) {
-    targetLogs = targetLogs.filter((l) => l.failure_category !== 'permanent');
+    targetLogs = targetLogs.filter((l: any) => l.failure_category !== 'permanent');
   }
 
   let succeeded = 0;

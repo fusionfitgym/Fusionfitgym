@@ -3,6 +3,8 @@ import autoTable from 'jspdf-autotable';
 import { Invoice, GymSettings } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { robotoRegular, robotoBold } from './robotoFonts';
+import { generateQRCodeDataUrl } from '@/lib/qr';
+import { buildInvoicePublicUrl } from '@/lib/invoice-links';
 
 // Helper to load image asynchronously in browser environment
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -480,7 +482,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
     doc.setFillColor(252, 251, 247);
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.3);
-    doc.roundedRect(M, finalY, 100, 26, 1.5, 1.5, 'FD');
+    doc.roundedRect(M, finalY, 100, 20, 1.5, 1.5, 'FD');
 
     // Title
     doc.setTextColor(196, 145, 2); // Gold
@@ -495,6 +497,36 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
     const noteLines = doc.splitTextToSize(invoice.notes, 92);
     doc.text(noteLines, M + 4, finalY + 9.5);
   }
+
+  // Left Column: QR Code Online Verification Card
+  const qrBoxY = invoice.notes ? finalY + 22 : finalY;
+  const publicInvoiceUrl = buildInvoicePublicUrl(invoice.invoice_token || invoice.id);
+  const qrDataUrl = generateQRCodeDataUrl(publicInvoiceUrl, { size: 100, margin: 1 });
+
+  doc.setFillColor(252, 251, 247);
+  doc.setDrawColor(234, 209, 150);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(M, qrBoxY, 100, 22, 1.5, 1.5, 'FD');
+
+  try {
+    doc.addImage(qrDataUrl, 'SVG', M + 2, qrBoxY + 2, 18, 18);
+  } catch (qrErr) {
+    console.warn('Failed to render QR Code SVG in jsPDF:', qrErr);
+  }
+
+  doc.setTextColor(196, 145, 2); // Gold
+  doc.setFontSize(7.5);
+  doc.setFont('Roboto', 'bold');
+  doc.text('SCAN QR CODE TO VIEW INVOICE ONLINE', M + 22, qrBoxY + 5.5);
+
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(6.5);
+  doc.setFont('Roboto', 'normal');
+  doc.text('Scan with smartphone camera to view digital receipt & status.', M + 22, qrBoxY + 10);
+
+  doc.setTextColor(3, 105, 161);
+  const truncatedUrl = publicInvoiceUrl.length > 44 ? publicInvoiceUrl.substring(0, 42) + '...' : publicInvoiceUrl;
+  doc.text(truncatedUrl, M + 22, qrBoxY + 15);
 
   // Right Column: Summary Box
   const summaryBoxX = PW - M - 72;

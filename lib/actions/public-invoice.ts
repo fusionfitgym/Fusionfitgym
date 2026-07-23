@@ -32,19 +32,38 @@ async function getPublicGymSettings() {
  * Access is gated by possession of the unique invoice token.
  */
 export async function getPublicInvoiceByToken(token: string): Promise<PublicInvoiceData | null> {
-  if (!token || token.length < 8) return null;
+  if (!token || token.length < 4) return null;
 
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    
+    // First lookup by secure invoice_token
+    const { data: tokenMatch } = await supabase
       .from('invoices')
       .select(
         '*, member:members(full_name, phone, email, address, package_name, package_duration, package_price, package_start_date, package_end_date)'
       )
       .eq('invoice_token', token)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) return null;
+    let data = tokenMatch;
+
+    // Fallback: Check if token is UUID id (for legacy backward compatibility)
+    if (!data) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+      if (isUuid) {
+        const { data: idMatch } = await supabase
+          .from('invoices')
+          .select(
+            '*, member:members(full_name, phone, email, address, package_name, package_duration, package_price, package_start_date, package_end_date)'
+          )
+          .eq('id', token)
+          .maybeSingle();
+        data = idMatch;
+      }
+    }
+
+    if (!data) return null;
 
     const settings = await getPublicGymSettings();
 
@@ -52,7 +71,8 @@ export async function getPublicInvoiceByToken(token: string): Promise<PublicInvo
       invoice: data as Invoice,
       settings,
     };
-  } catch {
+  } catch (err) {
+    console.error('Failed to get public invoice by token:', err);
     return null;
   }
 }

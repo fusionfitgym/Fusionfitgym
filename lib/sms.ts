@@ -212,7 +212,8 @@ export async function sendInvoiceSMS(
   paymentMethod: string,
   expiryDate: string,
   phone: string,
-  memberName = 'Member'
+  memberName = 'Member',
+  invoiceLink = ''
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.invoice, {
     memberName: memberName,
@@ -222,6 +223,8 @@ export async function sendInvoiceSMS(
     amount: String(amount),
     paymentMethod: paymentMethod || 'N/A',
     expiryDate: expiryDate,
+    invoice_link: invoiceLink,
+    invoiceLink: invoiceLink,
     // legacy key fallbacks
     member_name: memberName,
     invoice_number: invoiceNumber,
@@ -240,7 +243,8 @@ export async function sendRenewalSMS(
   renewalDate: string,
   expiryDate: string,
   amount: number,
-  phone: string
+  phone: string,
+  invoiceLink = ''
 ) {
   const message = renderTemplate(BUILTIN_TEMPLATES.renewal, {
     memberName: name,
@@ -248,6 +252,8 @@ export async function sendRenewalSMS(
     renewalDate: renewalDate,
     expiryDate: expiryDate,
     amount: String(amount),
+    invoice_link: invoiceLink,
+    invoiceLink: invoiceLink,
     // legacy key fallbacks
     member_name: name,
     plan_name: planName,

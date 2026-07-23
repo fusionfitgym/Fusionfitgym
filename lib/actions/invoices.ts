@@ -193,7 +193,8 @@ export async function createInvoice(
           data.payment_method || 'N/A',
           formatDate(data.membership_expiry_date || data.due_date),
           member.phone,
-          member.full_name || 'Member'
+          member.full_name || 'Member',
+          invoiceLink
         );
       }
     } catch (smsErr) {
@@ -408,7 +409,8 @@ export async function sendManualInvoiceSMS(invoiceId: string): Promise<{ success
       invoice.payment_method || 'N/A',
       formatDate(invoice.membership_expiry_date || invoice.due_date),
       member.phone,
-      member.full_name || 'Member'
+      member.full_name || 'Member',
+      invoiceLink
     );
 
     return { success: true };
