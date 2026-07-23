@@ -7,7 +7,7 @@ export function generateInvoiceToken(): string {
 
 /** Resolve the application base URL (server or client) */
 export function getAppBaseUrl(): string {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     return window.location.origin;
   }
   if (process.env.NEXT_PUBLIC_APP_URL) {
@@ -16,7 +16,7 @@ export function getAppBaseUrl(): string {
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
-  return 'http://localhost:3000';
+  return 'https://fusionfitgym.vercel.app';
 }
 
 /** Build the public online invoice URL (primary format: /invoice/{token}) */

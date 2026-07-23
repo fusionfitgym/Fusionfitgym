@@ -463,7 +463,7 @@ export async function generateInvoicePDF(invoice: Invoice, settings: GymSettings
       doc.setTextColor(156, 163, 175); // Light Gray
       doc.setFontSize(7.5);
       doc.setFont('Roboto', 'normal');
-      const contactText = `Website: www.fusionfitgym.com    |    Phone: ${settings.gym_phone}    |    Email: ${settings.gym_email}`;
+      const contactText = `Website: fusionfitgym.vercel.app    |    Phone: ${settings.gym_phone}    |    Email: ${settings.gym_email}`;
       doc.text(contactText, pageWidth / 2, pageHeight - 13, { align: 'center' });
 
       // Disclaimer

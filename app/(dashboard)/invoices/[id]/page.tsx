@@ -817,7 +817,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-4">
                 <div className="p-2 bg-white rounded-xl border border-amber-200 shadow-sm shrink-0">
                   <img
-                    src={generateQRCodeDataUrl(invoiceLink || 'https://fusionfitgym.com', { size: 140 })}
+                    src={generateQRCodeDataUrl(invoiceLink || 'https://fusionfitgym.vercel.app', { size: 140 })}
                     alt="Invoice QR Code"
                     className="w-24 h-24 object-contain"
                   />
