@@ -84,21 +84,28 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
     });
   }
 
-  // Create lookup map (key: `${machine}_${cleanId}`, value: member object)
-  const membersMap = new Map<string, any>();
+  // Create lookup maps:
+  // Map 1: membersByIdMap (key: member.id [UUID])
+  // Map 2: membersByPinMap (key: `${machine_type}_${cleanBiometricId(member.biometric_user_id)}`)
+  const membersByIdMap = new Map<string, any>();
+  const membersByPinMap = new Map<string, any>();
+
   members.forEach((member: any) => {
+    if (member.id) {
+      membersByIdMap.set(member.id, member);
+    }
     if (member.biometric_user_id && member.machine_type) {
       const cleanId = cleanBiometricId(member.biometric_user_id);
       if (cleanId) {
         const key = `${member.machine_type}_${cleanId}`;
-        membersMap.set(key, member);
+        membersByPinMap.set(key, member);
       }
     }
   });
 
   // Filter out OPLOG records (Requirement 5)
   const nonOplogRawLogs = rawLogs.filter(log => {
-    const rawId = log.member_id || '';
+    const rawId = log.biometric_user_id || log.member_id || '';
     return !rawId.toLowerCase().startsWith('oplog');
   });
 
@@ -110,30 +117,37 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   const punchCounts: Record<string, number> = {};
 
   const enrichedSorted = sortedRaw.map((log) => {
-    const rawBiometricId = log.member_id || '';
-    const cleanId = cleanBiometricId(rawBiometricId);
-
     // Determine machine for this raw log using database mapping fallback
     const resolvedDeviceMachine = log.device_id ? deviceMachineMap.get(log.device_id) : undefined;
     const logMachine = log.machine_type || resolvedDeviceMachine || log.device_id || 'Gents';
     const machineKey = String(logMachine).startsWith('Ladies') || String(logMachine).toLowerCase().includes('ladies') ? 'Ladies' : 'Gents';
 
-    // Match member using composite key
-    const member = cleanId ? (membersMap.get(`${machineKey}_${cleanId}`) || null) : null;
+    // 1. Attempt direct UUID lookup using log.member_id
+    let member = log.member_id ? (membersByIdMap.get(log.member_id) || null) : null;
+
+    // 2. Fallback to biometric PIN lookup using log.biometric_user_id (or log.member_id for legacy records)
+    const rawBiometricId = log.biometric_user_id || log.member_id || '';
+    const cleanId = cleanBiometricId(rawBiometricId);
+
+    if (!member && cleanId) {
+      member = membersByPinMap.get(`${machineKey}_${cleanId}`) || null;
+    }
+
+    const resolvedBiometricId = cleanId || (member?.biometric_user_id ? cleanBiometricId(member.biometric_user_id) : '') || rawBiometricId;
 
     // Alternate punch types per member per calendar day
     const timestamp = getBestTimestamp(log);
     const dateStr = new Date(timestamp).toDateString();
-    const punchKey = `${cleanId || rawBiometricId}_${dateStr}`;
+    const punchKey = `${member ? member.id : (resolvedBiometricId || rawBiometricId)}_${dateStr}`;
     const punchIndex = punchCounts[punchKey] || 0;
     punchCounts[punchKey] = punchIndex + 1;
     const punch_type = punchIndex % 2 === 0 ? 'checkin' : 'checkout';
 
     return {
       id: log.id,
-      member_id: member ? member.id : rawBiometricId,
+      member_id: member ? member.id : log.member_id,
       member_name: member ? member.full_name : `Unknown Member (${rawBiometricId})`,
-      biometric_user_id: cleanId || rawBiometricId,
+      biometric_user_id: resolvedBiometricId,
       machine_type: machineKey,
       device_id: log.device_id,
       punch_time: timestamp,
