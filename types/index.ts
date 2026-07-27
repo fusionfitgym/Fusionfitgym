@@ -375,6 +375,7 @@ export interface SMSFilterParams {
   status?: string;
   messageType?: string;
   search?: string;
+  memberId?: string;
   dateRange?: 'all' | 'today' | 'week' | 'month';
   startDate?: string;
   endDate?: string;

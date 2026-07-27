@@ -46,6 +46,11 @@ export async function getSMSLogsServerAction(params: SMSFilterParams = {}): Prom
     query = query.eq(primaryTypeCol, params.messageType);
   }
 
+  // Member ID Filter
+  if (params.memberId) {
+    query = query.eq('member_id', params.memberId);
+  }
+
   // Search Filter (Member Name, Phone, Message, or Error)
   if (params.search && params.search.trim()) {
     const searchTerm = `%${params.search.trim()}%`;
@@ -661,8 +666,68 @@ export async function markInvoiceNotificationSent(
 }
 
 export async function getSMSLogsByMember(memberId: string): Promise<SMSLog[]> {
-  const res = await getSMSLogsServerAction({ search: memberId, limit: 100 });
-  return res.logs;
+  const supabase = await createClient();
+  const isModern = await detectModernSchema(supabase);
+  const primaryPhoneCol = isModern ? 'phone_number' : 'phone';
+
+  // Fetch member phone to match phone as well as member_id
+  let phone = '';
+  try {
+    const { data: member } = await supabase.from('members').select('phone').eq('id', memberId).maybeSingle();
+    if (member?.phone) phone = member.phone;
+  } catch {}
+
+  let query = supabase.from('sms_logs').select('*, member:members(full_name)');
+
+  const cleanDigits = phone ? phone.replace(/\D/g, '').slice(-10) : '';
+
+  if (cleanDigits) {
+    query = query.or(`member_id.eq.${memberId},${primaryPhoneCol}.ilike.%${cleanDigits}%`);
+  } else {
+    query = query.eq('member_id', memberId);
+  }
+
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('Failed to fetch SMS logs for member:', error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    member_id: row.member_id,
+    member_name: row.member_name || row.member?.full_name || 'Member',
+    phone_number: row.phone_number || row.phone || '',
+    phone: row.phone || row.phone_number || '',
+    message_type: row.message_type || row.sms_type || 'General',
+    sms_type: row.sms_type || row.message_type || 'General',
+    message: row.message,
+    invoice_id: row.invoice_id,
+    gateway: row.gateway || row.provider || 'TextBee',
+    provider: row.provider || row.gateway || 'textbee',
+    status: row.status || 'Pending',
+    error_message: row.error_message || row.provider_response || null,
+    http_status: row.http_status || row.provider_metadata?.httpStatus || null,
+    textbee_message_id: row.textbee_message_id || row.provider_message_id || null,
+    provider_message_id: row.provider_message_id || row.textbee_message_id || null,
+    retry_count: row.retry_count ?? row.resend_count ?? row.attempt_count ?? 0,
+    resend_count: row.resend_count ?? row.retry_count ?? 0,
+    attempt_count: row.attempt_count ?? row.retry_count ?? 0,
+    last_retry_at: row.last_retry_at || row.last_resend_at || row.last_attempt_at || null,
+    last_resend_at: row.last_resend_at || row.last_retry_at || null,
+    last_attempt_at: row.last_attempt_at || row.last_retry_at || null,
+    failure_category: row.failure_category || categorizeSMSError(row.error_message, row.http_status),
+    auto_retry_eligible: row.auto_retry_eligible ?? true,
+    created_at: row.created_at,
+    updated_at: row.updated_at || row.created_at,
+    sent_at: row.sent_at || null,
+    provider_response: row.provider_response || null,
+    provider_metadata: row.provider_metadata || null,
+    member: row.member,
+  }));
 }
 
 export async function fetchReceivedSMSAction() {
