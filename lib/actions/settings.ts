@@ -61,6 +61,10 @@ export async function getSettings(): Promise<GymSettings> {
     sms_auto_retry_interval: map.sms_auto_retry_interval ?? '15',
     sms_auto_retry_max_attempts: map.sms_auto_retry_max_attempts ?? '3',
     sms_retry_temporary_only: map.sms_retry_temporary_only ?? 'true',
+    sms_template_invoice_subject: map.sms_template_invoice_subject ?? 'Invoice Generated',
+    sms_template_invoice_body: map.sms_template_invoice_body ?? '',
+    sms_template_membership_expired_subject: map.sms_template_membership_expired_subject ?? 'Membership Expired',
+    sms_template_membership_expired_body: map.sms_template_membership_expired_body ?? '',
   };
 }
 

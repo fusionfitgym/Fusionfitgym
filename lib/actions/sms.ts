@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { SMSLog, SMSFilterParams, SMSAnalyticsStats } from '@/types';
 import { sendSMS } from '@/lib/sms';
 import { getSMSNotificationService, categorizeSMSError } from '@/lib/notification-service';
-import { getSettings } from '@/lib/actions/settings';
+import { getSettings, upsertSettings } from '@/lib/actions/settings';
+import { BUILTIN_TEMPLATES, SMSTemplate } from '@/lib/sms-templates';
 
 async function detectModernSchema(supabase: Awaited<ReturnType<typeof createClient>>) {
   try {
@@ -799,3 +800,142 @@ export async function getDeveloperDebugInfoAction() {
     lastLog: lastLog || null,
   };
 }
+
+/**
+ * Fetch all SMS templates (Invoice Generated & Membership Expired).
+ * Auto-seeds missing templates into database settings without touching existing ones.
+ */
+export async function getSMSTemplatesAction(): Promise<SMSTemplate[]> {
+  const settings = await getSettings();
+
+  const updatesToSeed: Record<string, string> = {};
+
+  let invoiceSubject = settings.sms_template_invoice_subject;
+  let invoiceBody = settings.sms_template_invoice_body;
+
+  if (!invoiceBody || !invoiceBody.trim()) {
+    invoiceSubject = BUILTIN_TEMPLATES.invoice.subject;
+    invoiceBody = BUILTIN_TEMPLATES.invoice.body;
+    updatesToSeed.sms_template_invoice_subject = invoiceSubject;
+    updatesToSeed.sms_template_invoice_body = invoiceBody;
+  }
+
+  let expiredSubject = settings.sms_template_membership_expired_subject;
+  let expiredBody = settings.sms_template_membership_expired_body;
+
+  if (!expiredBody || !expiredBody.trim()) {
+    expiredSubject = BUILTIN_TEMPLATES.membership_expired.subject;
+    expiredBody = BUILTIN_TEMPLATES.membership_expired.body;
+    updatesToSeed.sms_template_membership_expired_subject = expiredSubject;
+    updatesToSeed.sms_template_membership_expired_body = expiredBody;
+  }
+
+  if (Object.keys(updatesToSeed).length > 0) {
+    try {
+      await upsertSettings(updatesToSeed);
+    } catch (err) {
+      console.warn('[SMS Templates] Auto-seeding warning:', err);
+    }
+  }
+
+  return [
+    {
+      id: 'invoice',
+      name: 'Invoice Generated',
+      subject: invoiceSubject || BUILTIN_TEMPLATES.invoice.subject,
+      body: invoiceBody || BUILTIN_TEMPLATES.invoice.body,
+      variables: [
+        'member_name',
+        'gym_name',
+        'invoice_number',
+        'invoice_date',
+        'plan_name',
+        'amount',
+        'payment_method',
+        'expiry_date',
+        'invoice_link',
+      ],
+      description: 'Automated SMS notification sent when a member invoice is created or paid.',
+      category: 'Billing & Invoices',
+    },
+    {
+      id: 'membership_expired',
+      name: 'Membership Expired',
+      subject: expiredSubject || BUILTIN_TEMPLATES.membership_expired.subject,
+      body: expiredBody || BUILTIN_TEMPLATES.membership_expired.body,
+      variables: [
+        'member_name',
+        'gym_name',
+        'expiry_date',
+        'phone',
+        'renewal_link',
+      ],
+      description: 'Automated SMS notification sent when a member\'s gym membership has expired.',
+      category: 'Membership Alerts',
+    },
+  ];
+}
+
+/**
+ * Save updated SMS template subject and body to database settings
+ */
+export async function saveSMSTemplateAction(
+  id: string,
+  subject: string,
+  body: string
+): Promise<{ success: boolean; message: string }> {
+  if (!body || !body.trim()) {
+    return { success: false, message: 'Message body cannot be empty.' };
+  }
+
+  const cleanSubject = subject.trim();
+  const cleanBody = body.trim();
+
+  try {
+    if (id === 'invoice') {
+      await upsertSettings({
+        sms_template_invoice_subject: cleanSubject || BUILTIN_TEMPLATES.invoice.subject,
+        sms_template_invoice_body: cleanBody,
+      });
+      return { success: true, message: 'Invoice SMS template saved successfully.' };
+    } else if (id === 'membership_expired') {
+      await upsertSettings({
+        sms_template_membership_expired_subject: cleanSubject || BUILTIN_TEMPLATES.membership_expired.subject,
+        sms_template_membership_expired_body: cleanBody,
+      });
+      return { success: true, message: 'Membership Expired SMS template saved successfully.' };
+    } else {
+      return { success: false, message: `Unknown template ID: ${id}` };
+    }
+  } catch (err: any) {
+    return { success: false, message: `Failed to save template: ${err?.message || 'Database error'}` };
+  }
+}
+
+/**
+ * Reset SMS template to default built-in subject and body
+ */
+export async function resetSMSTemplateAction(
+  id: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    if (id === 'invoice') {
+      await upsertSettings({
+        sms_template_invoice_subject: BUILTIN_TEMPLATES.invoice.subject,
+        sms_template_invoice_body: BUILTIN_TEMPLATES.invoice.body,
+      });
+      return { success: true, message: 'Invoice SMS template reset to default.' };
+    } else if (id === 'membership_expired') {
+      await upsertSettings({
+        sms_template_membership_expired_subject: BUILTIN_TEMPLATES.membership_expired.subject,
+        sms_template_membership_expired_body: BUILTIN_TEMPLATES.membership_expired.body,
+      });
+      return { success: true, message: 'Membership Expired SMS template reset to default.' };
+    } else {
+      return { success: false, message: `Unknown template ID: ${id}` };
+    }
+  } catch (err: any) {
+    return { success: false, message: `Failed to reset template: ${err?.message || 'Database error'}` };
+  }
+}
+

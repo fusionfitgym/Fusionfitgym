@@ -217,7 +217,16 @@ export async function sendInvoiceSMS(
   invoiceLink = '',
   invoiceId?: string
 ) {
-  const message = renderTemplate(BUILTIN_TEMPLATES.invoice, {
+  const { getSettings } = await import('@/lib/actions/settings');
+  let settings;
+  try {
+    settings = await getSettings();
+  } catch {}
+
+  const templateStr = settings?.sms_template_invoice_body || BUILTIN_TEMPLATES.invoice.body;
+  const gymName = settings?.gym_name || 'FusionFit Gym';
+
+  const message = renderTemplate(templateStr, {
     memberName: memberName,
     invoiceNumber: invoiceNumber,
     invoiceDate: invoiceDate,
@@ -227,6 +236,8 @@ export async function sendInvoiceSMS(
     expiryDate: expiryDate,
     invoice_link: invoiceLink,
     invoiceLink: invoiceLink,
+    gym_name: gymName,
+    gymName: gymName,
     // legacy key fallbacks
     member_name: memberName,
     invoice_number: invoiceNumber,
@@ -249,7 +260,8 @@ export async function sendRenewalSMS(
   invoiceLink = '',
   invoiceId?: string
 ) {
-  const message = renderTemplate(BUILTIN_TEMPLATES.renewal, {
+  const templateStr = typeof BUILTIN_TEMPLATES.renewal === 'object' ? BUILTIN_TEMPLATES.renewal.body : BUILTIN_TEMPLATES.renewal;
+  const message = renderTemplate(templateStr, {
     memberName: name,
     planName: planName,
     renewalDate: renewalDate,
@@ -265,3 +277,35 @@ export async function sendRenewalSMS(
   });
   return sendSMS(memberId, phone, message, 'Renewal', false, name, invoiceId);
 }
+
+export async function sendMembershipExpiredSMS(
+  memberId: string,
+  memberName: string,
+  phone: string,
+  expiryDate: string,
+  renewalLink = ''
+) {
+  const { getSettings } = await import('@/lib/actions/settings');
+  let settings;
+  try {
+    settings = await getSettings();
+  } catch {}
+
+  const templateStr = settings?.sms_template_membership_expired_body || BUILTIN_TEMPLATES.membership_expired.body;
+  const gymName = settings?.gym_name || 'FusionFit Gym';
+
+  const message = renderTemplate(templateStr, {
+    member_name: memberName,
+    memberName: memberName,
+    gym_name: gymName,
+    gymName: gymName,
+    expiry_date: expiryDate,
+    expiryDate: expiryDate,
+    phone: phone,
+    renewal_link: renewalLink,
+    renewalLink: renewalLink,
+  });
+
+  return sendSMS(memberId, phone, message, 'Expired', false, memberName);
+}
+

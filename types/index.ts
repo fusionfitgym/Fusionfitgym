@@ -294,6 +294,10 @@ export interface GymSettings {
   sms_auto_retry_interval?: string;
   sms_auto_retry_max_attempts?: string;
   sms_retry_temporary_only?: string;
+  sms_template_invoice_subject?: string;
+  sms_template_invoice_body?: string;
+  sms_template_membership_expired_subject?: string;
+  sms_template_membership_expired_body?: string;
 }
 
 // ── SMS Logs & Delivery System ──────────────────────────────

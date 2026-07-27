@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Smartphone,
@@ -492,6 +493,16 @@ export default function SMSOperationsCenterPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Link href="/sms/templates">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 font-semibold"
+            >
+              <FileText className="w-4 h-4 mr-1.5 text-indigo-400" /> SMS Templates
+            </Button>
+          </Link>
+
           <Button
             variant="outline"
             size="sm"
@@ -687,6 +698,14 @@ export default function SMSOperationsCenterPage() {
           >
             <Radio className="w-4 h-4" /> TextBee Gateway & Inbox
           </button>
+
+          <Link href="/sms/templates">
+            <button
+              className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+            >
+              <FileText className="w-4 h-4 text-indigo-400" /> SMS Templates
+            </button>
+          </Link>
         </div>
       </div>
 
