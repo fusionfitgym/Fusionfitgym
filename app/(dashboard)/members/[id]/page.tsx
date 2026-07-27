@@ -45,9 +45,11 @@ import { getInvoicesByMember } from '@/lib/actions/invoices';
 import { getAttendanceHistory } from '@/lib/actions/attendance';
 import { getDevices } from '@/lib/actions/devices';
 import { getSMSLogsByMember, sendSMSAction } from '@/lib/actions/sms';
+import { getSettings } from '@/lib/actions/settings';
+import { BUILTIN_TEMPLATES, renderTemplate } from '@/lib/sms-templates';
 import dynamic from 'next/dynamic';
 import { getMemberRenewals } from '@/lib/actions/renewals';
-import { AttendanceLog, BiometricDevice, HealthAssessment, Invoice, Member, MembershipRenewal, ParqResponse, SMSLog } from '@/types';
+import { AttendanceLog, BiometricDevice, GymSettings, HealthAssessment, Invoice, Member, MembershipRenewal, ParqResponse, SMSLog } from '@/types';
 
 const RenewalModal = dynamic(
   () => import('@/components/members/RenewalModal').then((mod) => mod.RenewalModal),
@@ -79,6 +81,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [smsLogs, setSmsLogs] = useState<SMSLog[]>([]);
   const [renewals, setRenewals] = useState<MembershipRenewal[]>([]);
+  const [gymSettings, setGymSettings] = useState<GymSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [isRenewalModalOpen, setIsRenewalModalOpen] = useState(false);
@@ -132,7 +135,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
     }
 
     try {
-      const [memberData, healthData, parqData, invoiceData, attendanceData, devicesData, smsData, renewalData] = await Promise.all([
+      const [memberData, healthData, parqData, invoiceData, attendanceData, devicesData, smsData, renewalData, settingsData] = await Promise.all([
         getMemberById(id),
         getHealthByMember(id),
         getParqByMember(id),
@@ -141,6 +144,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
         getDevices().catch(() => []),
         getSMSLogsByMember(id).catch(() => []),
         getMemberRenewals(id).catch(() => []),
+        getSettings().catch(() => null),
       ]);
 
       setMember(memberData);
@@ -151,6 +155,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
       setDevices(devicesData || []);
       setSmsLogs(smsData || []);
       setRenewals(renewalData || []);
+      setGymSettings(settingsData);
     } catch (err) {
       console.error('Error loading member details:', err);
     } finally {
@@ -348,6 +353,64 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
       Visits: countsByDate[item.dateKey] || 0
     }));
   };
+
+  function handleSelectTemplate(key: string) {
+    setSendTemplateKey(key);
+    if (key === 'Custom' || !member) {
+      setSendMessage('');
+      return;
+    }
+
+    const gymName = gymSettings?.gym_name || 'FusionFit Gym';
+    const expiryDateStr = member.package_end_date ? formatDate(member.package_end_date) : 'N/A';
+    const expiryTime = member.package_end_date ? new Date(member.package_end_date) : null;
+    const todayTime = new Date();
+    todayTime.setHours(0, 0, 0, 0);
+    const diffDays = expiryTime ? Math.max(0, Math.round((expiryTime.getTime() - todayTime.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+    const renewalLink = typeof window !== 'undefined' ? `${window.location.origin}/members/${member.id}` : '';
+
+    let rawTemplate = '';
+
+    if (key === 'Expired') {
+      rawTemplate = gymSettings?.sms_template_membership_expired_body || BUILTIN_TEMPLATES.membership_expired.body;
+    } else if (key === 'Invoice') {
+      rawTemplate = gymSettings?.sms_template_invoice_body || BUILTIN_TEMPLATES.invoice.body;
+    } else if (key === 'Renewal') {
+      rawTemplate = typeof BUILTIN_TEMPLATES.renewal === 'object' ? BUILTIN_TEMPLATES.renewal.body : BUILTIN_TEMPLATES.renewal;
+    } else if (key === 'Welcome') {
+      rawTemplate = `Hello {{member_name}},\n\nWelcome to {{gym_name}}! We are thrilled to have you join us. Work hard and achieve your fitness goals!\n\nBest regards,\n{{gym_name}}`;
+    } else if (key === 'ExpiryWarning') {
+      rawTemplate = `Dear {{member_name}},\n\nYour membership at {{gym_name}} will expire in {{days_left}} days on {{expiry_date}}.\n\nPlease renew your membership to avoid any service interruption.\n\nThank you,\n{{gym_name}}`;
+    } else if (key === 'Payment') {
+      rawTemplate = `Dear {{member_name}},\n\nThis is a gentle reminder regarding your pending payment at {{gym_name}}.\n\nPlease complete your payment at your earliest convenience.\n\nThank you,\n{{gym_name}}`;
+    }
+
+    const text = renderTemplate(rawTemplate, {
+      member_name: member.full_name,
+      memberName: member.full_name,
+      gym_name: gymName,
+      gymName: gymName,
+      expiry_date: expiryDateStr,
+      expiryDate: expiryDateStr,
+      phone: member.phone || '',
+      renewal_link: renewalLink,
+      renewalLink: renewalLink,
+      invoice_link: renewalLink,
+      invoiceLink: renewalLink,
+      days_left: String(diffDays),
+      amount: String(member.membership_fee || member.package_price || 0),
+      plan_name: member.package_name || member.duration || 'Standard',
+      planName: member.package_name || member.duration || 'Standard',
+      invoice_number: invoices.length > 0 ? invoices[0].invoice_number : 'INV-1001',
+      invoiceNumber: invoices.length > 0 ? invoices[0].invoice_number : 'INV-1001',
+      invoice_date: invoices.length > 0 ? formatDate(invoices[0].created_at) : formatDate(new Date().toISOString()),
+      invoiceDate: invoices.length > 0 ? formatDate(invoices[0].created_at) : formatDate(new Date().toISOString()),
+      payment_method: member.payment_method || 'UPI',
+      paymentMethod: member.payment_method || 'UPI',
+    });
+
+    setSendMessage(text);
+  }
 
   const chartData = getChartData();
 
@@ -1181,42 +1244,15 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   id="profile_template"
                   className="input-field"
                   value={sendTemplateKey}
-                  onChange={(e) => {
-                    const key = e.target.value;
-                    setSendTemplateKey(key);
-                    if (key === 'Custom') {
-                      setSendMessage('');
-                      return;
-                    }
-                    
-                    const templates: Record<string, string> = {
-                      Welcome: 'Hello {{member_name}},\nWelcome to FusionFit Gym.',
-                      Renewal: 'Hi {{member_name}},\nYour membership expires on {{expiry_date}}.',
-                      ExpiryWarning: 'Hi {{member_name}},\nYour membership will expire in {{days_left}} days.',
-                      Payment: 'Hi {{member_name}},\nYour payment is pending.',
-                      Expired: 'Hi {{member_name}},\nYour membership has expired.',
-                    };
-                    
-                    const expiryTime = new Date(member.package_end_date);
-                    const todayTime = new Date();
-                    todayTime.setHours(0,0,0,0);
-                    const diffDays = Math.max(0, Math.round((expiryTime.getTime() - todayTime.getTime()) / (1000 * 60 * 60 * 24)));
-                    
-                    let text = templates[key] || '';
-                    text = text
-                      .replace(/{{\s*member_name\s*}}/g, member.full_name)
-                      .replace(/{{\s*days_left\s*}}/g, String(diffDays))
-                      .replace(/{{\s*expiry_date\s*}}/g, member.package_end_date ? formatDate(member.package_end_date) : 'N/A');
-                    
-                    setSendMessage(text);
-                  }}
+                  onChange={(e) => handleSelectTemplate(e.target.value)}
                 >
                   <option value="Custom">Custom Message</option>
+                  <option value="Expired">Membership Expired</option>
+                  <option value="Invoice">Invoice Generated</option>
                   <option value="Welcome">Welcome Member</option>
                   <option value="Renewal">Renewal Reminder</option>
                   <option value="ExpiryWarning">Expiry Warning</option>
                   <option value="Payment">Payment Reminder</option>
-                  <option value="Expired">Membership Expired</option>
                 </select>
               </div>
 
