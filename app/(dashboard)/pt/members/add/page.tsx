@@ -89,7 +89,7 @@ export default function AddPTClientPage() {
     }
   };
 
-  // Handle Package Selection (Pre-fill sessions and duration)
+  // Handle Package Selection
   const handlePackageChange = (pkgId: string) => {
     setPackageId(pkgId);
     if (!pkgId) return;
@@ -100,7 +100,6 @@ export default function AddPTClientPage() {
         setTrainerId(pkg.trainer_id);
       }
       
-      // Calculate expiry date automatically based on package duration
       const start = new Date(startDate);
       start.setDate(start.getDate() + pkg.duration);
       setExpiryDate(start.toISOString().split('T')[0]);
@@ -152,7 +151,6 @@ export default function AddPTClientPage() {
       if (isDemo) {
         const res = demo.createPTClient(payload);
         
-        // Also create a demo invoice automatically for the package purchased
         if (packageId && res.data) {
           const pkg = packages.find(p => p.id === packageId);
           if (pkg) {
@@ -178,7 +176,6 @@ export default function AddPTClientPage() {
           }
         }
         
-        // Create initial progress record as well
         if (res.data && (height || weight || bodyFat)) {
           demo.createPTProgress({
             client_id: res.data.id,
@@ -196,7 +193,6 @@ export default function AddPTClientPage() {
         const res = await createPTClient(payload);
         if (res.error || !res.data) throw new Error(res.error || 'Failed to create client');
 
-        // Create invoice for new registration
         if (packageId) {
           const pkg = packages.find(p => p.id === packageId);
           if (pkg) {
@@ -223,7 +219,6 @@ export default function AddPTClientPage() {
           }
         }
 
-        // Create progress record
         if (height || weight || bodyFat) {
           const { createPTProgress } = await import('@/lib/actions/pt');
           await createPTProgress({
@@ -249,7 +244,7 @@ export default function AddPTClientPage() {
   return (
     <div className="page page-enter">
       <div className="mb-4">
-        <Link href="/pt/members" className="btn btn-ghost btn-sm pl-0 gap-1 text-zinc-400 hover:text-zinc-200">
+        <Link href="/pt/members" className="btn btn-ghost btn-sm pl-0 gap-1.5 text-slate-600 hover:text-slate-900 font-semibold">
           <ArrowLeft className="h-4 w-4" /> Back to clients list
         </Link>
       </div>
@@ -261,19 +256,19 @@ export default function AddPTClientPage() {
 
       {loading ? (
         <div className="flex min-h-[300px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Primary Details Card */}
             <div className="lg:col-span-2 space-y-6">
-              <Card className="bg-zinc-950 border border-zinc-800 p-6 space-y-4">
-                <h3 className="text-md font-bold text-zinc-200 border-b border-zinc-800 pb-2">Primary Client Details</h3>
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Primary Client Details</h3>
 
                 <FormField label="Link Existing Gym Member (Optional)">
                   <select
-                    className="input w-full"
+                    className="select-field w-full font-semibold text-slate-800"
                     value={selectedMemberId}
                     onChange={(e) => handleMemberChange(e.target.value)}
                   >
@@ -287,7 +282,7 @@ export default function AddPTClientPage() {
                 <FormField label="Full Name" required>
                   <input
                     type="text"
-                    className="input w-full"
+                    className="input-field w-full font-semibold text-slate-800"
                     placeholder="Enter full name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -299,7 +294,7 @@ export default function AddPTClientPage() {
                   <FormField label="Phone Number" required>
                     <input
                       type="tel"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       placeholder="10-digit phone"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -310,7 +305,7 @@ export default function AddPTClientPage() {
                   <FormField label="Email Address">
                     <input
                       type="email"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       placeholder="email@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -321,22 +316,22 @@ export default function AddPTClientPage() {
                 <FormField label="Emergency Contact Info">
                   <input
                     type="text"
-                    className="input w-full"
+                    className="input-field w-full font-semibold text-slate-800"
                     placeholder="Name and number of contact person"
                     value={emergencyContact}
                     onChange={(e) => setEmergencyContact(e.target.value)}
                   />
                 </FormField>
-              </Card>
+              </div>
 
               {/* PT Package Settings */}
-              <Card className="bg-zinc-950 border border-zinc-800 p-6 space-y-4">
-                <h3 className="text-md font-bold text-zinc-200 border-b border-zinc-800 pb-2">Training package config</h3>
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Training Package Config</h3>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField label="Select PT Package">
                     <select
-                      className="input w-full"
+                      className="select-field w-full font-semibold text-slate-800"
                       value={packageId}
                       onChange={(e) => handlePackageChange(e.target.value)}
                     >
@@ -349,7 +344,7 @@ export default function AddPTClientPage() {
 
                   <FormField label="Assigned Personal Trainer">
                     <select
-                      className="input w-full"
+                      className="select-field w-full font-semibold text-slate-800"
                       value={trainerId}
                       onChange={(e) => setTrainerId(e.target.value)}
                     >
@@ -366,7 +361,7 @@ export default function AddPTClientPage() {
                     <input
                       type="number"
                       min="1"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       value={sessionsPurchased}
                       onChange={(e) => setSessionsPurchased(Number(e.target.value))}
                     />
@@ -374,7 +369,7 @@ export default function AddPTClientPage() {
 
                   <FormField label="Status">
                     <select
-                      className="input w-full"
+                      className="select-field w-full font-semibold text-slate-800"
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
                     >
@@ -388,7 +383,7 @@ export default function AddPTClientPage() {
                   <FormField label="Package Start Date" required>
                     <input
                       type="date"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       value={startDate}
                       onChange={(e) => handleStartDateChange(e.target.value)}
                       required
@@ -398,27 +393,27 @@ export default function AddPTClientPage() {
                   <FormField label="Expiry Date" required>
                     <input
                       type="date"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       value={expiryDate}
                       onChange={(e) => setExpiryDate(e.target.value)}
                       required
                     />
                   </FormField>
                 </div>
-              </Card>
+              </div>
             </div>
 
             {/* Metrics and Assessment */}
             <div className="space-y-6">
-              <Card className="bg-zinc-950 border border-zinc-800 p-6 space-y-4">
-                <h3 className="text-md font-bold text-zinc-200 border-b border-zinc-800 pb-2">Physical Metrics & Goals</h3>
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Physical Metrics & Goals</h3>
 
                 <div className="grid grid-cols-3 gap-2">
                   <FormField label="Height (cm)">
                     <input
                       type="number"
                       step="0.1"
-                      className="input w-full text-center"
+                      className="input-field w-full text-center font-semibold text-slate-800"
                       value={height}
                       onChange={(e) => setHeight(e.target.value)}
                     />
@@ -428,7 +423,7 @@ export default function AddPTClientPage() {
                     <input
                       type="number"
                       step="0.1"
-                      className="input w-full text-center"
+                      className="input-field w-full text-center font-semibold text-slate-800"
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
                     />
@@ -438,7 +433,7 @@ export default function AddPTClientPage() {
                     <input
                       type="number"
                       step="0.1"
-                      className="input w-full text-center"
+                      className="input-field w-full text-center font-semibold text-slate-800"
                       value={bodyFat}
                       onChange={(e) => setBodyFat(e.target.value)}
                     />
@@ -447,7 +442,7 @@ export default function AddPTClientPage() {
 
                 <FormField label="Fitness Goal">
                   <textarea
-                    className="input w-full min-h-[80px]"
+                    className="textarea-field w-full min-h-[80px] font-medium text-slate-800"
                     placeholder="e.g. Lose 5kg body fat, build endurance"
                     value={goal}
                     onChange={(e) => setGoal(e.target.value)}
@@ -456,20 +451,20 @@ export default function AddPTClientPage() {
 
                 <FormField label="Medical Notes / Injuries">
                   <textarea
-                    className="input w-full min-h-[80px]"
+                    className="textarea-field w-full min-h-[80px] font-medium text-slate-800"
                     placeholder="e.g. Back pain, diabetic history, knee stiffness"
                     value={medicalNotes}
                     onChange={(e) => setMedicalNotes(e.target.value)}
                   />
                 </FormField>
-              </Card>
+              </div>
 
               {/* Action Button */}
               <div className="flex flex-col gap-3">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn btn-primary w-full py-3 text-md font-bold flex items-center justify-center gap-2"
+                  className="btn btn-primary w-full py-3 text-md font-bold flex items-center justify-center gap-2 shadow-md shadow-amber-200/50"
                 >
                   <UserPlus className="h-5 w-5" />
                   {submitting ? 'Registering...' : 'Register PT Client'}

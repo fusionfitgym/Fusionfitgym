@@ -136,7 +136,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
   return (
     <div className="page page-enter">
       <div className="mb-4">
-        <Link href={`/pt/members/${id}`} className="btn btn-ghost btn-sm pl-0 gap-1 text-zinc-400 hover:text-zinc-200">
+        <Link href={`/pt/members/${id}`} className="btn btn-ghost btn-sm pl-0 gap-1.5 text-slate-600 hover:text-slate-900 font-semibold">
           <ArrowLeft className="h-4 w-4" /> Cancel and go back
         </Link>
       </div>
@@ -148,20 +148,20 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
 
       {loading ? (
         <div className="flex min-h-[300px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Primary Details Card */}
             <div className="lg:col-span-2 space-y-6">
-              <Card className="bg-zinc-950 border border-zinc-800 p-6 space-y-4">
-                <h3 className="text-md font-bold text-zinc-200 border-b border-zinc-800 pb-2">Client Details</h3>
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Client Personal Details</h3>
 
                 <FormField label="Full Name" required>
                   <input
                     type="text"
-                    className="input w-full"
+                    className="input-field w-full font-semibold text-slate-800"
                     placeholder="Enter full name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -173,7 +173,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                   <FormField label="Phone Number" required>
                     <input
                       type="tel"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       placeholder="10-digit phone"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -184,7 +184,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                   <FormField label="Email Address">
                     <input
                       type="email"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       placeholder="email@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -195,22 +195,22 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                 <FormField label="Emergency Contact Info">
                   <input
                     type="text"
-                    className="input w-full"
+                    className="input-field w-full font-semibold text-slate-800"
                     placeholder="Name and number of contact person"
                     value={emergencyContact}
                     onChange={(e) => setEmergencyContact(e.target.value)}
                   />
                 </FormField>
-              </Card>
+              </div>
 
               {/* PT Package Settings */}
-              <Card className="bg-zinc-950 border border-zinc-800 p-6 space-y-4">
-                <h3 className="text-md font-bold text-zinc-200 border-b border-zinc-800 pb-2">Training Package Configuration</h3>
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Training Package Configuration</h3>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormField label="Select PT Package">
                     <select
-                      className="input w-full"
+                      className="select-field w-full font-semibold text-slate-800"
                       value={packageId}
                       onChange={(e) => setPackageId(e.target.value)}
                     >
@@ -223,7 +223,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
 
                   <FormField label="Assigned Personal Trainer">
                     <select
-                      className="input w-full"
+                      className="select-field w-full font-semibold text-slate-800"
                       value={trainerId}
                       onChange={(e) => setTrainerId(e.target.value)}
                     >
@@ -240,7 +240,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                     <input
                       type="number"
                       min="1"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       value={sessionsPurchased}
                       onChange={(e) => setSessionsPurchased(Number(e.target.value))}
                     />
@@ -250,7 +250,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                     <input
                       type="number"
                       min="0"
-                      className="input w-full font-bold text-amber-300"
+                      className="input-field w-full font-extrabold text-amber-600 bg-amber-50/40 border-amber-200"
                       value={sessionsRemaining}
                       onChange={(e) => setSessionsRemaining(Number(e.target.value))}
                     />
@@ -258,7 +258,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
 
                   <FormField label="Status">
                     <select
-                      className="input w-full"
+                      className="select-field w-full font-semibold text-slate-800"
                       value={status}
                       onChange={(e) => setStatus(e.target.value as any)}
                     >
@@ -273,7 +273,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                   <FormField label="Package Start Date" required>
                     <input
                       type="date"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       required
@@ -283,27 +283,27 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                   <FormField label="Expiry Date" required>
                     <input
                       type="date"
-                      className="input w-full"
+                      className="input-field w-full font-semibold text-slate-800"
                       value={expiryDate}
                       onChange={(e) => setExpiryDate(e.target.value)}
                       required
                     />
                   </FormField>
                 </div>
-              </Card>
+              </div>
             </div>
 
             {/* Metrics and Assessment */}
             <div className="space-y-6">
-              <Card className="bg-zinc-950 border border-zinc-800 p-6 space-y-4">
-                <h3 className="text-md font-bold text-zinc-200 border-b border-zinc-800 pb-2">Physical Metrics & Goals</h3>
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Physical Metrics & Goals</h3>
 
                 <div className="grid grid-cols-3 gap-2">
                   <FormField label="Height (cm)">
                     <input
                       type="number"
                       step="0.1"
-                      className="input w-full text-center"
+                      className="input-field w-full text-center font-semibold text-slate-800"
                       value={height}
                       onChange={(e) => setHeight(e.target.value)}
                     />
@@ -313,7 +313,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                     <input
                       type="number"
                       step="0.1"
-                      className="input w-full text-center"
+                      className="input-field w-full text-center font-semibold text-slate-800"
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
                     />
@@ -323,7 +323,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
                     <input
                       type="number"
                       step="0.1"
-                      className="input w-full text-center"
+                      className="input-field w-full text-center font-semibold text-slate-800"
                       value={bodyFat}
                       onChange={(e) => setBodyFat(e.target.value)}
                     />
@@ -332,7 +332,7 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
 
                 <FormField label="Fitness Goal">
                   <textarea
-                    className="input w-full min-h-[80px]"
+                    className="textarea-field w-full min-h-[80px] font-medium text-slate-800"
                     placeholder="Fitness goal details"
                     value={goal}
                     onChange={(e) => setGoal(e.target.value)}
@@ -341,20 +341,20 @@ export default function EditPTClientPage({ params }: { params: Promise<{ id: str
 
                 <FormField label="Medical Notes / Injuries">
                   <textarea
-                    className="input w-full min-h-[80px]"
+                    className="textarea-field w-full min-h-[80px] font-medium text-slate-800"
                     placeholder="Medical history details"
                     value={medicalNotes}
                     onChange={(e) => setMedicalNotes(e.target.value)}
                   />
                 </FormField>
-              </Card>
+              </div>
 
               {/* Action Button */}
               <div className="flex flex-col gap-3">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="btn btn-primary w-full py-3 text-md font-bold flex items-center justify-center gap-2"
+                  className="btn btn-primary w-full py-3 text-md font-bold flex items-center justify-center gap-2 shadow-md shadow-amber-200/50"
                 >
                   <Save className="h-5 w-5" />
                   {submitting ? 'Saving...' : 'Save Profile Changes'}

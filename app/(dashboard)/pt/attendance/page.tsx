@@ -30,16 +30,13 @@ export default function PTAttendancePage() {
         allSessions = await getPTSessions();
       }
 
-      // Filter: display scheduled sessions for today or past un-marked sessions
       const todayStr = new Date().toISOString().split('T')[0];
       const filtered = allSessions.filter(s => {
-        // If trainer logs in, they only see their sessions
         if (isTrainer) {
           const isAssignedTrainer = s.trainer?.auth_user_id === profile?.auth_user_id || s.trainer_id === 'rohan-trainer';
           if (!isAssignedTrainer) return false;
         }
         
-        // Show today's sessions OR older sessions that are still pending 'Scheduled' status
         return s.session_date === todayStr || (s.session_date < todayStr && s.status === 'Scheduled');
       });
 
@@ -86,31 +83,31 @@ export default function PTAttendancePage() {
 
       {loading ? (
         <div className="flex min-h-[400px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
         </div>
       ) : sessions.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center p-12 text-center bg-zinc-950 border border-zinc-800">
-          <UserCheck className="mx-auto h-12 w-12 text-zinc-600" />
-          <h3 className="mt-4 text-lg font-bold text-zinc-100">All caught up!</h3>
-          <p className="mt-2 text-zinc-400">No personal sessions scheduled for today require marking.</p>
-        </Card>
+        <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-slate-200/80 rounded-2xl shadow-sm">
+          <UserCheck className="mx-auto h-12 w-12 text-slate-300" />
+          <h3 className="mt-4 text-lg font-bold text-slate-800">All caught up!</h3>
+          <p className="mt-1.5 text-sm text-slate-500">No personal sessions scheduled for today require marking.</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {sessions.map((sess) => (
-            <Card key={sess.id} className="bg-zinc-950 border border-zinc-800 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-300">
+            <div key={sess.id} className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm hover:border-amber-300 transition-all">
+              <div className="flex items-start gap-3.5">
+                <div className="h-11 w-11 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center text-amber-800 font-bold">
                   <Dumbbell className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-100">{sess.client?.full_name}</h4>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-zinc-400">
-                    <span className="flex items-center gap-1"><HardHat className="h-3.5 w-3.5 text-zinc-500" /> Trainer: {sess.trainer?.full_name}</span>
-                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-zinc-500" /> Time: {sess.session_time} ({sess.duration} mins)</span>
-                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5 text-zinc-500" /> Date: {formatDate(sess.session_date)}</span>
+                  <h4 className="font-extrabold text-slate-900 text-base">{sess.client?.full_name}</h4>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs font-medium text-slate-600">
+                    <span className="flex items-center gap-1"><HardHat className="h-3.5 w-3.5 text-slate-400" /> Trainer: <strong className="text-slate-800">{sess.trainer?.full_name}</strong></span>
+                    <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-slate-400" /> Time: <strong className="text-slate-800">{sess.session_time}</strong> ({sess.duration} mins)</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5 text-slate-400" /> Date: <strong className="text-slate-800">{formatDate(sess.session_date)}</strong></span>
                   </div>
                   {sess.workout_plan && (
-                    <p className="text-xs font-mono text-zinc-400 bg-zinc-900/40 border border-zinc-900 p-2.5 rounded-lg mt-2.5 max-w-xl">
+                    <p className="text-xs font-mono text-slate-700 bg-slate-50 border border-slate-200/70 p-2.5 rounded-xl mt-2.5 max-w-xl">
                       Plan: {sess.workout_plan}
                     </p>
                   )}
@@ -121,30 +118,30 @@ export default function PTAttendancePage() {
               <div className="flex flex-wrap gap-2 shrink-0 self-end md:self-center">
                 <button
                   onClick={() => handleMarkAttendance(sess.id, sess.client_id, sess.trainer_id, sess.session_date, 'Present')}
-                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-md shadow-amber-200/50"
                 >
                   <Check className="h-3.5 w-3.5" /> Present
                 </button>
                 <button
                   onClick={() => handleMarkAttendance(sess.id, sess.client_id, sess.trainer_id, sess.session_date, 'Late')}
-                  className="btn btn-secondary btn-sm text-amber-400 hover:text-amber-300 flex items-center gap-1.5"
+                  className="btn btn-secondary btn-sm text-amber-700 hover:text-amber-800 flex items-center gap-1.5"
                 >
                   Late
                 </button>
                 <button
                   onClick={() => handleMarkAttendance(sess.id, sess.client_id, sess.trainer_id, sess.session_date, 'Absent')}
-                  className="btn btn-secondary btn-sm text-red-400 hover:text-red-300 flex items-center gap-1.5"
+                  className="btn btn-secondary btn-sm text-rose-600 hover:text-rose-700 flex items-center gap-1.5"
                 >
                   <X className="h-3.5 w-3.5" /> Absent
                 </button>
                 <button
                   onClick={() => handleMarkAttendance(sess.id, sess.client_id, sess.trainer_id, sess.session_date, 'Cancelled')}
-                  className="btn btn-secondary btn-sm text-zinc-400 hover:text-zinc-300"
+                  className="btn btn-secondary btn-sm text-slate-500 hover:text-slate-700"
                 >
                   Cancelled
                 </button>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       )}
