@@ -75,8 +75,8 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
       ...memberInsertData
     } = validatedValues as any;
 
-    // Convert empty string to null to avoid unique constraint violations
-    if (memberInsertData.biometric_user_id === '') {
+    // Convert empty string or daily package biometric IDs to null to avoid biometric hardware registration
+    if (memberInsertData.biometric_user_id === '' || memberInsertData.duration === 'Daily Pass' || memberInsertData.duration === 'Daily Base') {
       memberInsertData.biometric_user_id = null;
     }
 
@@ -90,8 +90,8 @@ export async function createMember(values: MemberFormValues): Promise<{ data?: M
     console.log(`[STEP 1] Member saved: ${member.full_name} (${member.id})`);
     console.log(`[STEP 2] Payment recorded. Amount Paid: ₹${paid_amount}, Method: ${payment_method || 'N/A'}`);
 
-    // Queue biometric enable action if biometric_user_id is provided at creation
-    if (member.biometric_user_id) {
+    // Queue biometric enable action if biometric_user_id is provided at creation (exempt for Daily Pass/Base)
+    if (member.biometric_user_id && member.duration !== 'Daily Pass' && member.duration !== 'Daily Base') {
       await queueBiometricAction(member.id, member.biometric_user_id, 'enable');
     }
 

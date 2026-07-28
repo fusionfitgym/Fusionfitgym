@@ -19,7 +19,7 @@ export function getBaseMembershipFee(
   settings?: GymSettings
 ): number {
   const dur = duration.trim();
-  if (dur === 'Daily Pass') {
+  if (dur === 'Daily Pass' || dur === 'Daily Base') {
     return 50;
   }
   if (dur === 'Cardio') {
@@ -97,7 +97,7 @@ export function calculatePackagePrice(inputs: {
   addOnSelections: Record<string, boolean>;
   settings?: GymSettings;
 }) {
-  const isDailyPass = inputs.duration === 'Daily Pass';
+  const isDailyPass = inputs.duration === 'Daily Pass' || inputs.duration === 'Daily Base';
   const membershipFee = getBaseMembershipFee(inputs.gender, inputs.duration, inputs.trainingType, inputs.settings);
   const admissionFee = Number(inputs.admissionFee) || 0;
 

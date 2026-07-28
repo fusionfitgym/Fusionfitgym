@@ -260,6 +260,10 @@ export async function sendRenewalSMS(
   invoiceLink = '',
   invoiceId?: string
 ) {
+  if (planName && planName.toLowerCase().includes('daily')) {
+    console.log(`[SMS Service] Renewal SMS skipped for Daily package member (${name}, ${planName})`);
+    return { success: false, error: 'Renewal SMS not required for Daily package members' };
+  }
   const templateStr = typeof BUILTIN_TEMPLATES.renewal === 'object' ? BUILTIN_TEMPLATES.renewal.body : BUILTIN_TEMPLATES.renewal;
   const message = renderTemplate(templateStr, {
     memberName: name,

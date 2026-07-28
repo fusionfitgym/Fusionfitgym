@@ -385,7 +385,7 @@ export interface SMSFilterParams {
 
 
 
-export const MEMBERSHIP_PLANS = ['Daily Pass', '1 Month', '3 Months', '6 Months', 'Cardio'] as const;
+export const MEMBERSHIP_PLANS = ['Daily Pass', 'Daily Base', '1 Month', '3 Months', '6 Months', 'Cardio'] as const;
 export const MEMBER_STATUSES = ['Active', 'Inactive', 'Expired', 'Frozen'] as const;
 export const INVOICE_STATUSES = ['Paid', 'Partially Paid', 'Unpaid', 'Pending', 'Overdue', 'Cancelled'] as const;
 

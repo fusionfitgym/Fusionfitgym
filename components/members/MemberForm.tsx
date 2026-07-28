@@ -121,7 +121,7 @@ export function MemberForm({
     gender: initialValues?.gender || legacyInitial?.gender || 'Gents',
     duration: (() => {
       const dVal = initialValues?.duration || legacyInitial?.duration || legacyInitial?.package_duration || '1 Month';
-      if (['Daily Pass', '1 Month', '3 Months', '6 Months', '30 Days', '90 Days', '180 Days', '365 Days', 'Cardio'].includes(dVal)) {
+      if (['Daily Pass', 'Daily Base', '1 Month', '3 Months', '6 Months', '30 Days', '90 Days', '180 Days', '365 Days', 'Cardio'].includes(dVal)) {
         return dVal;
       }
       if (dVal && /\d+/.test(dVal)) {
@@ -198,6 +198,14 @@ export function MemberForm({
       }
     }
   }, [gymSettings, initialValues, setValue]);
+
+  // Clear biometric_user_id if Daily Pass or Daily Base package is selected
+  const selectedDuration = watch('duration');
+  useEffect(() => {
+    if (selectedDuration === 'Daily Pass' || selectedDuration === 'Daily Base') {
+      setValue('biometric_user_id', '', { shouldValidate: true });
+    }
+  }, [selectedDuration, setValue]);
 
   const handleAutoGenerate = async () => {
     try {
@@ -278,7 +286,7 @@ export function MemberForm({
     const start = new Date(startDate);
     if (isNaN(start.getTime())) return;
     
-    if (duration === 'Daily Pass') {
+    if (duration === 'Daily Pass' || duration === 'Daily Base') {
       setValue('package_end_date', startDate, { shouldDirty: true, shouldValidate: true });
       return;
     }
@@ -347,7 +355,7 @@ export function MemberForm({
   useEffect(() => {
     if (!gender || !duration || !trainingType) return;
     
-    const isDailyPass = duration === 'Daily Pass';
+    const isDailyPass = duration === 'Daily Pass' || duration === 'Daily Base';
     const isCardio = duration === 'Cardio';
     const displayDuration = duration === 'Custom Days' ? `${customDays} Days` : duration;
     
@@ -378,7 +386,7 @@ export function MemberForm({
     const finalPackagePrice = result.membershipFee + result.addOnFees['parq_purchased'] + currentTrainerFee + admissionFee;
     setValue('package_price', finalPackagePrice, { shouldDirty: true, shouldValidate: true });
 
-    const name = isDailyPass ? 'Daily Pass' : isCardio ? 'Cardio' : `${gender} - ${displayDuration} - ${trainingType}`;
+    const name = duration === 'Daily Base' ? 'Daily Base Package' : isDailyPass ? 'Daily Pass' : isCardio ? 'Cardio' : `${gender} - ${displayDuration} - ${trainingType}`;
     setValue('package_name', name, { shouldDirty: true, shouldValidate: true });
     setValue('package_duration', displayDuration, { shouldDirty: true, shouldValidate: true });
   }, [gender, duration, trainingType, parqPurchased, trainerPackage, admissionFee, ptPackageId, ptPackages, gymSettings, setValue]);
@@ -609,6 +617,7 @@ export function MemberForm({
                   aria-invalid={Boolean(errors.duration)}
                   {...register('duration')}
                 >
+                  <option value="Daily Base">Daily Base Package</option>
                   <option value="Daily Pass">Daily Pass</option>
                   <option value="Cardio">Cardio</option>
                   <option value="1 Month">1 Month</option>
@@ -669,7 +678,7 @@ export function MemberForm({
                   <input
                     id="parq_purchased"
                     type="checkbox"
-                    disabled={duration === 'Daily Pass'}
+                    disabled={duration === 'Daily Pass' || duration === 'Daily Base'}
                     className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500 disabled:opacity-50"
                     {...register('parq_purchased')}
                   />
@@ -776,7 +785,7 @@ export function MemberForm({
                 </div>
               </FormField>
 
-              {duration !== 'Daily Pass' && (
+              {duration !== 'Daily Pass' && duration !== 'Daily Base' && (
                 <FormField
                   label="End Date"
                   htmlFor="package_end_date"
@@ -1038,23 +1047,34 @@ export function MemberForm({
                   <input
                     id="biometric_user_id"
                     type="text"
-                    className="input-field font-mono"
-                    placeholder="e.g. 101"
+                    disabled={duration === 'Daily Pass' || duration === 'Daily Base'}
+                    className={cn(
+                      "input-field font-mono",
+                      (duration === 'Daily Pass' || duration === 'Daily Base') && "bg-slate-100 opacity-60 cursor-not-allowed text-slate-400"
+                    )}
+                    placeholder={(duration === 'Daily Pass' || duration === 'Daily Base') ? "Disabled for Daily Base" : "e.g. 101"}
                     aria-invalid={Boolean(errors.biometric_user_id)}
                     {...register('biometric_user_id')}
                   />
                 </div>
                 <button
                   type="button"
+                  disabled={duration === 'Daily Pass' || duration === 'Daily Base'}
                   onClick={handleAutoGenerate}
-                  className="btn btn-secondary text-xs shrink-0 cursor-pointer"
-                  title="Generate next available Biometric User ID"
+                  className="btn btn-secondary text-xs shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={(duration === 'Daily Pass' || duration === 'Daily Base') ? "Biometric ID is not required for Daily Base package" : "Generate next available Biometric User ID"}
                 >
                   Auto Generate
                 </button>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                This ID is unique per machine. The same ID can exist on both Gents and Ladies machines.
+                {(duration === 'Daily Pass' || duration === 'Daily Base') ? (
+                  <span className="text-amber-700 font-medium">
+                    ⚠️ Biometric registration is disabled for Daily Base package members (Biometric access not required).
+                  </span>
+                ) : (
+                  'This ID is unique per machine. The same ID can exist on both Gents and Ladies machines.'
+                )}
               </p>
             </FormField>
           </div>
