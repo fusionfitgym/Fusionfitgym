@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Filter, Users, Eye, Edit, Trash2, Dumbbell, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Plus, Search, Filter, Users, Eye, Edit, Trash2, Dumbbell, AlertTriangle, CheckCircle2, Clock, FileText, Download } from 'lucide-react';
 import { PageHeader, Card } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
@@ -18,6 +18,7 @@ export default function PTClientsPage() {
 
   const [clients, setClients] = useState<PTClient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
   // Search & Filter State
   const [search, setSearch] = useState('');
@@ -65,6 +66,52 @@ export default function PTClientsPage() {
     }
   };
 
+  const handleExportClientPDF = async (clientItem: PTClient) => {
+    setExportingId(clientItem.id);
+    toast.info(`Generating progress report for ${clientItem.full_name}...`);
+    try {
+      let progressData = [];
+      let workoutsData = [];
+      let clientSessions = [];
+      let currentSettings = undefined;
+
+      if (isDemo) {
+        progressData = demo.getPTProgress(clientItem.id);
+        workoutsData = demo.getPTDailyWorkouts(clientItem.id);
+        clientSessions = demo.getPTSessions().filter(s => s.client_id === clientItem.id);
+        currentSettings = demo.getSettings();
+      } else {
+        const { getPTProgress, getPTDailyWorkouts, getPTSessions } = await import('@/lib/actions/pt');
+        const { getSettings } = await import('@/lib/actions/settings');
+        
+        const [prog, work, sess, setts] = await Promise.all([
+          getPTProgress(clientItem.id),
+          getPTDailyWorkouts(clientItem.id),
+          getPTSessions(),
+          getSettings()
+        ]);
+        progressData = prog;
+        workoutsData = work;
+        clientSessions = sess.filter(s => s.client_id === clientItem.id);
+        currentSettings = setts;
+      }
+
+      const { generatePTProgressPDF } = await import('@/lib/pdf/generatePTProgressPDF');
+      await generatePTProgressPDF({
+        client: clientItem,
+        progressLogs: progressData,
+        dailyWorkouts: workoutsData,
+        sessions: clientSessions,
+        settings: currentSettings
+      });
+      toast.success(`Exported progress PDF for ${clientItem.full_name}!`);
+    } catch (err: any) {
+      toast.error('Failed to export PDF: ' + (err?.message || err));
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   // Filter list
   const filteredClients = clients.filter(c => {
     if (isTrainer) {
@@ -97,11 +144,24 @@ export default function PTClientsPage() {
         title="Personal Training Members"
         subtitle="Manage PT client registrations, package tracking, and active trainer assignments."
         action={
-          (isAdmin || isReceptionist) && (
-            <Link href="/pt/members/add" className="btn btn-primary shadow-md shadow-amber-200/50">
-              <Plus className="h-4 w-4 mr-1" /> Register PT Client
-            </Link>
-          )
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (filteredClients.length > 0) {
+                  handleExportClientPDF(filteredClients[0]);
+                }
+              }}
+              className="btn btn-secondary shadow-xs"
+              title="Export Member Progress PDF"
+            >
+              <Download className="h-4 w-4 mr-1.5" /> Export Progress PDF
+            </button>
+            {(isAdmin || isReceptionist) && (
+              <Link href="/pt/members/add" className="btn btn-primary shadow-md shadow-amber-200/50">
+                <Plus className="h-4 w-4 mr-1" /> Register PT Client
+              </Link>
+            )}
+          </div>
         }
       />
 
@@ -308,6 +368,14 @@ export default function PTClientsPage() {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleExportClientPDF(client)}
+                            disabled={exportingId === client.id}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                            title="Export Progress PDF"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </button>
                           <Link
                             href={`/pt/members/${client.id}`}
                             className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-amber-600 transition-colors"

@@ -15,7 +15,9 @@ export default function PTReportsPage() {
   const isDemo = profile?.email === 'demo@redix.media';
   const demo = useDemoState();
 
-  const [activeTab, setActiveTab] = useState<'revenue' | 'trainers' | 'packages'>('revenue');
+  const [activeTab, setActiveTab] = useState<'revenue' | 'trainers' | 'packages' | 'progress'>('revenue');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [payments, setPayments] = useState<PTPayment[]>([]);
   const [clients, setClients] = useState<PTClient[]>([]);
   const [invoices, setInvoices] = useState<PTInvoice[]>([]);
@@ -127,6 +129,55 @@ export default function PTReportsPage() {
     exportToCSV('PT_Package_Enrollment_Report', headers, rows);
   };
 
+  const handleExportMemberPDF = async (clientId: string) => {
+    const clientObj = clients.find(c => c.id === clientId);
+    if (!clientObj) return;
+
+    setExportingPdf(true);
+    toast.info(`Generating PT Progress PDF for ${clientObj.full_name}...`);
+    try {
+      let progressData = [];
+      let workoutsData = [];
+      let clientSessions = [];
+      let currentSettings = undefined;
+
+      if (isDemo) {
+        progressData = demo.getPTProgress(clientObj.id);
+        workoutsData = demo.getPTDailyWorkouts(clientObj.id);
+        clientSessions = demo.getPTSessions().filter(s => s.client_id === clientObj.id);
+        currentSettings = demo.getSettings();
+      } else {
+        const { getPTProgress, getPTDailyWorkouts, getPTSessions } = await import('@/lib/actions/pt');
+        const { getSettings } = await import('@/lib/actions/settings');
+        
+        const [prog, work, sess, setts] = await Promise.all([
+          getPTProgress(clientObj.id),
+          getPTDailyWorkouts(clientObj.id),
+          getPTSessions(),
+          getSettings()
+        ]);
+        progressData = prog;
+        workoutsData = work;
+        clientSessions = sess.filter(s => s.client_id === clientObj.id);
+        currentSettings = setts;
+      }
+
+      const { generatePTProgressPDF } = await import('@/lib/pdf/generatePTProgressPDF');
+      await generatePTProgressPDF({
+        client: clientObj,
+        progressLogs: progressData,
+        dailyWorkouts: workoutsData,
+        sessions: clientSessions,
+        settings: currentSettings
+      });
+      toast.success(`Progress PDF for ${clientObj.full_name} exported successfully!`);
+    } catch (err: any) {
+      toast.error('Failed to export PDF: ' + (err?.message || err));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
   const activeClientsCount = clients.filter(c => c.status === 'Active').length;
   const completedSessionsCount = sessions.filter(s => s.status === 'Completed').length;
@@ -157,6 +208,12 @@ export default function PTReportsPage() {
           className={`segment ${activeTab === 'packages' && 'segment-active'}`}
         >
           Package Enrollments
+        </button>
+        <button
+          onClick={() => setActiveTab('progress')}
+          className={`segment ${activeTab === 'progress' && 'segment-active'}`}
+        >
+          Member Progress PDFs
         </button>
       </div>
 
@@ -284,7 +341,7 @@ export default function PTReportsPage() {
             </div>
           </Card>
         </div>
-      ) : (
+      ) : activeTab === 'packages' ? (
         // Tab 3: Package Enrollments Reports
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-6">
@@ -338,6 +395,67 @@ export default function PTReportsPage() {
                 </tbody>
               </table>
             </div>
+          </Card>
+        </div>
+      ) : (
+        // Tab 4: Member Progress PDFs
+        <div className="space-y-6">
+          <Card className="bg-zinc-950 border border-zinc-800 p-6">
+            <div className="flex items-center gap-3 mb-4 pb-3 border-b border-zinc-900">
+              <FileText className="h-5 w-5 text-amber-400" />
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">Export PT Member Progress PDF</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Generate a complete biometric, workout, and attendance progress report for any PT member.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mt-6">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Select PT Client</label>
+                <select
+                  className="select-field w-full bg-zinc-900 text-zinc-100 border-zinc-800 font-semibold"
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                >
+                  <option value="">-- Choose a PT Client --</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name} ({c.phone}) - Trainer: {c.trainer?.full_name || 'N/A'} - {c.sessions_remaining} sessions left
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => selectedClientId && handleExportMemberPDF(selectedClientId)}
+                  disabled={!selectedClientId || exportingPdf}
+                  className="btn btn-primary w-full flex items-center justify-center gap-2 font-bold shadow-md shadow-amber-500/20"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportingPdf ? 'Generating PDF...' : 'Download Progress PDF'}
+                </button>
+              </div>
+            </div>
+
+            {selectedClientId && (() => {
+              const selectedClient = clients.find(c => c.id === selectedClientId);
+              if (!selectedClient) return null;
+              return (
+                <div className="mt-6 p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs space-y-2">
+                  <div className="flex justify-between items-center text-zinc-200 font-bold">
+                    <span>{selectedClient.full_name}</span>
+                    <span className="text-amber-400">{selectedClient.status} Client</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-zinc-400 pt-2 border-t border-zinc-800">
+                    <div>Phone: <strong className="text-zinc-200">{selectedClient.phone}</strong></div>
+                    <div>Trainer: <strong className="text-zinc-200">{selectedClient.trainer?.full_name || 'Not assigned'}</strong></div>
+                    <div>Package: <strong className="text-zinc-200">{selectedClient.package?.package_name || 'Custom'}</strong></div>
+                    <div>Sessions Remaining: <strong className="text-amber-400">{selectedClient.sessions_remaining} / {selectedClient.sessions_purchased}</strong></div>
+                  </div>
+                </div>
+              );
+            })()}
           </Card>
         </div>
       )}

@@ -3,12 +3,15 @@
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, History, Image as ImageIcon, Sparkles, X, Target, Trash2, Clock, Activity, AlertCircle, Flame, FlameKindling, HardHat, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, History, Image as ImageIcon, Sparkles, X, Target, Trash2, Clock, Activity, AlertCircle, Flame, FlameKindling, HardHat, CheckCircle2, Download, FileText } from 'lucide-react';
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
 import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions, getPTDailyWorkouts, createPTDailyWorkout, deletePTDailyWorkout, getPTTrainers } from '@/lib/actions/pt';
+import { getSettings } from '@/lib/actions/settings';
+import { generatePTProgressPDF } from '@/lib/pdf/generatePTProgressPDF';
 import { PTClient, PTProgress, PTSession, PTDailyWorkout, PTTrainer } from '@/types/pt';
+import { GymSettings } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -26,6 +29,8 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [dailyWorkouts, setDailyWorkouts] = useState<PTDailyWorkout[]>([]);
   const [trainers, setTrainers] = useState<PTTrainer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gymSettings, setGymSettings] = useState<GymSettings | undefined>(undefined);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Tab State: progress | workouts | history
   const [activeTab, setActiveTab] = useState<'progress' | 'workouts' | 'history'>('workouts');
@@ -58,6 +63,35 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   // Role checks
   const isAdmin = profile?.role === 'Super Admin' || profile?.role === 'Admin';
   const isReceptionist = profile?.role === 'Receptionist';
+
+  const handleExportPDF = async () => {
+    if (!client) return;
+    setIsExportingPDF(true);
+    toast.info('Generating PT Progress PDF Report...');
+    try {
+      let currentSettings = gymSettings;
+      if (!currentSettings) {
+        if (isDemo) {
+          currentSettings = demo.getSettings();
+        } else {
+          currentSettings = await getSettings();
+        }
+        setGymSettings(currentSettings);
+      }
+      await generatePTProgressPDF({
+        client,
+        progressLogs,
+        dailyWorkouts,
+        sessions,
+        settings: currentSettings
+      });
+      toast.success('PT Progress PDF exported successfully!');
+    } catch (err: any) {
+      toast.error('Failed to export PDF: ' + (err?.message || err));
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -280,11 +314,22 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
           <ArrowLeft className="h-4 w-4" /> Back to clients list
         </Link>
         
-        {(isAdmin || isReceptionist) && (
-          <Link href={`/pt/members/${id}/edit`} className="btn btn-secondary btn-sm shadow-xs">
-            <Edit className="h-3.5 w-3.5 mr-1.5" /> Edit Profile Details
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportPDF}
+            disabled={isExportingPDF}
+            className="btn btn-secondary btn-sm shadow-xs flex items-center gap-1.5"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {isExportingPDF ? 'Exporting...' : 'Export Progress PDF'}
+          </button>
+
+          {(isAdmin || isReceptionist) && (
+            <Link href={`/pt/members/${id}/edit`} className="btn btn-secondary btn-sm shadow-xs">
+              <Edit className="h-3.5 w-3.5 mr-1.5" /> Edit Profile Details
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Header Profile Info Summary */}
@@ -547,15 +592,25 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
 
           {/* Progress Log Table */}
           <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/70">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/70">
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">Biometric Progress Timeline</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Track body composition history and physical measurements.</p>
               </div>
               
-              <button onClick={() => setIsProgressModalOpen(true)} className="btn btn-primary btn-sm shadow-md shadow-amber-200/50">
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add Progress Log
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportPDF}
+                  disabled={isExportingPDF}
+                  className="btn btn-secondary btn-sm shadow-xs flex items-center gap-1"
+                >
+                  <FileText className="h-3.5 w-3.5" /> Export PDF Report
+                </button>
+
+                <button onClick={() => setIsProgressModalOpen(true)} className="btn btn-primary btn-sm shadow-md shadow-amber-200/50">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Progress Log
+                </button>
+              </div>
             </div>
 
             {progressLogs.length === 0 ? (
