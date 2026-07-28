@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Filter, Users, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Users, Eye, Edit, Trash2, Dumbbell, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { PageHeader, Card } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
@@ -67,26 +67,26 @@ export default function PTClientsPage() {
 
   // Filter list
   const filteredClients = clients.filter(c => {
-    // Role filter: Trainers only view their assigned clients
     if (isTrainer) {
-      // In demo mode or production, match trainer's profile full_name or id
-      const matchesTrainer = c.trainer?.auth_user_id === profile?.auth_user_id || c.trainer_id === 'rohan-trainer'; // Default rohan to trainer view for demo
+      const matchesTrainer = c.trainer?.auth_user_id === profile?.auth_user_id || c.trainer_id === 'rohan-trainer';
       if (!matchesTrainer) return false;
     }
 
-    // Search filter
     const matchesSearch = c.full_name.toLowerCase().includes(search.toLowerCase()) || 
                           c.phone.includes(search) || 
                           (c.email && c.email.toLowerCase().includes(search.toLowerCase()));
 
-    // Status filter
     const matchesStatus = statusFilter === 'All' ? true : c.status === statusFilter;
-
-    // Trainer filter (for Admin / Receptionist)
     const matchesTrainerSelection = trainerFilter === 'All' ? true : c.trainer_id === trainerFilter;
 
     return matchesSearch && matchesStatus && matchesTrainerSelection;
   });
+
+  // KPI Metrics Calculation
+  const activeClientsCount = clients.filter(c => c.status === 'Active').length;
+  const lowSessionsCount = clients.filter(c => c.status === 'Active' && c.sessions_remaining <= 2).length;
+  const totalSessionsPurchased = clients.reduce((sum, c) => sum + (Number(c.sessions_purchased) || 0), 0);
+  const totalSessionsRemaining = clients.reduce((sum, c) => sum + (Number(c.sessions_remaining) || 0), 0);
 
   // Unique list of trainers from clients for filtering
   const uniqueTrainers = Array.from(new Map(clients.filter(c => c.trainer).map(c => [c.trainer_id, c.trainer])).values());
@@ -98,35 +98,78 @@ export default function PTClientsPage() {
         subtitle="Manage PT client registrations, package tracking, and active trainer assignments."
         action={
           (isAdmin || isReceptionist) && (
-            <Link href="/pt/members/add" className="btn btn-primary">
-              <Plus className="h-4 w-4" /> Register PT Client
+            <Link href="/pt/members/add" className="btn btn-primary shadow-md shadow-amber-200/50">
+              <Plus className="h-4 w-4 mr-1" /> Register PT Client
             </Link>
           )
         }
       />
 
+      {/* Summary KPI Cards Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-md shadow-amber-200/60">
+            <Users className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total PT Members</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{clients.length}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-200/60">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Clients</p>
+            <p className="mt-1 text-2xl font-black text-emerald-600">{activeClientsCount}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-amber-600 text-white shadow-md shadow-rose-200/60">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Low Sessions (≤ 2)</p>
+            <p className="mt-1 text-2xl font-black text-rose-600">{lowSessionsCount}</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-200/60">
+            <Dumbbell className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Remaining Sessions</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{totalSessionsRemaining} <span className="text-xs font-semibold text-slate-400">/ {totalSessionsPurchased}</span></p>
+          </div>
+        </div>
+      </div>
+
       {/* Filters Card */}
-      <Card className="mb-6 p-4 sm:p-5 bg-zinc-950 border border-zinc-800">
+      <div className="mb-6 rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-zinc-500">
+            <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400">
               <Search className="h-4 w-4" />
             </span>
             <input
               type="text"
-              className="input pl-9 w-full"
-              placeholder="Search by client name, phone..."
+              className="input-field pl-10 w-full font-medium text-slate-800 placeholder:text-slate-400"
+              placeholder="Search client name, phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-2">
-            <span className="flex items-center text-sm text-zinc-400 gap-1 shrink-0">
-              <Filter className="h-4 w-4" /> Status:
+          <div className="flex items-center gap-2">
+            <span className="flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider gap-1.5 shrink-0">
+              <Filter className="h-3.5 w-3.5 text-amber-500" /> Status:
             </span>
             <select
-              className="input flex-1"
+              className="select-field flex-1 text-slate-800 font-semibold"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -138,12 +181,12 @@ export default function PTClientsPage() {
           </div>
 
           {!isTrainer && (
-            <div className="flex gap-2">
-              <span className="flex items-center text-sm text-zinc-400 gap-1 shrink-0">
-                <Filter className="h-4 w-4" /> Trainer:
+            <div className="flex items-center gap-2">
+              <span className="flex items-center text-xs font-bold text-slate-500 uppercase tracking-wider gap-1.5 shrink-0">
+                <Filter className="h-3.5 w-3.5 text-amber-500" /> Trainer:
               </span>
               <select
-                className="input flex-1"
+                className="select-field flex-1 text-slate-800 font-semibold"
                 value={trainerFilter}
                 onChange={(e) => setTrainerFilter(e.target.value)}
               >
@@ -155,91 +198,138 @@ export default function PTClientsPage() {
             </div>
           )}
         </div>
-      </Card>
+      </div>
 
       {loading ? (
-        <div className="flex min-h-[400px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
+        <div className="flex min-h-[350px] items-center justify-center">
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
         </div>
       ) : filteredClients.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center p-12 text-center">
-          <Users className="mx-auto h-12 w-12 text-zinc-400" />
-          <h3 className="mt-4 text-lg font-bold text-zinc-100">No PT Clients Found</h3>
-          <p className="mt-2 text-zinc-400">Add a client registration or modify your filter criteria.</p>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center shadow-sm">
+          <Users className="mx-auto h-12 w-12 text-slate-300" />
+          <h3 className="mt-4 text-lg font-bold text-slate-800">No PT Members Found</h3>
+          <p className="mt-1.5 text-sm text-slate-500">No client registrations match your search or filter criteria.</p>
           {(isAdmin || isReceptionist) && clients.length === 0 && (
             <Link href="/pt/members/add" className="btn btn-primary mt-6">
-              Register First Client
+              Register First PT Client
             </Link>
           )}
-        </Card>
+        </div>
       ) : (
-        <div className="card overflow-hidden">
-          {/* Table view for Desktop */}
-          <div className="data-table">
-            <table>
+        <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Assigned Trainer</th>
-                  <th>Package Selected</th>
-                  <th className="hidden sm:table-cell">Sessions Remaining</th>
-                  <th className="hidden md:table-cell">Expiry Date</th>
-                  <th>Status</th>
-                  <th className="text-right">Action</th>
+                <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <th className="py-3.5 px-4">Client Profile</th>
+                  <th className="py-3.5 px-4">Assigned Trainer</th>
+                  <th className="py-3.5 px-4">Package</th>
+                  <th className="py-3.5 px-4">Sessions Tracker</th>
+                  <th className="py-3.5 px-4">Expiry Date</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100">
                 {filteredClients.map((client) => {
                   const percentLeft = client.sessions_purchased > 0 
                     ? Math.round((client.sessions_remaining / client.sessions_purchased) * 100)
                     : 0;
 
+                  const isLowSessions = client.sessions_remaining <= 2;
+                  const initials = (client.full_name || 'PT').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
                   return (
-                    <tr key={client.id}>
-                      <td>
-                        <div>
-                          <p className="font-bold text-zinc-100">{client.full_name}</p>
-                          <p className="text-xs text-zinc-400 mt-0.5">{client.phone}</p>
+                    <tr key={client.id} className="hover:bg-amber-50/20 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 font-extrabold text-amber-800 text-xs shadow-inner">
+                            {initials}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 leading-snug">{client.full_name}</p>
+                            <p className="text-xs font-medium text-slate-500 mt-0.5">{client.phone}</p>
+                          </div>
                         </div>
                       </td>
-                      <td>
-                        <p className="text-sm font-semibold text-zinc-300">
-                          {client.trainer?.full_name || 'Not Assigned'}
-                        </p>
-                      </td>
-                      <td>
-                        <p className="text-sm text-zinc-300">
-                          {client.package?.package_name || 'Custom Package'}
-                        </p>
-                      </td>
-                      <td className="hidden sm:table-cell">
-                        <div className="flex items-center gap-2">
-                          <span className={`font-bold ${client.sessions_remaining <= 2 ? 'text-red-400' : 'text-zinc-200'}`}>
-                            {client.sessions_remaining} / {client.sessions_purchased}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-800">
+                            {client.trainer?.full_name || 'Not Assigned'}
                           </span>
-                          <span className="text-[10px] text-zinc-500">({percentLeft}%)</span>
                         </div>
                       </td>
-                      <td className="hidden md:table-cell">
-                        <p className="text-xs text-zinc-400">{formatDate(client.expiry_date)}</p>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-block font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60 text-xs">
+                          {client.package?.package_name || 'Custom Package'}
+                        </span>
                       </td>
-                      <td>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${client.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : client.status === 'Expired' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-zinc-800 text-zinc-400'}`}>
+                      <td className="py-3.5 px-4 min-w-[180px]">
+                        <div>
+                          <div className="flex justify-between items-baseline mb-1 text-xs">
+                            <span className={`font-extrabold ${isLowSessions ? 'text-rose-600' : 'text-slate-800'}`}>
+                              {client.sessions_remaining} / {client.sessions_purchased} <span className="font-normal text-slate-500">sessions</span>
+                            </span>
+                            <span className={`text-[11px] font-bold ${isLowSessions ? 'text-rose-600' : 'text-slate-500'}`}>
+                              {percentLeft}%
+                            </span>
+                          </div>
+                          {/* Visual Progress Bar */}
+                          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                isLowSessions
+                                  ? 'bg-rose-500'
+                                  : percentLeft < 50
+                                  ? 'bg-amber-400'
+                                  : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(100, Math.max(0, percentLeft))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-medium text-slate-600">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-slate-400" />
+                          {formatDate(client.expiry_date)}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold border shadow-xs ${
+                          client.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : client.status === 'Expired'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}>
                           {client.status}
                         </span>
                       </td>
-                      <td className="text-right">
-                        <div className="inline-flex gap-1">
-                          <Link href={`/pt/members/${client.id}`} className="btn btn-ghost btn-sm" title="View Profile">
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <Link
+                            href={`/pt/members/${client.id}`}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-amber-600 transition-colors"
+                            title="View Profile"
+                          >
                             <Eye className="h-4 w-4" />
                           </Link>
                           {(isAdmin || isReceptionist) && (
                             <>
-                              <Link href={`/pt/members/${client.id}/edit`} className="btn btn-ghost btn-sm" title="Edit details">
+                              <Link
+                                href={`/pt/members/${client.id}/edit`}
+                                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-amber-600 transition-colors"
+                                title="Edit details"
+                              >
                                 <Edit className="h-4 w-4" />
                               </Link>
                               {isAdmin && (
-                                <button onClick={() => handleDelete(client.id)} className="btn btn-ghost btn-sm text-red-400 hover:text-red-300" title="Delete client">
+                                <button
+                                  onClick={() => handleDelete(client.id)}
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                  title="Delete client"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               )}

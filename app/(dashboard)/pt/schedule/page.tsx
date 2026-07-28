@@ -245,10 +245,10 @@ export default function PTSchedulePage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Calendar Column */}
-        <Card className="bg-zinc-950 border border-zinc-800 p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4 border-b border-zinc-900 pb-3">
-            <h3 className="text-md font-bold text-zinc-100 flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5 text-amber-400" />
+        <Card className="bg-white border border-slate-200/80 shadow-sm p-5 lg:col-span-2 rounded-2xl">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+            <h3 className="text-md font-bold text-slate-900 flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5 text-amber-500" />
               {currentDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
             </h3>
             <div className="flex gap-1">
@@ -258,7 +258,7 @@ export default function PTSchedulePage() {
           </div>
 
           {/* Weekdays */}
-          <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-zinc-500 uppercase tracking-wider mb-2">
+          <div className="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 uppercase tracking-wider mb-2">
             <div>Sun</div>
             <div>Mon</div>
             <div>Tue</div>
@@ -282,11 +282,17 @@ export default function PTSchedulePage() {
                 <button
                   key={`day-${day.toISOString()}`}
                   onClick={() => setSelectedDate(day)}
-                  className={`aspect-square rounded-xl p-1 flex flex-col justify-between items-center transition-all ${isSelected ? 'bg-amber-300 text-zinc-950 font-bold shadow-md shadow-amber-400/10' : isToday ? 'border-2 border-amber-300/40 bg-zinc-900 text-amber-300' : 'bg-zinc-900/40 text-zinc-300 hover:bg-zinc-800/40'}`}
+                  className={`aspect-square rounded-xl p-1 flex flex-col justify-between items-center transition-all ${
+                    isSelected
+                      ? 'bg-amber-400 text-slate-950 font-extrabold shadow-md shadow-amber-200/60'
+                      : isToday
+                      ? 'border-2 border-amber-400 bg-amber-50/50 text-slate-900 font-bold'
+                      : 'bg-slate-50/80 text-slate-700 hover:bg-slate-100 border border-slate-100'
+                  }`}
                 >
                   <span className="text-xs">{day.getDate()}</span>
                   {hasSessions && (
-                    <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-zinc-900' : 'bg-amber-400'}`} />
+                    <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-slate-950' : 'bg-amber-500'}`} />
                   )}
                 </button>
               );
@@ -295,22 +301,22 @@ export default function PTSchedulePage() {
         </Card>
 
         {/* Sessions Side Panel Column */}
-        <Card className="bg-zinc-950 border border-zinc-800 p-5 flex flex-col justify-between min-h-[400px]">
+        <Card className="bg-white border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between min-h-[400px] rounded-2xl">
           <div>
-            <div className="border-b border-zinc-900 pb-3 mb-4 flex justify-between items-center">
-              <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider">
+            <div className="border-b border-slate-100 pb-3 mb-4 flex justify-between items-center">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Sessions for {selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}
               </h3>
               
-              <span className="text-xs text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded font-bold">
+              <span className="text-xs text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold">
                 {activeSessionsForSelectedDate.length} Sessions
               </span>
             </div>
 
             {activeSessionsForSelectedDate.length === 0 ? (
-              <div className="p-8 text-center text-zinc-500 flex flex-col items-center">
-                <Dumbbell className="h-8 w-8 text-zinc-700 mb-2" />
-                <p className="text-sm">No personal training sessions scheduled for this date.</p>
+              <div className="p-8 text-center text-slate-400 flex flex-col items-center">
+                <Dumbbell className="h-8 w-8 text-slate-300 mb-2" />
+                <p className="text-sm font-medium text-slate-500">No personal training sessions scheduled for this date.</p>
                 <button onClick={() => handleOpenAddModal(selectedDate)} className="btn btn-secondary btn-xs mt-4">
                   Schedule Now
                 </button>
@@ -318,31 +324,31 @@ export default function PTSchedulePage() {
             ) : (
               <div className="space-y-3 overflow-y-auto max-h-[360px]">
                 {activeSessionsForSelectedDate.map((sess) => (
-                  <div key={sess.id} className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-3.5 space-y-3 relative hover:border-zinc-800 transition-all">
+                  <div key={sess.id} className="bg-slate-50/80 border border-slate-200/70 rounded-xl p-3.5 space-y-3 relative hover:border-amber-300 transition-all">
                     <div>
                       <div className="flex justify-between items-start gap-2">
-                        <span className="text-sm font-bold text-zinc-100">{sess.client?.full_name}</span>
+                        <span className="text-sm font-bold text-slate-900">{sess.client?.full_name}</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusColor(sess.status)}`}>
                           {sess.status}
                         </span>
                       </div>
-                      <div className="flex flex-col gap-1 mt-2 text-xs text-zinc-400">
-                        <span className="flex items-center gap-1"><HardHat className="h-3.5 w-3.5 text-zinc-500" /> {sess.trainer?.full_name}</span>
-                        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-zinc-500" /> {sess.session_time} ({sess.duration} mins)</span>
+                      <div className="flex flex-col gap-1 mt-2 text-xs text-slate-600">
+                        <span className="flex items-center gap-1"><HardHat className="h-3.5 w-3.5 text-slate-400" /> {sess.trainer?.full_name}</span>
+                        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-slate-400" /> {sess.session_time} ({sess.duration} mins)</span>
                       </div>
                     </div>
 
                     {sess.workout_plan && (
-                      <p className="text-[11px] font-mono text-zinc-400 bg-zinc-950 p-2 rounded border border-zinc-900 line-clamp-2">
+                      <p className="text-[11px] font-mono text-slate-600 bg-white p-2 rounded border border-slate-200/60 line-clamp-2">
                         {sess.workout_plan}
                       </p>
                     )}
 
-                    <div className="flex gap-2 justify-end border-t border-zinc-900/80 pt-2.5">
+                    <div className="flex gap-2 justify-end border-t border-slate-100 pt-2.5">
                       <button onClick={() => handleOpenEditModal(sess)} className="btn btn-secondary btn-xs">
                         Edit
                       </button>
-                      <button onClick={() => handleDeleteSession(sess.id)} className="btn btn-ghost btn-xs text-red-400 hover:text-red-300">
+                      <button onClick={() => handleDeleteSession(sess.id)} className="btn btn-ghost btn-xs text-rose-600 hover:text-rose-700">
                         Delete
                       </button>
                     </div>
