@@ -213,9 +213,12 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
       return;
     }
 
+    const isValidUUID = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+    const selectedTrainerId = workoutTrainerId || client?.trainer_id || null;
+
     const payload = {
       client_id: id,
-      trainer_id: workoutTrainerId || client?.trainer_id || undefined,
+      trainer_id: isValidUUID(selectedTrainerId) ? selectedTrainerId : null,
       workout_date: workoutDate,
       title: workoutTitle,
       muscle_group: muscleGroup || 'Full Body',

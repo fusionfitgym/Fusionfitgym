@@ -813,8 +813,14 @@ export async function getPTDailyWorkouts(clientId: string): Promise<PTDailyWorko
     .order('workout_date', { ascending: false });
 
   if (error) {
-    // Return empty array gracefully if table does not exist yet
-    return [];
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('pt_daily_workouts')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('workout_date', { ascending: false });
+      
+    if (fallbackError) return [];
+    return fallbackData as PTDailyWorkout[];
   }
   return data as PTDailyWorkout[];
 }
@@ -822,21 +828,32 @@ export async function getPTDailyWorkouts(clientId: string): Promise<PTDailyWorko
 export async function createPTDailyWorkout(values: PTDailyWorkoutFormValues): Promise<{ data?: PTDailyWorkout; error?: string }> {
   try {
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
-    const validated = ptDailyWorkoutSchema.parse(values);
+    
+    const isValidUUID = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
+    const sanitizedValues = {
+      ...values,
+      trainer_id: isValidUUID(values.trainer_id) ? values.trainer_id : null,
+    };
+
+    const validated = ptDailyWorkoutSchema.parse(sanitizedValues);
     const supabase = await createClient();
 
     const { data, error } = await supabase
       .from('pt_daily_workouts')
       .insert([validated])
-      .select('*, trainer:pt_trainers(full_name)')
+      .select()
       .single();
 
-    if (error) return { error: error.message };
+    if (error) {
+      console.error('Error inserting into pt_daily_workouts:', error);
+      return { error: error.message };
+    }
 
     await logAudit(`Logged Daily Workout for PT Client: ${values.title}`, 'PT', user.id);
     revalidatePath(`/pt/members/${values.client_id}`);
     return { data: data as PTDailyWorkout };
   } catch (err: any) {
+    console.error('Exception in createPTDailyWorkout:', err);
     return { error: err.message || 'An unexpected error occurred.' };
   }
 }
