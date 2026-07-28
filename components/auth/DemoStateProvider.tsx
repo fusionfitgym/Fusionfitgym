@@ -11,7 +11,8 @@ import {
   PTInvoice,
   PTCommission,
   PTNotification,
-  PTProgress
+  PTProgress,
+  PTDailyWorkout
 } from '@/types/pt';
 
 // Import local JSON demo data
@@ -131,6 +132,10 @@ interface DemoStateContextType {
   getPTProgress: (clientId: string) => PTProgress[];
   createPTProgress: (values: any) => { data?: PTProgress; error?: string };
   deletePTProgress: (id: string) => void;
+
+  getPTDailyWorkouts: (clientId: string) => PTDailyWorkout[];
+  createPTDailyWorkout: (values: any) => { data?: PTDailyWorkout; error?: string };
+  deletePTDailyWorkout: (id: string) => void;
 
   getPTInvoices: () => PTInvoice[];
   getPTInvoiceById: (id: string) => PTInvoice | null;
@@ -603,6 +608,35 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       legs: 55.5,
       photo_after: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400',
       notes: 'Noticeable reduction in waist size. Strength has increased.',
+    }
+  ]);
+
+  const [ptDailyWorkouts, setPtDailyWorkouts] = useState<PTDailyWorkout[]>([
+    {
+      id: 'workout-1',
+      client_id: 'pt-client-1',
+      trainer_id: 'rohan-trainer',
+      workout_date: new Date().toISOString().split('T')[0],
+      title: 'Chest & Triceps Hypertrophy',
+      muscle_group: 'Chest, Triceps',
+      exercises: '1. Barbell Bench Press: 4 sets x 10 reps @ 70kg\n2. Incline Dumbbell Press: 3 sets x 12 reps @ 24kg\n3. Cable Chest Flyes: 3 sets x 15 reps\n4. Tricep Rope Pushdowns: 4 sets x 12 reps',
+      duration: 50,
+      calories_burned: 420,
+      intensity: 'High',
+      notes: 'Client completed all sets with great form. Increased bench weight by 5kg.',
+    },
+    {
+      id: 'workout-2',
+      client_id: 'pt-client-1',
+      trainer_id: 'rohan-trainer',
+      workout_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      title: 'Leg Day & Core Focus',
+      muscle_group: 'Legs, Core',
+      exercises: '1. Barbell Back Squats: 4 sets x 8 reps @ 90kg\n2. Romanian Deadlifts: 3 sets x 10 reps @ 70kg\n3. Leg Press: 3 sets x 12 reps @ 140kg\n4. Hanging Knee Raises: 3 sets x 15 reps',
+      duration: 60,
+      calories_burned: 530,
+      intensity: 'Extreme',
+      notes: 'Heavy squat session. Client pushed through last set strong.',
     }
   ]);
 
@@ -1517,6 +1551,31 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     setPtProgress(prev => prev.filter(p => p.id !== id));
   };
 
+  const getPTDailyWorkouts = (clientId: string) => {
+    return ptDailyWorkouts
+      .filter(w => w.client_id === clientId)
+      .map(w => ({
+        ...w,
+        trainer: w.trainer_id ? ptTrainers.find(t => t.id === w.trainer_id) : null
+      }))
+      .sort((a, b) => new Date(b.workout_date).getTime() - new Date(a.workout_date).getTime());
+  };
+
+  const createPTDailyWorkout = (values: any) => {
+    const newWorkout: PTDailyWorkout = {
+      ...values,
+      id: `pt-workout-uuid-${(ptDailyWorkouts.length + 1).toString().padStart(4, '0')}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    setPtDailyWorkouts(prev => [newWorkout, ...prev]);
+    return { data: newWorkout };
+  };
+
+  const deletePTDailyWorkout = (id: string) => {
+    setPtDailyWorkouts(prev => prev.filter(w => w.id !== id));
+  };
+
   const getPTInvoices = () => {
     return ptInvoices.map(i => ({
       ...i,
@@ -1814,6 +1873,10 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         getPTProgress,
         createPTProgress,
         deletePTProgress,
+
+        getPTDailyWorkouts,
+        createPTDailyWorkout,
+        deletePTDailyWorkout,
 
         getPTInvoices,
         getPTInvoiceById,

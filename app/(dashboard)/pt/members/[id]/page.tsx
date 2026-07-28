@@ -3,12 +3,12 @@
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, History, Image as ImageIcon, Sparkles, X, Target, Trash2, Clock, Activity, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, History, Image as ImageIcon, Sparkles, X, Target, Trash2, Clock, Activity, AlertCircle, Flame, FlameKindling, HardHat, CheckCircle2 } from 'lucide-react';
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
-import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions } from '@/lib/actions/pt';
-import { PTClient, PTProgress, PTSession } from '@/types/pt';
+import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions, getPTDailyWorkouts, createPTDailyWorkout, deletePTDailyWorkout, getPTTrainers } from '@/lib/actions/pt';
+import { PTClient, PTProgress, PTSession, PTDailyWorkout, PTTrainer } from '@/types/pt';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -23,10 +23,12 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [client, setClient] = useState<PTClient | null>(null);
   const [progressLogs, setProgressLogs] = useState<PTProgress[]>([]);
   const [sessions, setSessions] = useState<PTSession[]>([]);
+  const [dailyWorkouts, setDailyWorkouts] = useState<PTDailyWorkout[]>([]);
+  const [trainers, setTrainers] = useState<PTTrainer[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<'progress' | 'history'>('progress');
+  // Tab State: progress | workouts | history
+  const [activeTab, setActiveTab] = useState<'progress' | 'workouts' | 'history'>('workouts');
 
   // Modal State for Progress
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
@@ -41,6 +43,18 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [photoBefore, setPhotoBefore] = useState('');
   const [photoAfter, setPhotoAfter] = useState('');
 
+  // Modal State for Daily Workout
+  const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
+  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().split('T')[0]);
+  const [workoutTitle, setWorkoutTitle] = useState('');
+  const [muscleGroup, setMuscleGroup] = useState('Full Body');
+  const [workoutTrainerId, setWorkoutTrainerId] = useState('');
+  const [exercises, setExercises] = useState('');
+  const [workoutDuration, setWorkoutDuration] = useState('45');
+  const [caloriesBurned, setCaloriesBurned] = useState('');
+  const [intensity, setIntensity] = useState<'Low' | 'Moderate' | 'High' | 'Extreme'>('Moderate');
+  const [workoutNotes, setWorkoutNotes] = useState('');
+
   // Role checks
   const isAdmin = profile?.role === 'Super Admin' || profile?.role === 'Admin';
   const isReceptionist = profile?.role === 'Receptionist';
@@ -53,19 +67,27 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
         const progressData = demo.getPTProgress(id);
         const allSessions = demo.getPTSessions();
         const clientSessions = allSessions.filter(s => s.client_id === id);
+        const workoutsData = demo.getPTDailyWorkouts(id);
+        const trainersList = demo.getPTTrainers();
 
         setClient(clientData);
         setProgressLogs(progressData);
         setSessions(clientSessions);
+        setDailyWorkouts(workoutsData);
+        setTrainers(trainersList);
       } else {
         const clientData = await getPTClientById(id);
         const progressData = await getPTProgress(id);
         const allSessions = await getPTSessions();
         const clientSessions = allSessions.filter(s => s.client_id === id);
+        const workoutsData = await getPTDailyWorkouts(id);
+        const trainersList = await getPTTrainers();
 
         setClient(clientData);
         setProgressLogs(progressData);
         setSessions(clientSessions);
+        setDailyWorkouts(workoutsData);
+        setTrainers(trainersList);
       }
     } catch (err: any) {
       toast.error('Failed to load profile data: ' + err.message);
@@ -140,7 +162,6 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
         demo.deletePTProgress(progId);
         toast.success('Progress log deleted (Demo)');
       } else {
-        const { deletePTProgress } = await import('@/lib/actions/pt');
         const res = await deletePTProgress(progId);
         if (res.error) throw new Error(res.error);
         toast.success('Progress log deleted successfully!');
@@ -148,6 +169,69 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete record');
+    }
+  };
+
+  const handleAddWorkout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workoutTitle || !workoutDate) {
+      toast.error('Workout Title and Date are required');
+      return;
+    }
+
+    const payload = {
+      client_id: id,
+      trainer_id: workoutTrainerId || client?.trainer_id || undefined,
+      workout_date: workoutDate,
+      title: workoutTitle,
+      muscle_group: muscleGroup || 'Full Body',
+      exercises: exercises || undefined,
+      duration: workoutDuration ? Number(workoutDuration) : null,
+      calories_burned: caloriesBurned ? Number(caloriesBurned) : null,
+      intensity,
+      notes: workoutNotes || undefined
+    };
+
+    try {
+      if (isDemo) {
+        demo.createPTDailyWorkout(payload);
+        toast.success('Daily workout logged successfully! (Demo)');
+      } else {
+        const res = await createPTDailyWorkout(payload);
+        if (res.error) throw new Error(res.error);
+        toast.success('Daily workout logged successfully!');
+      }
+      setIsWorkoutModalOpen(false);
+
+      // Reset form
+      setWorkoutTitle('');
+      setMuscleGroup('Full Body');
+      setExercises('');
+      setWorkoutDuration('45');
+      setCaloriesBurned('');
+      setIntensity('Moderate');
+      setWorkoutNotes('');
+
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to log workout');
+    }
+  };
+
+  const handleDeleteWorkout = async (workoutId: string) => {
+    if (!confirm('Are you sure you want to delete this workout log?')) return;
+    try {
+      if (isDemo) {
+        demo.deletePTDailyWorkout(workoutId);
+        toast.success('Workout log deleted (Demo)');
+      } else {
+        const res = await deletePTDailyWorkout(workoutId);
+        if (res.error) throw new Error(res.error);
+        toast.success('Workout log deleted successfully!');
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete workout');
     }
   };
 
@@ -305,6 +389,12 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
       {/* Tabs Switcher */}
       <div className="segmented-control mb-6" aria-label="Profile Tabs">
         <button
+          onClick={() => setActiveTab('workouts')}
+          className={`segment ${activeTab === 'workouts' && 'segment-active'}`}
+        >
+          <Dumbbell className="h-4 w-4 mr-1.5 inline text-amber-500" /> Daily Workout Log ({dailyWorkouts.length})
+        </button>
+        <button
           onClick={() => setActiveTab('progress')}
           className={`segment ${activeTab === 'progress' && 'segment-active'}`}
         >
@@ -318,8 +408,116 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
         </button>
       </div>
 
-      {/* Tab 1: Progress Tracking */}
-      {activeTab === 'progress' ? (
+      {/* Tab 1: Daily Workout Log */}
+      {activeTab === 'workouts' ? (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h3 className="text-md font-extrabold text-slate-900 flex items-center gap-2">
+                <Dumbbell className="h-5 w-5 text-amber-500" /> Member Daily Workout Log
+              </h3>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">Record daily workout routines, exercises, sets/reps, intensity, and trainer notes for {client.full_name}.</p>
+            </div>
+            
+            <button onClick={() => setIsWorkoutModalOpen(true)} className="btn btn-primary shadow-md shadow-amber-200/50 shrink-0">
+              <Plus className="h-4 w-4 mr-1.5" /> Log Daily Workout
+            </button>
+          </div>
+
+          {dailyWorkouts.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-12 text-center shadow-sm">
+              <Dumbbell className="mx-auto h-12 w-12 text-slate-300" />
+              <h3 className="mt-4 text-lg font-bold text-slate-800">No Daily Workouts Logged</h3>
+              <p className="mt-1.5 text-sm text-slate-500">Record {client.full_name}&apos;s workout routine to track daily training volume and progress.</p>
+              <button onClick={() => setIsWorkoutModalOpen(true)} className="btn btn-primary mt-6">
+                Log First Daily Workout
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {dailyWorkouts.map((workout) => {
+                const intensityColor = 
+                  workout.intensity === 'Extreme' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                  workout.intensity === 'High' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                  workout.intensity === 'Moderate' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  'bg-blue-50 text-blue-700 border-blue-200';
+
+                return (
+                  <div key={workout.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:border-amber-300 transition-all">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3.5 mb-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-100 text-amber-800 font-black flex items-center justify-center text-sm shadow-inner">
+                          <Dumbbell className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-base font-extrabold text-slate-900">{workout.title}</h4>
+                            {workout.muscle_group && (
+                              <span className="inline-block bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                                {workout.muscle_group}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                            📅 {formatDate(workout.workout_date)} {workout.trainer?.full_name ? `• 🏋️ Trainer: ${workout.trainer.full_name}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        {workout.intensity && (
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${intensityColor}`}>
+                            🔥 {workout.intensity} Intensity
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleDeleteWorkout(workout.id)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors ml-1"
+                          title="Delete workout log"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Stats badges */}
+                    <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-600 mb-3 bg-slate-50/70 p-2.5 rounded-xl border border-slate-100">
+                      {workout.duration && (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-slate-400" /> Duration: <strong className="text-slate-900">{workout.duration} mins</strong>
+                        </span>
+                      )}
+                      {workout.calories_burned && (
+                        <span className="flex items-center gap-1.5">
+                          <Flame className="h-3.5 w-3.5 text-amber-500" /> Burned: <strong className="text-slate-900">{workout.calories_burned} kcal</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Exercises breakdown */}
+                    {workout.exercises && (
+                      <div className="mt-3">
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1.5">Exercises & Routine</span>
+                        <pre className="whitespace-pre-wrap text-xs font-mono text-slate-800 bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 leading-relaxed">
+                          {workout.exercises}
+                        </pre>
+                      </div>
+                    )}
+
+                    {/* Trainer Notes */}
+                    {workout.notes && (
+                      <div className="mt-3 text-xs text-slate-700 bg-amber-50/50 border border-amber-200/50 p-3 rounded-xl">
+                        <span className="font-extrabold text-amber-800 block text-[11px] uppercase tracking-wider mb-0.5">Trainer Notes & Feedback</span>
+                        <p className="font-medium text-slate-800">{workout.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : activeTab === 'progress' ? (
         <div className="space-y-6">
           {/* Chart Card */}
           {progressLogs.length > 1 ? (
@@ -446,7 +644,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
       ) : (
-        // Tab 2: Session History
+        // Tab 3: Session History
         <div className="space-y-3">
           {sessions.length === 0 ? (
             <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center text-slate-500 shadow-sm">
@@ -612,6 +810,141 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Save Progress Log
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Daily Workout Modal */}
+      {isWorkoutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl animate-enter max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-5 w-5 text-amber-500" />
+                <h3 className="text-lg font-bold text-slate-900">Log Daily Workout for {client.full_name}</h3>
+              </div>
+              <button onClick={() => setIsWorkoutModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddWorkout} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Workout Date" required>
+                  <input
+                    type="date"
+                    className="input-field w-full font-semibold text-slate-800"
+                    value={workoutDate}
+                    onChange={(e) => setWorkoutDate(e.target.value)}
+                    required
+                  />
+                </FormField>
+
+                <FormField label="Target Muscle Group(s)">
+                  <select
+                    className="select-field w-full font-semibold text-slate-800"
+                    value={muscleGroup}
+                    onChange={(e) => setMuscleGroup(e.target.value)}
+                  >
+                    <option value="Full Body">Full Body</option>
+                    <option value="Chest & Triceps">Chest & Triceps</option>
+                    <option value="Back & Biceps">Back & Biceps</option>
+                    <option value="Legs & Glutes">Legs & Glutes</option>
+                    <option value="Shoulders & Arms">Shoulders & Arms</option>
+                    <option value="Core & Abs">Core & Abs</option>
+                    <option value="Cardio & Conditioning">Cardio & Conditioning</option>
+                  </select>
+                </FormField>
+              </div>
+
+              <FormField label="Workout Title" required>
+                <input
+                  type="text"
+                  className="input-field w-full font-semibold text-slate-800"
+                  placeholder="e.g. Chest & Triceps Hypertrophy, Leg Strength Session"
+                  value={workoutTitle}
+                  onChange={(e) => setWorkoutTitle(e.target.value)}
+                  required
+                />
+              </FormField>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Conducting Trainer">
+                  <select
+                    className="select-field w-full font-semibold text-slate-800"
+                    value={workoutTrainerId}
+                    onChange={(e) => setWorkoutTrainerId(e.target.value)}
+                  >
+                    <option value="">-- {client.trainer?.full_name ? `Assigned (${client.trainer.full_name})` : 'Select Trainer'} --</option>
+                    {trainers.map(t => (
+                      <option key={t.id} value={t.id}>{t.full_name}</option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <FormField label="Intensity Level">
+                  <select
+                    className="select-field w-full font-semibold text-slate-800"
+                    value={intensity}
+                    onChange={(e) => setIntensity(e.target.value as any)}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Moderate">Moderate</option>
+                    <option value="High">High</option>
+                    <option value="Extreme">Extreme 🔥</option>
+                  </select>
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Duration (Minutes)">
+                  <input
+                    type="number"
+                    className="input-field w-full font-semibold text-slate-800"
+                    placeholder="e.g. 45"
+                    value={workoutDuration}
+                    onChange={(e) => setWorkoutDuration(e.target.value)}
+                  />
+                </FormField>
+
+                <FormField label="Calories Burned (Est.)">
+                  <input
+                    type="number"
+                    className="input-field w-full font-semibold text-slate-800"
+                    placeholder="e.g. 400"
+                    value={caloriesBurned}
+                    onChange={(e) => setCaloriesBurned(e.target.value)}
+                  />
+                </FormField>
+              </div>
+
+              <FormField label="Exercises & Routine Breakdown">
+                <textarea
+                  className="textarea-field w-full min-h-[100px] font-mono text-xs text-slate-800"
+                  placeholder={`1. Barbell Bench Press: 4 sets x 10 reps @ 70kg\n2. Incline Dumbbell Press: 3 sets x 12 reps @ 24kg\n3. Tricep Rope Pushdown: 4 sets x 15 reps`}
+                  value={exercises}
+                  onChange={(e) => setExercises(e.target.value)}
+                />
+              </FormField>
+
+              <FormField label="Trainer Remarks / Client Feedback">
+                <textarea
+                  className="textarea-field w-full min-h-[60px] font-medium text-slate-800"
+                  placeholder="Form feedback, performance improvements, energy levels..."
+                  value={workoutNotes}
+                  onChange={(e) => setWorkoutNotes(e.target.value)}
+                />
+              </FormField>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setIsWorkoutModalOpen(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary shadow-md shadow-amber-200/50">
+                  <Dumbbell className="h-4 w-4 mr-1.5" /> Save Workout Log
                 </button>
               </div>
             </form>

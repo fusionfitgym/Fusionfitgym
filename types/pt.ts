@@ -184,6 +184,40 @@ export const ptProgressSchema = z.object({
 
 export type PTProgressFormValues = z.infer<typeof ptProgressSchema>;
 
+// ── 5.5 Daily Workout Log ────────────────────────────────────
+export interface PTDailyWorkout {
+  id: string;
+  client_id: string;
+  trainer_id?: string | null;
+  workout_date: string;
+  title: string;
+  muscle_group?: string | null;
+  exercises?: string | null;
+  duration?: number | null;
+  calories_burned?: number | null;
+  intensity?: 'Low' | 'Moderate' | 'High' | 'Extreme';
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  trainer?: PTTrainer | null;
+  client?: PTClient | null;
+}
+
+export const ptDailyWorkoutSchema = z.object({
+  client_id: z.string().min(1, 'Client is required'),
+  trainer_id: z.string().optional().nullable(),
+  workout_date: z.string().min(1, 'Date is required'),
+  title: z.string().min(2, 'Workout title is required'),
+  muscle_group: z.string().optional().or(z.literal('')),
+  exercises: z.string().optional().or(z.literal('')),
+  duration: z.coerce.number().optional().nullable(),
+  calories_burned: z.coerce.number().optional().nullable(),
+  intensity: z.enum(['Low', 'Moderate', 'High', 'Extreme']).default('Moderate'),
+  notes: z.string().optional().or(z.literal('')),
+});
+
+export type PTDailyWorkoutFormValues = z.infer<typeof ptDailyWorkoutSchema>;
+
 // ── 6. Invoices ──────────────────────────────────────────────
 export interface PTInvoice {
   id: string;

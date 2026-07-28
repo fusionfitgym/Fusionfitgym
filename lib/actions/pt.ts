@@ -18,6 +18,9 @@ import {
   PTProgress,
   PTProgressFormValues,
   ptProgressSchema,
+  PTDailyWorkout,
+  PTDailyWorkoutFormValues,
+  ptDailyWorkoutSchema,
   PTInvoice,
   PTInvoiceFormValues,
   ptInvoiceSchema,
@@ -798,3 +801,62 @@ export async function getPTDashboardStats() {
     expiringPackages: expiringPackagesCount
   };
 }
+
+// ── 10. Daily Workout Logs CRUD ──────────────────────────────
+
+export async function getPTDailyWorkouts(clientId: string): Promise<PTDailyWorkout[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('pt_daily_workouts')
+    .select('*, trainer:pt_trainers(full_name)')
+    .eq('client_id', clientId)
+    .order('workout_date', { ascending: false });
+
+  if (error) {
+    // Return empty array gracefully if table does not exist yet
+    return [];
+  }
+  return data as PTDailyWorkout[];
+}
+
+export async function createPTDailyWorkout(values: PTDailyWorkoutFormValues): Promise<{ data?: PTDailyWorkout; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
+    const validated = ptDailyWorkoutSchema.parse(values);
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from('pt_daily_workouts')
+      .insert([validated])
+      .select('*, trainer:pt_trainers(full_name)')
+      .single();
+
+    if (error) return { error: error.message };
+
+    await logAudit(`Logged Daily Workout for PT Client: ${values.title}`, 'PT', user.id);
+    revalidatePath(`/pt/members/${values.client_id}`);
+    return { data: data as PTDailyWorkout };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
+}
+
+export async function deletePTDailyWorkout(id: string): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from('pt_daily_workouts')
+      .delete()
+      .eq('id', id);
+
+    if (error) return { error: error.message };
+
+    await logAudit(`Deleted Daily Workout Log: ${id}`, 'PT', user.id);
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || 'An unexpected error occurred.' };
+  }
+}
+
