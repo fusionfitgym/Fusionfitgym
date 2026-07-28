@@ -614,10 +614,10 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createMember = (values: any) => {
-    const isDaily = values.duration === 'Daily Pass' || values.duration === 'Daily Base';
+    const isDailyOrCustom = values.duration === 'Daily Pass' || values.duration === 'Daily Base' || values.duration === 'Custom Days' || values.duration?.toLowerCase().includes('custom');
     const newMember: Member = {
       ...values,
-      biometric_user_id: isDaily ? null : values.biometric_user_id,
+      biometric_user_id: isDailyOrCustom ? null : values.biometric_user_id,
       id: `demo-member-uuid-${(members.length + 1).toString().padStart(4, '0')}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

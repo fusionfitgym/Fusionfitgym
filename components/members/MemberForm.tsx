@@ -199,13 +199,14 @@ export function MemberForm({
     }
   }, [gymSettings, initialValues, setValue]);
 
-  // Clear biometric_user_id if Daily Pass or Daily Base package is selected
+  // Clear biometric_user_id if Daily Pass, Daily Base, or Custom Days package is selected
   const selectedDuration = watch('duration');
+  const isBiometricDisabled = selectedDuration === 'Daily Pass' || selectedDuration === 'Daily Base' || selectedDuration === 'Custom Days';
   useEffect(() => {
-    if (selectedDuration === 'Daily Pass' || selectedDuration === 'Daily Base') {
+    if (isBiometricDisabled) {
       setValue('biometric_user_id', '', { shouldValidate: true });
     }
-  }, [selectedDuration, setValue]);
+  }, [isBiometricDisabled, setValue]);
 
   const handleAutoGenerate = async () => {
     try {
@@ -1047,30 +1048,30 @@ export function MemberForm({
                   <input
                     id="biometric_user_id"
                     type="text"
-                    disabled={duration === 'Daily Pass' || duration === 'Daily Base'}
+                    disabled={isBiometricDisabled}
                     className={cn(
                       "input-field font-mono",
-                      (duration === 'Daily Pass' || duration === 'Daily Base') && "bg-slate-100 opacity-60 cursor-not-allowed text-slate-400"
+                      isBiometricDisabled && "bg-slate-100 opacity-60 cursor-not-allowed text-slate-400"
                     )}
-                    placeholder={(duration === 'Daily Pass' || duration === 'Daily Base') ? "Disabled for Daily Base" : "e.g. 101"}
+                    placeholder={isBiometricDisabled ? "Disabled for Daily / Custom Days" : "e.g. 101"}
                     aria-invalid={Boolean(errors.biometric_user_id)}
                     {...register('biometric_user_id')}
                   />
                 </div>
                 <button
                   type="button"
-                  disabled={duration === 'Daily Pass' || duration === 'Daily Base'}
+                  disabled={isBiometricDisabled}
                   onClick={handleAutoGenerate}
                   className="btn btn-secondary text-xs shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={(duration === 'Daily Pass' || duration === 'Daily Base') ? "Biometric ID is not required for Daily Base package" : "Generate next available Biometric User ID"}
+                  title={isBiometricDisabled ? "Biometric ID is not required for Daily Base / Custom Days package" : "Generate next available Biometric User ID"}
                 >
                   Auto Generate
                 </button>
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                {(duration === 'Daily Pass' || duration === 'Daily Base') ? (
+                {isBiometricDisabled ? (
                   <span className="text-amber-700 font-medium">
-                    ⚠️ Biometric registration is disabled for Daily Base package members (Biometric access not required).
+                    ⚠️ Biometric registration is disabled for Daily Base and Custom Days package members (Biometric access not required).
                   </span>
                 ) : (
                   'This ID is unique per machine. The same ID can exist on both Gents and Ladies machines.'

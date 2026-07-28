@@ -173,8 +173,11 @@ export async function renewMembership(params: RenewMembershipParams): Promise<{
       // Non-fatal logging
     }
 
-    // 5. Extend Biometric Access (Exempt for Daily Pass/Base)
-    if (member.biometric_user_id && member.duration !== 'Daily Pass' && member.duration !== 'Daily Base' && params.duration !== 'Daily Pass' && params.duration !== 'Daily Base') {
+    const isExemptRenewal = (d?: string) => d === 'Daily Pass' || d === 'Daily Base' || d === 'Custom Days' || d?.toLowerCase().includes('custom');
+    const isExempt = isExemptRenewal(member.duration) || isExemptRenewal(params.duration);
+
+    // 5. Extend Biometric Access (Exempt for Daily Pass/Base/Custom Days)
+    if (member.biometric_user_id && !isExempt) {
       try {
         await queueBiometricAction(member.id, member.biometric_user_id, 'enable');
       } catch (bioErr) {
@@ -182,8 +185,8 @@ export async function renewMembership(params: RenewMembershipParams): Promise<{
       }
     }
 
-    // 6. Send Automated Renewal SMS & WhatsApp (Exempt for Daily Pass/Base - only payment SMS needed)
-    if (member.phone && params.duration !== 'Daily Pass' && params.duration !== 'Daily Base' && member.duration !== 'Daily Pass' && member.duration !== 'Daily Base') {
+    // 6. Send Automated Renewal SMS & WhatsApp (Exempt for Daily Pass/Base/Custom Days - only payment SMS needed)
+    if (member.phone && !isExempt) {
       const formattedRenewal = formatDate(params.startDate);
       const formattedExpiry = formatDate(params.endDate);
       

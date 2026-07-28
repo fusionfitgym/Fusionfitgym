@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     };
 
     for (const member of members) {
-      if (member.duration === 'Daily Pass' || member.duration === 'Daily Base') continue;
+      if (member.duration === 'Daily Pass' || member.duration === 'Daily Base' || member.duration === 'Custom Days' || member.duration?.toLowerCase().includes('custom')) continue;
 
       const expiry = new Date(member.package_end_date);
       const expiryDateOnly = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
