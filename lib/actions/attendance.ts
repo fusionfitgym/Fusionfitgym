@@ -248,9 +248,9 @@ export async function getAttendanceHistory(filters?: {
   const supabase = await createClient();
   let query = supabase.from('attendance_logs').select('*');
 
-  const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-  ninetyDaysAgo.setHours(0, 0, 0, 0);
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
 
   if (filters?.member_id) {
     // If the filter is passing member_id as a UUID, find that member first
@@ -267,8 +267,8 @@ export async function getAttendanceHistory(filters?: {
     }
   }
 
-  // Fallback to last 90 days if no start date is supplied
-  let queryStartDate = ninetyDaysAgo;
+  // Fallback to last 30 days if no start date is supplied
+  let queryStartDate = thirtyDaysAgo;
   if (filters?.startDate) {
     queryStartDate = new Date(filters.startDate);
   }
@@ -316,11 +316,11 @@ export async function getAttendanceLogsPaginated(options: {
     monthlyStart.setHours(0, 0, 0, 0);
     query = query.gte('created_at', monthlyStart.toISOString());
   } else {
-    // Default to last 90 days to align with retention limits
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    ninetyDaysAgo.setHours(0, 0, 0, 0);
-    query = query.gte('created_at', ninetyDaysAgo.toISOString());
+    // Default to last 30 days to align with retention limits
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    query = query.gte('created_at', thirtyDaysAgo.toISOString());
   }
 
   // 2. Machine filter
@@ -567,15 +567,15 @@ export async function cleanupOldAttendanceLogs(): Promise<{ success: boolean; de
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
     const supabase = await createClient();
 
-    const fifteenDaysAgo = new Date();
-    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
-    fifteenDaysAgo.setHours(0, 0, 0, 0);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
     // Get count of logs to delete
     const { data: logsToDelete, error: countError } = await supabase
       .from('attendance_logs')
       .select('id')
-      .lt('punch_time', fifteenDaysAgo.toISOString());
+      .lt('punch_time', thirtyDaysAgo.toISOString());
 
     if (countError) {
       console.error('Error fetching logs to delete:', countError);
@@ -588,7 +588,7 @@ export async function cleanupOldAttendanceLogs(): Promise<{ success: boolean; de
     const { error: deleteError } = await supabase
       .from('attendance_logs')
       .delete()
-      .lt('punch_time', fifteenDaysAgo.toISOString());
+      .lt('punch_time', thirtyDaysAgo.toISOString());
 
     if (deleteError) {
       console.error('Error performing manual logs cleanup:', deleteError);
@@ -596,7 +596,7 @@ export async function cleanupOldAttendanceLogs(): Promise<{ success: boolean; de
     }
 
     await logAudit(
-      `Manually deleted ${count} old attendance logs (older than 15 days)`,
+      `Manually deleted ${count} old attendance logs (older than 30 days)`,
       'Attendance',
       user.id
     );

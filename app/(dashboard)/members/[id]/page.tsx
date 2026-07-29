@@ -224,6 +224,14 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   const firstVisitDate = attendance.length > 0 ? formatDate(attendance[attendance.length - 1].punch_time) : '—';
   const lastSeen = attendance.length > 0 ? formatRelativeTime(attendance[0].punch_time) : 'Never';
   
+  // Lifetime attendance statistics
+  const lifetimeTotalVisits = member.total_visits ?? totalCheckins;
+  const lifetimeFirstVisit = member.first_visit ? formatDate(member.first_visit) : (firstVisitDate !== '—' ? firstVisitDate : '—');
+  const lifetimeLastVisit = member.last_visit ? formatRelativeTime(member.last_visit) : lastSeen;
+  const currentStreak = member.current_streak ?? 0;
+  const longestStreak = member.longest_streak ?? 0;
+  const hasLifetimeStats = (member.total_visits || 0) > 0 || Boolean(member.first_visit) || attendance.length > 0;
+  
   // This calendar month
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -878,7 +886,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               </Link>
             }
           >
-            {attendance.length === 0 ? (
+            {!hasLifetimeStats && attendance.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon"><Fingerprint className="h-6 w-6" /></div>
                 <p className="card-title">No attendance records found for this member.</p>
@@ -886,30 +894,36 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Attendance Stats Cards */}
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                {/* Lifetime Attendance Stats Cards */}
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                   <div className="metric-tile">
                     <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">Total Visits</p>
-                    <p className="metric-value text-xl font-bold text-slate-900 mt-1">{totalCheckins}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">{totalCheckins} check-ins • {totalCheckouts} check-outs</p>
+                    <p className="metric-value text-xl font-bold text-amber-600 mt-1">{lifetimeTotalVisits}</p>
+                    <p className="text-xs text-slate-500 mt-1.5">Lifetime check-ins</p>
+                  </div>
+
+                  <div className="metric-tile">
+                    <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">Current Streak</p>
+                    <p className="metric-value text-xl font-bold text-emerald-600 mt-1">{currentStreak} <span className="text-xs text-slate-500 font-normal">days</span></p>
+                    <p className="text-xs text-slate-500 mt-1.5">Active daily streak</p>
                   </div>
                   
                   <div className="metric-tile">
-                    <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">Current Month</p>
-                    <p className="metric-value text-xl font-bold text-slate-900 mt-1">{currentMonthCheckins}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">Today: {todayCheckins} check-ins</p>
-                  </div>
-                  
-                  <div className="metric-tile">
-                    <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">Weekly Average</p>
-                    <p className="metric-value text-xl font-bold text-slate-900 mt-1">{avgVisitsPerWeek}</p>
-                    <p className="text-xs text-slate-500 mt-1.5">Visits per week</p>
+                    <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">Longest Streak</p>
+                    <p className="metric-value text-xl font-bold text-indigo-600 mt-1">{longestStreak} <span className="text-xs text-slate-500 font-normal">days</span></p>
+                    <p className="text-xs text-slate-500 mt-1.5">Best consecutive visits</p>
                   </div>
                   
                   <div className="metric-tile">
                     <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">Last Seen</p>
-                    <p className="metric-value text-xl font-bold text-slate-900 mt-1 truncate" title={lastSeen}>{lastSeen}</p>
-                    <p className="text-xs text-slate-500 mt-1.5 truncate">First: {firstVisitDate}</p>
+                    <p className="metric-value text-base font-bold text-slate-900 mt-1 truncate" title={lifetimeLastVisit}>{lifetimeLastVisit}</p>
+                    <p className="text-xs text-slate-500 mt-1.5 truncate">This month: {currentMonthCheckins}</p>
+                  </div>
+
+                  <div className="metric-tile">
+                    <p className="metric-label font-semibold text-slate-500 uppercase tracking-wider">First Visit</p>
+                    <p className="metric-value text-base font-bold text-slate-900 mt-1 truncate" title={lifetimeFirstVisit}>{lifetimeFirstVisit}</p>
+                    <p className="text-xs text-slate-500 mt-1.5 truncate">Member since: {formatDate(member.package_start_date || member.join_date)}</p>
                   </div>
                 </div>
 

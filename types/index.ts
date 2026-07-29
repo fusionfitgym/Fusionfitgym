@@ -44,6 +44,11 @@ export interface Member {
   biometric_last_device_response?: string | null;
   membership_status?: string | null;
   last_checkin?: string | null;
+  total_visits?: number;
+  first_visit?: string | null;
+  last_visit?: string | null;
+  current_streak?: number;
+  longest_streak?: number;
   sms_sent?: boolean;
   sms_sent_at?: string | null;
   sms_status?: string | null;

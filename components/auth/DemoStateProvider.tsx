@@ -177,9 +177,18 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     const todayStr = '2026-06-30'; // Demo date
     setMembers(prev => prev.map(m => {
       const isExpired = m.status === 'Active' && m.duration !== 'Daily Pass' && m.package_end_date && m.package_end_date < todayStr;
+      const updatedMember = {
+        ...m,
+        total_visits: m.total_visits ?? 18,
+        first_visit: m.first_visit ?? m.package_start_date ?? m.join_date ?? '2026-01-10T06:00:00Z',
+        last_visit: m.last_visit ?? m.last_checkin ?? new Date().toISOString(),
+        current_streak: m.current_streak ?? 3,
+        longest_streak: m.longest_streak ?? 7,
+      };
+
       if (isExpired) {
         return {
-          ...m,
+          ...updatedMember,
           status: 'Expired',
           biometric_status: 'DISABLED'
         };
@@ -187,11 +196,11 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       // Set default biometric_status to ENABLED for others if undefined
       if (m.biometric_status === undefined) {
         return {
-          ...m,
+          ...updatedMember,
           biometric_status: m.status === 'Active' ? 'ENABLED' : 'DISABLED'
         };
       }
-      return m;
+      return updatedMember;
     }));
   }, []);
   
