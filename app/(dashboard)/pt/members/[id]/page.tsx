@@ -7,7 +7,7 @@ import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, 
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
-import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions, getPTDailyWorkouts, createPTDailyWorkout, deletePTDailyWorkout, getPTTrainers } from '@/lib/actions/pt';
+import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions, deletePTSession, getPTDailyWorkouts, createPTDailyWorkout, deletePTDailyWorkout, getPTTrainers } from '@/lib/actions/pt';
 import { getSettings } from '@/lib/actions/settings';
 import { generatePTProgressPDF } from '@/lib/pdf/generatePTProgressPDF';
 import { PTClient, PTProgress, PTSession, PTDailyWorkout, PTTrainer } from '@/types/pt';
@@ -269,6 +269,23 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete workout');
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!confirm('Are you sure you want to delete this session record?')) return;
+    try {
+      if (isDemo) {
+        demo.deletePTSession(sessionId);
+        toast.success('Session deleted (Demo)');
+      } else {
+        const res = await deletePTSession(sessionId);
+        if (res.error) throw new Error(res.error);
+        toast.success('Session deleted successfully!');
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete session');
     }
   };
 
@@ -729,7 +746,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                   <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border ${
                     sess.status === 'Completed'
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -739,6 +756,13 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   }`}>
                     {sess.status}
                   </span>
+                  <button
+                    onClick={() => handleDeleteSession(sess.id)}
+                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors ml-1"
+                    title="Delete session record"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))

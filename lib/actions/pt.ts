@@ -400,6 +400,12 @@ export async function deletePTSession(id: string): Promise<{ success?: boolean; 
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
     const supabase = await createClient();
 
+    const { data: session } = await supabase
+      .from('pt_sessions')
+      .select('client_id')
+      .eq('id', id)
+      .single();
+
     const { error } = await supabase
       .from('pt_sessions')
       .delete()
@@ -408,6 +414,11 @@ export async function deletePTSession(id: string): Promise<{ success?: boolean; 
     if (error) return { error: error.message };
 
     revalidatePath('/pt/schedule');
+    revalidatePath('/pt/attendance');
+    revalidatePath('/pt/members');
+    if (session?.client_id) {
+      revalidatePath(`/pt/members/${session.client_id}`);
+    }
     return { success: true };
   } catch (err: any) {
     return { error: err.message || 'An unexpected error occurred.' };
