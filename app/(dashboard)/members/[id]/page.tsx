@@ -17,6 +17,7 @@ import {
   Phone,
   Plus,
   RefreshCw,
+  Snowflake,
   Trash2,
 } from 'lucide-react';
 import {
@@ -55,6 +56,11 @@ const RenewalModal = dynamic(
   () => import('@/components/members/RenewalModal').then((mod) => mod.RenewalModal),
   { ssr: false }
 );
+
+const FreezeModal = dynamic(
+  () => import('@/components/members/FreezeModal').then((mod) => mod.FreezeModal),
+  { ssr: false }
+);
 import {
   calculateAge,
   cn,
@@ -85,6 +91,7 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [isRenewalModalOpen, setIsRenewalModalOpen] = useState(false);
+  const [isFreezeModalOpen, setIsFreezeModalOpen] = useState(false);
 
   // Send SMS state variables
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
@@ -471,6 +478,19 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
             })()}
             <button
               type="button"
+              onClick={() => setIsFreezeModalOpen(true)}
+              className={cn(
+                "btn border shadow-sm flex items-center gap-1.5 font-medium transition-colors",
+                member.status === 'Frozen' || member.is_frozen
+                  ? "bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
+              )}
+            >
+              <Snowflake className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              {member.status === 'Frozen' || member.is_frozen ? 'Unfreeze Member' : 'Freeze Member'}
+            </button>
+            <button
+              type="button"
               onClick={() => setIsSmsModalOpen(true)}
               className="btn btn-secondary shadow-sm"
             >
@@ -494,6 +514,40 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
           </>
         }
       />
+
+      {/* Freeze Alert Banner */}
+      {(member.status === 'Frozen' || member.is_frozen) && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/30 border border-blue-200 dark:border-blue-800/60 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-400 shrink-0">
+              <Snowflake className="h-6 w-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-blue-950 dark:text-blue-100 text-sm">
+                  Member Package Frozen
+                </h4>
+                <StatusBadge variant="Frozen" />
+              </div>
+              <p className="text-xs text-blue-800 dark:text-blue-300 mt-0.5">
+                Frozen on {member.frozen_at ? formatDate(member.frozen_at) : 'recently'}. 
+                Package duration extended to <strong className="font-semibold text-blue-950 dark:text-blue-100">{formatDate(member.package_end_date)}</strong>.
+                {member.freeze_reason && <span className="italic"> Reason: &ldquo;{member.freeze_reason}&rdquo;</span>}
+              </p>
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1">
+                🔒 Biometric hardware check-in disabled during freeze period.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsFreezeModalOpen(true)}
+            className="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs shrink-0 self-end sm:self-center"
+          >
+            Unfreeze Member
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="page-stack">
@@ -1329,6 +1383,16 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
           isOpen={isRenewalModalOpen}
           isDemo={isDemo}
           onClose={() => setIsRenewalModalOpen(false)}
+          onSuccess={() => void loadAllData()}
+        />
+      )}
+
+      {/* Freeze Modal */}
+      {isFreezeModalOpen && member && (
+        <FreezeModal
+          member={member}
+          isOpen={isFreezeModalOpen}
+          onClose={() => setIsFreezeModalOpen(false)}
           onSuccess={() => void loadAllData()}
         />
       )}

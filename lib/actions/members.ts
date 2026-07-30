@@ -812,3 +812,168 @@ export async function autoUpdateExpiredMembers() {
   }
 }
 
+export async function freezeMember(
+  id: string,
+  freezeDays: number,
+  reason?: string
+): Promise<{ data?: Member; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    if (!freezeDays || freezeDays <= 0) {
+      return { error: 'Freeze days must be greater than 0' };
+    }
+
+    const supabase = await createClient();
+
+    // 1. Fetch current member details
+    const { data: member, error: fetchErr } = await supabase
+      .from('members')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !member) {
+      return { error: 'Member not found' };
+    }
+
+    // 2. Extend package_end_date by freezeDays
+    const startDateForExtension = member.package_end_date || new Date().toISOString().split('T')[0];
+    const newEndDate = addDays(startDateForExtension, freezeDays);
+    const newTotalFrozen = (member.total_frozen_days || 0) + freezeDays;
+
+    // 3. Update member record
+    const { data: updatedMember, error: updateErr } = await supabase
+      .from('members')
+      .update({
+        status: 'Frozen',
+        is_frozen: true,
+        frozen_at: new Date().toISOString(),
+        freeze_reason: reason || null,
+        freeze_days: freezeDays,
+        total_frozen_days: newTotalFrozen,
+        package_end_date: newEndDate,
+        biometric_status: 'DISABLED',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateErr) {
+      console.error('Failed to freeze member:', updateErr);
+      return { error: updateErr.message };
+    }
+
+    // 4. Queue biometric disable action if biometric_user_id is present
+    if (member.biometric_user_id) {
+      await queueBiometricAction(member.id, member.biometric_user_id, 'disable');
+    }
+
+    // 5. Extend due_date & membership_expiry_date for member's active/latest invoices
+    const { data: invoices } = await supabase
+      .from('invoices')
+      .select('id, due_date, membership_expiry_date')
+      .eq('member_id', id);
+
+    if (invoices && invoices.length > 0) {
+      for (const inv of invoices) {
+        const updates: Record<string, string> = {};
+        if (inv.due_date) {
+          updates.due_date = addDays(inv.due_date, freezeDays);
+        }
+        if (inv.membership_expiry_date) {
+          updates.membership_expiry_date = addDays(inv.membership_expiry_date, freezeDays);
+        }
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('invoices').update(updates).eq('id', inv.id);
+        }
+      }
+    }
+
+    // 6. Log freeze in member_freezes table if present
+    try {
+      await supabase.from('member_freezes').insert({
+        member_id: id,
+        freeze_start_date: new Date().toISOString().split('T')[0],
+        freeze_days: freezeDays,
+        freeze_reason: reason || null
+      });
+    } catch (logErr) {
+      console.error('Non-critical: Failed to insert member_freezes record:', logErr);
+    }
+
+    await logAudit(`Frozen member: ${member.full_name} for ${freezeDays} days`, 'Members', user.id);
+
+    revalidatePath('/');
+    revalidatePath('/members');
+    revalidatePath(`/members/${id}`);
+    revalidatePath('/invoices');
+
+    return { data: updatedMember as Member };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+    return { error: errorMsg };
+  }
+}
+
+export async function unfreezeMember(id: string): Promise<{ data?: Member; error?: string }> {
+  try {
+    const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
+    const supabase = await createClient();
+
+    // 1. Fetch current member details
+    const { data: member, error: fetchErr } = await supabase
+      .from('members')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !member) {
+      return { error: 'Member not found' };
+    }
+
+    // 2. Check if package_end_date has passed
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isExpired = member.package_end_date && member.package_end_date < todayStr && member.duration !== 'Daily Pass';
+    const nextStatus = isExpired ? 'Expired' : 'Active';
+    const nextBiometricStatus = isExpired ? 'DISABLED' : 'ENABLED';
+
+    // 3. Update member record
+    const { data: updatedMember, error: updateErr } = await supabase
+      .from('members')
+      .update({
+        status: nextStatus,
+        is_frozen: false,
+        biometric_status: nextBiometricStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateErr) {
+      console.error('Failed to unfreeze member:', updateErr);
+      return { error: updateErr.message };
+    }
+
+    // 4. Queue biometric action if biometric_user_id is present
+    if (member.biometric_user_id) {
+      const actionType = nextBiometricStatus === 'ENABLED' ? 'enable' : 'disable';
+      await queueBiometricAction(member.id, member.biometric_user_id, actionType);
+    }
+
+    await logAudit(`Unfrozen member: ${member.full_name}`, 'Members', user.id);
+
+    revalidatePath('/');
+    revalidatePath('/members');
+    revalidatePath(`/members/${id}`);
+    revalidatePath('/invoices');
+
+    return { data: updatedMember as Member };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+    return { error: errorMsg };
+  }
+}
+
+

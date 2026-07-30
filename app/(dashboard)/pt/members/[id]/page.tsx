@@ -60,6 +60,11 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [intensity, setIntensity] = useState<'Low' | 'Moderate' | 'High' | 'Extreme'>('Moderate');
   const [workoutNotes, setWorkoutNotes] = useState('');
 
+  // Bulk selection states
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [selectedWorkoutIds, setSelectedWorkoutIds] = useState<string[]>([]);
+  const [selectedProgressIds, setSelectedProgressIds] = useState<string[]>([]);
+
   // Role checks
   const isAdmin = profile?.role === 'Super Admin' || profile?.role === 'Admin';
   const isReceptionist = profile?.role === 'Receptionist';
@@ -289,6 +294,108 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
     }
   };
 
+  // Selection handlers for Sessions
+  const toggleSelectSession = (sessId: string) => {
+    setSelectedSessionIds(prev =>
+      prev.includes(sessId) ? prev.filter(id => id !== sessId) : [...prev, sessId]
+    );
+  };
+
+  const toggleSelectAllSessions = () => {
+    if (selectedSessionIds.length === sessions.length) {
+      setSelectedSessionIds([]);
+    } else {
+      setSelectedSessionIds(sessions.map(s => s.id));
+    }
+  };
+
+  const handleBulkDeleteSessions = async () => {
+    if (selectedSessionIds.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedSessionIds.length} selected session record(s)?`)) return;
+
+    try {
+      if (isDemo) {
+        selectedSessionIds.forEach(sessId => demo.deletePTSession(sessId));
+        toast.success(`${selectedSessionIds.length} session(s) deleted (Demo)`);
+      } else {
+        await Promise.all(selectedSessionIds.map(sessId => deletePTSession(sessId)));
+        toast.success(`${selectedSessionIds.length} session(s) deleted successfully!`);
+      }
+      setSelectedSessionIds([]);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete selected sessions');
+    }
+  };
+
+  // Selection handlers for Daily Workouts
+  const toggleSelectWorkout = (workoutId: string) => {
+    setSelectedWorkoutIds(prev =>
+      prev.includes(workoutId) ? prev.filter(id => id !== workoutId) : [...prev, workoutId]
+    );
+  };
+
+  const toggleSelectAllWorkouts = () => {
+    if (selectedWorkoutIds.length === dailyWorkouts.length) {
+      setSelectedWorkoutIds([]);
+    } else {
+      setSelectedWorkoutIds(dailyWorkouts.map(w => w.id));
+    }
+  };
+
+  const handleBulkDeleteWorkouts = async () => {
+    if (selectedWorkoutIds.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedWorkoutIds.length} selected workout log(s)?`)) return;
+
+    try {
+      if (isDemo) {
+        selectedWorkoutIds.forEach(wId => demo.deletePTDailyWorkout(wId));
+        toast.success(`${selectedWorkoutIds.length} workout log(s) deleted (Demo)`);
+      } else {
+        await Promise.all(selectedWorkoutIds.map(wId => deletePTDailyWorkout(wId)));
+        toast.success(`${selectedWorkoutIds.length} workout log(s) deleted successfully!`);
+      }
+      setSelectedWorkoutIds([]);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete selected workouts');
+    }
+  };
+
+  // Selection handlers for Progress logs
+  const toggleSelectProgress = (progId: string) => {
+    setSelectedProgressIds(prev =>
+      prev.includes(progId) ? prev.filter(id => id !== progId) : [...prev, progId]
+    );
+  };
+
+  const toggleSelectAllProgress = () => {
+    if (selectedProgressIds.length === progressLogs.length) {
+      setSelectedProgressIds([]);
+    } else {
+      setSelectedProgressIds(progressLogs.map(p => p.id));
+    }
+  };
+
+  const handleBulkDeleteProgress = async () => {
+    if (selectedProgressIds.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedProgressIds.length} selected progress record(s)?`)) return;
+
+    try {
+      if (isDemo) {
+        selectedProgressIds.forEach(pId => demo.deletePTProgress(pId));
+        toast.success(`${selectedProgressIds.length} progress log(s) deleted (Demo)`);
+      } else {
+        await Promise.all(selectedProgressIds.map(pId => deletePTProgress(pId)));
+        toast.success(`${selectedProgressIds.length} progress log(s) deleted successfully!`);
+      }
+      setSelectedProgressIds([]);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete selected progress logs');
+    }
+  };
+
   // Recharts Chart Data (ascending by date)
   const chartData = [...progressLogs]
     .reverse()
@@ -500,17 +607,48 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
             </div>
           ) : (
             <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm flex items-center justify-between gap-4">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedWorkoutIds.length === dailyWorkouts.length && dailyWorkouts.length > 0}
+                    onChange={toggleSelectAllWorkouts}
+                    className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                  Select All ({dailyWorkouts.length})
+                </label>
+
+                {selectedWorkoutIds.length > 0 && (
+                  <button
+                    onClick={handleBulkDeleteWorkouts}
+                    className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Selected ({selectedWorkoutIds.length})
+                  </button>
+                )}
+              </div>
+
               {dailyWorkouts.map((workout) => {
                 const intensityColor = 
                   workout.intensity === 'Extreme' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                   workout.intensity === 'High' ? 'bg-amber-50 text-amber-800 border-amber-200' :
                   workout.intensity === 'Moderate' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                   'bg-blue-50 text-blue-700 border-blue-200';
+                const isSelected = selectedWorkoutIds.includes(workout.id);
 
                 return (
-                  <div key={workout.id} className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm hover:border-amber-300 transition-all">
+                  <div key={workout.id} className={`rounded-2xl border bg-white p-5 shadow-sm transition-all ${
+                    isSelected ? 'border-amber-400 bg-amber-50/20 ring-1 ring-amber-400' : 'border-slate-200/80 hover:border-amber-300'
+                  }`}>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3.5 mb-3.5">
                       <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectWorkout(workout.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400 cursor-pointer shrink-0"
+                        />
                         <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-100 text-amber-800 font-black flex items-center justify-center text-sm shadow-inner">
                           <Dumbbell className="h-5 w-5" />
                         </div>
@@ -637,9 +775,28 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
               <p className="p-8 text-center text-slate-500 text-sm">No logs saved. Record initial metrics to start tracking progress.</p>
             ) : (
               <div className="overflow-x-auto">
+                {selectedProgressIds.length > 0 && (
+                  <div className="p-3 bg-amber-50/60 border-b border-amber-200/60 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">{selectedProgressIds.length} progress log(s) selected</span>
+                    <button
+                      onClick={handleBulkDeleteProgress}
+                      className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete Selected ({selectedProgressIds.length})
+                    </button>
+                  </div>
+                )}
                 <table className="w-full text-left text-sm border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/50 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4 w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedProgressIds.length === progressLogs.length && progressLogs.length > 0}
+                          onChange={toggleSelectAllProgress}
+                          className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400 cursor-pointer"
+                        />
+                      </th>
                       <th className="py-3.5 px-4">Date</th>
                       <th className="py-3.5 px-4">Weight</th>
                       <th className="py-3.5 px-4">BMI</th>
@@ -653,24 +810,35 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {progressLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-amber-50/20 transition-colors">
-                        <td className="py-3.5 px-4"><p className="font-bold text-slate-900">{formatDate(log.date)}</p></td>
-                        <td className="py-3.5 px-4"><p className="text-slate-900 font-extrabold font-mono">{log.weight ? `${log.weight} kg` : '-'}</p></td>
-                        <td className="py-3.5 px-4"><p className="text-slate-700 font-bold font-mono">{log.bmi || '-'}</p></td>
-                        <td className="py-3.5 px-4"><p className="text-slate-900 font-extrabold font-mono">{log.body_fat ? `${log.body_fat}%` : '-'}</p></td>
-                        <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.chest ? `${log.chest} cm` : '-'}</td>
-                        <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.waist ? `${log.waist} cm` : '-'}</td>
-                        <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.arms ? `${log.arms} cm` : '-'}</td>
-                        <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.legs ? `${log.legs} cm` : '-'}</td>
-                        <td className="py-3.5 px-4 hidden md:table-cell"><p className="text-xs text-slate-500 max-w-xs truncate">{log.notes || '-'}</p></td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button onClick={() => handleDeleteProgress(log.id)} className="text-slate-400 hover:text-rose-600 transition-colors rounded-lg p-1.5 hover:bg-rose-50" title="Delete Log">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {progressLogs.map((log) => {
+                      const isSelected = selectedProgressIds.includes(log.id);
+                      return (
+                        <tr key={log.id} className={`transition-colors ${isSelected ? 'bg-amber-50/40' : 'hover:bg-amber-50/20'}`}>
+                          <td className="py-3.5 px-4">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectProgress(log.id)}
+                              className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-3.5 px-4"><p className="font-bold text-slate-900">{formatDate(log.date)}</p></td>
+                          <td className="py-3.5 px-4"><p className="text-slate-900 font-extrabold font-mono">{log.weight ? `${log.weight} kg` : '-'}</p></td>
+                          <td className="py-3.5 px-4"><p className="text-slate-700 font-bold font-mono">{log.bmi || '-'}</p></td>
+                          <td className="py-3.5 px-4"><p className="text-slate-900 font-extrabold font-mono">{log.body_fat ? `${log.body_fat}%` : '-'}</p></td>
+                          <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.chest ? `${log.chest} cm` : '-'}</td>
+                          <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.waist ? `${log.waist} cm` : '-'}</td>
+                          <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.arms ? `${log.arms} cm` : '-'}</td>
+                          <td className="py-3.5 px-4 hidden sm:table-cell text-slate-600 font-mono">{log.legs ? `${log.legs} cm` : '-'}</td>
+                          <td className="py-3.5 px-4 hidden md:table-cell"><p className="text-xs text-slate-500 max-w-xs truncate">{log.notes || '-'}</p></td>
+                          <td className="py-3.5 px-4 text-right">
+                            <button onClick={() => handleDeleteProgress(log.id)} className="text-slate-400 hover:text-rose-600 transition-colors rounded-lg p-1.5 hover:bg-rose-50" title="Delete Log">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -727,45 +895,82 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
               No sessions scheduled for this client yet.
             </div>
           ) : (
-            sessions.map((sess) => (
-              <div key={sess.id} className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-amber-300 transition-all">
-                <div className="flex items-start gap-3.5">
-                  <div className="h-11 w-11 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
-                    <Dumbbell className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900">PT Workout Session</h4>
-                    <p className="text-xs font-semibold text-slate-600 mt-0.5">
-                      Trainer: <span className="text-slate-900 font-bold">{sess.trainer?.full_name}</span> &bull; {formatDate(sess.session_date)} at {sess.session_time} ({sess.duration} mins)
-                    </p>
-                    {sess.workout_plan && (
-                      <p className="text-xs text-slate-700 mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 max-w-2xl font-mono">
-                        {sess.workout_plan}
-                      </p>
-                    )}
-                  </div>
-                </div>
+            <>
+              <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm flex items-center justify-between gap-4 mb-3">
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700 select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedSessionIds.length === sessions.length && sessions.length > 0}
+                    onChange={toggleSelectAllSessions}
+                    className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400 cursor-pointer"
+                  />
+                  Select All ({sessions.length})
+                </label>
 
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border ${
-                    sess.status === 'Completed'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : sess.status === 'Scheduled'
-                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                      : 'bg-slate-100 text-slate-600 border-slate-200'
-                  }`}>
-                    {sess.status}
-                  </span>
+                {selectedSessionIds.length > 0 && (
                   <button
-                    onClick={() => handleDeleteSession(sess.id)}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors ml-1"
-                    title="Delete session record"
+                    onClick={handleBulkDeleteSessions}
+                    className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Selected ({selectedSessionIds.length})
                   </button>
-                </div>
+                )}
               </div>
-            ))
+
+              {sessions.map((sess) => {
+                const isSelected = selectedSessionIds.includes(sess.id);
+                return (
+                  <div key={sess.id} className={`rounded-2xl border bg-white p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all ${
+                    isSelected ? 'border-amber-400 bg-amber-50/20 ring-1 ring-amber-400' : 'border-slate-200/80 hover:border-amber-300'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectSession(sess.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400 cursor-pointer shrink-0"
+                      />
+                      <div className="flex items-start gap-3.5">
+                        <div className="h-11 w-11 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold">
+                          <Dumbbell className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900">PT Workout Session</h4>
+                          <p className="text-xs font-semibold text-slate-600 mt-0.5">
+                            Trainer: <span className="text-slate-900 font-bold">{sess.trainer?.full_name}</span> &bull; {formatDate(sess.session_date)} at {sess.session_time} ({sess.duration} mins)
+                          </p>
+                          {sess.workout_plan && (
+                            <p className="text-xs text-slate-700 mt-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 max-w-2xl font-mono">
+                              {sess.workout_plan}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border ${
+                        sess.status === 'Completed'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : sess.status === 'Scheduled'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        {sess.status}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteSession(sess.id)}
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors ml-1"
+                        title="Delete session record"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
       )}

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Snowflake } from 'lucide-react';
 
 interface BadgeProps {
   variant: 'Active' | 'Inactive' | 'Expired' | 'Frozen' | 'Paid' | 'Partially Paid' | 'Unpaid' | 'Pending' | 'Overdue' | 'Cancelled';
@@ -26,9 +27,10 @@ const customStyleMap: Partial<Record<BadgeProps['variant'], React.CSSProperties>
 export function StatusBadge({ variant, className }: BadgeProps) {
   return (
     <span 
-      className={cn('badge', variantMap[variant], className)}
+      className={cn('badge inline-flex items-center gap-1', variantMap[variant], className)}
       style={customStyleMap[variant]}
     >
+      {variant === 'Frozen' && <Snowflake className="h-3 w-3 inline shrink-0" />}
       {variant}
     </span>
   );

@@ -60,6 +60,8 @@ interface DemoStateContextType {
   createMember: (values: any) => { data?: Member; error?: string; invoiceId?: string | null };
   updateMember: (id: string, values: any) => { data?: Member; error?: string };
   renewMember: (params: any) => { success: boolean; member?: Member; invoiceId?: string; invoiceNumber?: string; error?: string };
+  freezeMember: (id: string, freezeDays: number, reason?: string) => { data?: Member; error?: string };
+  unfreezeMember: (id: string) => { data?: Member; error?: string };
   getMemberRenewals: (memberId: string) => MembershipRenewal[];
   deleteMember: (id: string) => void;
   getMembersPaginated: (args: any) => { members: Member[]; totalCount: number };
@@ -929,6 +931,77 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const freezeMember = (id: string, freezeDays: number, reason?: string) => {
+    const member = members.find(m => m.id === id);
+    if (!member) return { error: 'Member not found' };
+
+    const startDate = member.package_end_date || new Date().toISOString().split('T')[0];
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + freezeDays);
+    const newEndDate = d.toISOString().split('T')[0];
+    const newTotalFrozen = (member.total_frozen_days || 0) + freezeDays;
+
+    const updated: Member = {
+      ...member,
+      status: 'Frozen',
+      is_frozen: true,
+      frozen_at: new Date().toISOString(),
+      freeze_reason: reason || null,
+      freeze_days: freezeDays,
+      total_frozen_days: newTotalFrozen,
+      package_end_date: newEndDate,
+      biometric_status: 'DISABLED',
+      updated_at: new Date().toISOString()
+    };
+
+    setMembers(prev => prev.map(m => m.id === id ? updated : m));
+
+    setInvoices(prev => prev.map(inv => {
+      if (inv.member_id === id) {
+        let newDueDate = inv.due_date;
+        if (inv.due_date) {
+          const dd = new Date(inv.due_date);
+          dd.setDate(dd.getDate() + freezeDays);
+          newDueDate = dd.toISOString().split('T')[0];
+        }
+        let newExpDate = inv.membership_expiry_date;
+        if (inv.membership_expiry_date) {
+          const ed = new Date(inv.membership_expiry_date);
+          ed.setDate(ed.getDate() + freezeDays);
+          newExpDate = ed.toISOString().split('T')[0];
+        }
+        return {
+          ...inv,
+          due_date: newDueDate,
+          membership_expiry_date: newExpDate
+        };
+      }
+      return inv;
+    }));
+
+    return { data: updated };
+  };
+
+  const unfreezeMember = (id: string) => {
+    const member = members.find(m => m.id === id);
+    if (!member) return { error: 'Member not found' };
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isExpired = member.package_end_date && member.package_end_date < todayStr && member.duration !== 'Daily Pass';
+    const nextStatus = isExpired ? 'Expired' : 'Active';
+
+    const updated: Member = {
+      ...member,
+      status: nextStatus,
+      is_frozen: false,
+      biometric_status: isExpired ? 'DISABLED' : 'ENABLED',
+      updated_at: new Date().toISOString()
+    };
+
+    setMembers(prev => prev.map(m => m.id === id ? updated : m));
+    return { data: updated };
+  };
+
   const getMemberRenewals = (memberId: string) => {
     return renewals.filter(r => r.member_id === memberId);
   };
@@ -1755,6 +1828,8 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
         createMember,
         updateMember,
         renewMember,
+        freezeMember,
+        unfreezeMember,
         getMemberRenewals,
         deleteMember,
         getMembersPaginated,

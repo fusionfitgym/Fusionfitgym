@@ -52,8 +52,23 @@ export interface Member {
   sms_sent?: boolean;
   sms_sent_at?: string | null;
   sms_status?: string | null;
+  // Freeze fields
+  is_frozen?: boolean;
+  frozen_at?: string | null;
+  freeze_reason?: string | null;
+  freeze_days?: number;
+  total_frozen_days?: number;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface MemberFreeze {
+  id: string;
+  member_id: string;
+  freeze_start_date: string;
+  freeze_days: number;
+  freeze_reason?: string | null;
+  created_at?: string;
 }
 
 export const memberSchema = z.object({

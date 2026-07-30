@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit, Eye, RefreshCw, Search, Trash2, UserPlus, Users } from 'lucide-react';
+import { Edit, Eye, RefreshCw, Search, Snowflake, Trash2, UserPlus, Users } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -11,6 +11,11 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 
 const RenewalModal = dynamic(
   () => import('@/components/members/RenewalModal').then((mod) => mod.RenewalModal),
+  { ssr: false }
+);
+
+const FreezeModal = dynamic(
+  () => import('@/components/members/FreezeModal').then((mod) => mod.FreezeModal),
   { ssr: false }
 );
 import { deleteMember, getMembersPaginated } from '@/lib/actions/members';
@@ -39,6 +44,7 @@ export default function MembersPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
   const [selectedRenewalMember, setSelectedRenewalMember] = useState<Member | null>(null);
+  const [selectedFreezeMember, setSelectedFreezeMember] = useState<Member | null>(null);
 
   const limit = 10;
   const totalPages = Math.ceil(totalCount / limit);
@@ -275,6 +281,18 @@ export default function MembersPage() {
                             </button>
                           ) : null;
                         })()}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFreezeMember(member)}
+                          className={cn(
+                            "table-action hover:bg-blue-50 dark:hover:bg-blue-900/40",
+                            member.status === 'Frozen' ? "text-blue-600 dark:text-blue-400" : "text-slate-500 hover:text-blue-600"
+                          )}
+                          title={member.status === 'Frozen' ? "Unfreeze Member" : "Freeze Member"}
+                          aria-label={`${member.status === 'Frozen' ? 'Unfreeze' : 'Freeze'} ${member.full_name}`}
+                        >
+                          <Snowflake className="h-4 w-4" />
+                        </button>
                         <Link href={`/members/${member.id}`} className="table-action" title="View member" aria-label={`View ${member.full_name}`}>
                           <Eye className="h-4 w-4" />
                         </Link>
@@ -352,6 +370,14 @@ export default function MembersPage() {
                       </button>
                     ) : null;
                   })()}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFreezeMember(member)}
+                    className="btn btn-secondary btn-sm flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                  >
+                    <Snowflake className="h-3.5 w-3.5" />
+                    {member.status === 'Frozen' ? 'Unfreeze' : 'Freeze'}
+                  </button>
                   <Link href={`/members/${member.id}`} className="btn btn-secondary btn-sm">View</Link>
                   <Link href={`/members/${member.id}/edit`} className="btn btn-secondary btn-sm">Edit</Link>
                   <ConfirmDialog
@@ -453,6 +479,19 @@ export default function MembersPage() {
           onClose={() => setSelectedRenewalMember(null)}
           onSuccess={() => {
             setSelectedRenewalMember(null);
+            setRefreshCount((c) => c + 1);
+          }}
+        />
+      )}
+
+      {/* Freeze Modal */}
+      {selectedFreezeMember && (
+        <FreezeModal
+          member={selectedFreezeMember}
+          isOpen={!!selectedFreezeMember}
+          onClose={() => setSelectedFreezeMember(null)}
+          onSuccess={() => {
+            setSelectedFreezeMember(null);
             setRefreshCount((c) => c + 1);
           }}
         />
