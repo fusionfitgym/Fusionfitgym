@@ -136,8 +136,7 @@ export function PptxReportModal({
     { num: 12, title: 'Trainer Performance', tag: 'Leaderboard & Revenue', icon: BarChart3 },
     { num: 13, title: 'Member Demographics', tag: 'Age & Occupation Breakdown', icon: Users },
     { num: 14, title: 'Member List Table', tag: 'Auto-Paginated Multi-Slide', icon: FileText },
-    { num: 15, title: 'AI Business Insights', tag: 'Executive Recommendations', icon: Sparkles },
-    { num: 16, title: 'Closing & QR Code', tag: 'Contact & Portal QR Code', icon: CheckCircle2 },
+    { num: 15, title: 'Closing & QR Code', tag: 'Contact & Portal QR Code', icon: CheckCircle2 },
   ];
 
   // Helper to filter data by selected period
@@ -264,7 +263,7 @@ export function PptxReportModal({
                 <DialogTitle className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
                   Automatic PowerPoint (.pptx) Executive Report Generator
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-bold uppercase">
-                    16 Slides
+                    15 Slides
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400 mt-0.5">
