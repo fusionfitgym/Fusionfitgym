@@ -10,6 +10,8 @@ import {
   Users,
   Database,
   HardHat,
+  Presentation,
+  Sparkles,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/Primitives';
 import { getAttendanceReport, getMemberReport, getRevenueReport } from '@/lib/actions/reports';
@@ -20,11 +22,14 @@ import { TableSkeleton } from '@/components/ui/Skeleton';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
+import { PptxReportModal } from '@/components/reports/PptxReportModal';
 
 export default function ReportsPage() {
   const { profile } = useAuth();
   const isDemo = profile?.email === 'demo@redix.media';
   const demo = useDemoState();
+
+  const [pptxModalOpen, setPptxModalOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'attendance' | 'members' | 'revenue' | 'staff_attendance'>('attendance');
   const [attendanceTimeframe, setAttendanceTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
@@ -138,6 +143,33 @@ export default function ReportsPage() {
         title="Reporting center"
         subtitle="Extract detailed summaries, compile rosters, check billing tallies, and export spreadsheet audit files."
       />
+
+      {/* Executive PowerPoint Report Generator Hero Banner */}
+      <div className="mb-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950 p-6 border border-slate-800 shadow-xl relative overflow-hidden text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2 relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider">
+            <Sparkles className="h-3.5 w-3.5" />
+            Executive Presentation Engine
+          </div>
+          <h3 className="text-xl font-bold tracking-tight text-white">
+            Automatic PowerPoint (.pptx) Executive Report Generator
+          </h3>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Generate dynamic, presentation-ready 16-slide PowerPoint decks with real-time database data, editable vector charts, 10 executive KPIs, multi-slide table auto-pagination, and AI-style business insights.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 relative z-10">
+          <button
+            type="button"
+            onClick={() => setPptxModalOpen(true)}
+            className="px-5 py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2 group whitespace-nowrap"
+          >
+            <Presentation className="h-4 w-4 group-hover:scale-110 transition-transform" />
+            Generate PowerPoint (.pptx)
+          </button>
+        </div>
+      </div>
 
       {/* Tabs */}
       <div className="mb-6 border-b border-slate-200">
@@ -579,6 +611,17 @@ export default function ReportsPage() {
           )}
         </div>
       )}
+
+      <PptxReportModal
+        open={pptxModalOpen}
+        onOpenChange={setPptxModalOpen}
+        membersData={memberData}
+        invoicesData={revenueData?.invoices || []}
+        attendanceData={attendanceData}
+        ptTrainersData={[]}
+        ptClientsData={[]}
+        staffData={[]}
+      />
     </div>
   );
 }
