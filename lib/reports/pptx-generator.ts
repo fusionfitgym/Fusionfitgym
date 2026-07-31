@@ -33,8 +33,8 @@ function addSlideHeader(slide: any, title: string, subtitle: string, data: FullP
 
   // Header Title
   slide.addText(title, {
-    x: 0.5,
-    y: 0.25,
+    x: 0.6,
+    y: 0.22,
     w: 8.5,
     h: 0.4,
     fontSize: 20,
@@ -45,20 +45,20 @@ function addSlideHeader(slide: any, title: string, subtitle: string, data: FullP
 
   // Subtitle / Period Badge
   slide.addText(subtitle, {
-    x: 0.5,
-    y: 0.65,
+    x: 0.6,
+    y: 0.62,
     w: 8.5,
     h: 0.25,
-    fontSize: 11,
+    fontSize: 10,
     fontFace: 'Arial',
     color: COLORS.TEXT_MUTED
   });
 
   // Gym Name Badge (Top Right)
   slide.addText(data.gymInfo.name.toUpperCase(), {
-    x: 9.0,
-    y: 0.25,
-    w: 3.8,
+    x: 8.5,
+    y: 0.22,
+    w: 4.23,
     h: 0.3,
     fontSize: 11,
     fontFace: 'Arial',
@@ -68,32 +68,32 @@ function addSlideHeader(slide: any, title: string, subtitle: string, data: FullP
   });
 }
 
-// Common Slide Footer Helper
+// Common Slide Footer Helper with redx.in Watermark
 function addSlideFooter(slide: any, slideNum: number, totalSlides: number, data: FullPPTXReportData) {
   // Footer Line
   slide.addShape('line', {
-    x: 0.5,
-    y: 7.0,
-    w: 12.33,
+    x: 0.6,
+    y: 6.85,
+    w: 12.13,
     h: 0,
     line: { color: COLORS.CARD_BORDER, width: 1 }
   });
 
   // Confidentiality Text
   slide.addText(data.metadata.confidentialText, {
-    x: 0.5,
-    y: 7.05,
-    w: 7.0,
+    x: 0.6,
+    y: 6.95,
+    w: 5.2,
     h: 0.3,
     fontSize: 8,
     fontFace: 'Arial',
     color: COLORS.TEXT_MUTED
   });
 
-  // Generated Date & Time
-  slide.addText(`Gen: ${data.metadata.generatedAt} | ${data.gymInfo.website}`, {
-    x: 7.5,
-    y: 7.05,
+  // Generated Date & Time | fusionfit.vercel.app
+  slide.addText(`Gen: ${data.metadata.generatedAt} | fusionfit.vercel.app`, {
+    x: 5.6,
+    y: 6.95,
     w: 3.5,
     h: 0.3,
     fontSize: 8,
@@ -104,8 +104,8 @@ function addSlideFooter(slide: any, slideNum: number, totalSlides: number, data:
 
   // Page Number
   slide.addText(`Slide ${slideNum} of ${totalSlides}`, {
-    x: 11.0,
-    y: 7.05,
+    x: 9.1,
+    y: 6.95,
     w: 1.8,
     h: 0.3,
     fontSize: 9,
@@ -113,6 +113,21 @@ function addSlideFooter(slide: any, slideNum: number, totalSlides: number, data:
     bold: true,
     color: COLORS.BLUE_MAIN,
     align: 'right'
+  });
+
+  // redix.in Watermark Hyperlink (Bottom Right Corner)
+  slide.addText('redix.in', {
+    x: 11.0,
+    y: 6.95,
+    w: 1.73,
+    h: 0.3,
+    fontSize: 8,
+    fontFace: 'Arial',
+    bold: true,
+    italic: true,
+    color: COLORS.BLUE_MAIN,
+    align: 'right',
+    hyperlink: { url: 'https://redix.in' }
   });
 }
 
@@ -142,7 +157,7 @@ function addKPICard(
   slide.addShape('rect', {
     x,
     y,
-    w: 0.12,
+    w: 0.1,
     h,
     fill: { color: accentColor },
     line: { color: accentColor }
@@ -150,11 +165,11 @@ function addKPICard(
 
   // Title
   slide.addText(title.toUpperCase(), {
-    x: x + 0.25,
+    x: x + 0.2,
     y: y + 0.15,
-    w: w - 0.35,
+    w: w - 0.3,
     h: 0.25,
-    fontSize: 10,
+    fontSize: 9.5,
     fontFace: 'Arial',
     bold: true,
     color: COLORS.TEXT_MUTED
@@ -162,11 +177,11 @@ function addKPICard(
 
   // Metric Value
   slide.addText(String(value), {
-    x: x + 0.25,
+    x: x + 0.2,
     y: y + 0.4,
-    w: w - 0.35,
+    w: w - 0.3,
     h: 0.5,
-    fontSize: 22,
+    fontSize: 20,
     fontFace: 'Arial',
     bold: true,
     color: COLORS.NAVY_DARK
@@ -174,14 +189,43 @@ function addKPICard(
 
   // Subtitle / Indicator
   slide.addText(subtitle, {
-    x: x + 0.25,
-    y: y + 0.88,
-    w: w - 0.35,
+    x: x + 0.2,
+    y: y + 0.9,
+    w: w - 0.3,
     h: 0.2,
-    fontSize: 9,
+    fontSize: 8.5,
     fontFace: 'Arial',
     color: accentColor
   });
+}
+
+// ── Helper to format PPTX Table Header & Cell Rows ─────────────────────
+function formatTableData(headers: string[], rowsData: (string | number)[][]) {
+  const formattedHeader = headers.map(text => ({
+    text,
+    options: {
+      fill: { color: COLORS.NAVY_DARK },
+      color: COLORS.WHITE,
+      bold: true,
+      fontSize: 9.5,
+      fontFace: 'Arial',
+      align: 'center' as const
+    }
+  }));
+
+  const formattedRows = rowsData.map(row =>
+    row.map(cell => ({
+      text: String(cell),
+      options: {
+        fontSize: 9,
+        fontFace: 'Arial',
+        color: COLORS.NAVY_DARK,
+        align: 'center' as const
+      }
+    }))
+  );
+
+  return [formattedHeader, ...formattedRows] as any;
 }
 
 // ── Main Presentation Generator Function ─────────────────────────────
@@ -210,29 +254,29 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       fill: { color: COLORS.NAVY_DARK }
     });
 
-    // Decorative Accent Polygon/Line
+    // Decorative Left Accent Bar
     slide1.addShape('rect', {
       x: 0,
       y: 0,
-      w: 0.4,
+      w: 0.35,
       h: '100%',
       fill: { color: COLORS.BLUE_MAIN }
     });
 
     slide1.addShape('rect', {
-      x: 0.4,
+      x: 0.35,
       y: 0,
-      w: 0.1,
+      w: 0.08,
       h: '100%',
       fill: { color: COLORS.CYAN_ACCENT }
     });
 
     // Gym Name & Badge
     slide1.addText(data.gymInfo.name.toUpperCase(), {
-      x: 1.0,
-      y: 1.0,
-      w: 10,
-      h: 0.5,
+      x: 0.8,
+      y: 0.8,
+      w: 11.7,
+      h: 0.4,
       fontSize: 16,
       fontFace: 'Arial',
       bold: true,
@@ -242,11 +286,11 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
     // Main Report Title
     slide1.addText(data.metadata.reportTitle, {
-      x: 1.0,
-      y: 1.8,
-      w: 11.0,
-      h: 1.5,
-      fontSize: 34,
+      x: 0.8,
+      y: 1.4,
+      w: 11.7,
+      h: 1.4,
+      fontSize: 32,
       fontFace: 'Arial',
       bold: true,
       color: COLORS.WHITE
@@ -254,21 +298,21 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
     // Subtitle / Tagline
     slide1.addText('Comprehensive Business Intelligence, Member Analytics & Revenue Performance', {
-      x: 1.0,
-      y: 3.3,
-      w: 10.5,
-      h: 0.5,
-      fontSize: 14,
+      x: 0.8,
+      y: 2.9,
+      w: 11.7,
+      h: 0.4,
+      fontSize: 13,
       fontFace: 'Arial',
-      color: COLORS.CARD_BORDER
+      color: '94A3B8'
     });
 
-    // Details Grid Card (Bottom Left)
+    // Details Grid Card (Bottom Area)
     slide1.addShape('rect', {
-      x: 1.0,
-      y: 4.2,
-      w: 11.3,
-      h: 2.2,
+      x: 0.8,
+      y: 3.6,
+      w: 11.73,
+      h: 2.8,
       fill: { color: '1E293B' },
       line: { color: '334155', width: 1 }
     });
@@ -277,19 +321,19 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       { label: 'REPORT PERIOD', val: data.metadata.periodLabel },
       { label: 'GENERATED ON', val: data.metadata.generatedAt },
       { label: 'GENERATED BY', val: data.metadata.generatedBy },
-      { label: 'GYM CONTACT', val: `${data.gymInfo.phone} | ${data.gymInfo.email}` }
+      { label: 'PORTAL / WEBSITE', val: 'fusionfit.vercel.app' }
     ];
 
     metaItems.forEach((item, idx) => {
       const col = idx % 2;
       const row = Math.floor(idx / 2);
-      const mx = 1.3 + col * 5.5;
-      const my = 4.4 + row * 0.9;
+      const mx = 1.2 + col * 5.8;
+      const my = 3.9 + row * 1.1;
 
       slide1.addText(item.label, {
         x: mx,
         y: my,
-        w: 5.0,
+        w: 5.2,
         h: 0.25,
         fontSize: 9,
         fontFace: 'Arial',
@@ -299,8 +343,8 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
       slide1.addText(item.val, {
         x: mx,
-        y: my + 0.25,
-        w: 5.0,
+        y: my + 0.28,
+        w: 5.2,
         h: 0.4,
         fontSize: 13,
         fontFace: 'Arial',
@@ -311,13 +355,28 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
     // Confidentiality Footer
     slide1.addText(data.metadata.confidentialText, {
-      x: 1.0,
-      y: 6.8,
-      w: 11.3,
+      x: 0.8,
+      y: 6.9,
+      w: 9.0,
       h: 0.3,
-      fontSize: 9,
+      fontSize: 8.5,
       fontFace: 'Arial',
       color: COLORS.TEXT_MUTED
+    });
+
+    // redix.in Watermark Hyperlink (Bottom Right)
+    slide1.addText('redix.in', {
+      x: 10.8,
+      y: 6.9,
+      w: 1.73,
+      h: 0.3,
+      fontSize: 8.5,
+      fontFace: 'Arial',
+      bold: true,
+      italic: true,
+      color: COLORS.CYAN_ACCENT,
+      align: 'right',
+      hyperlink: { url: 'https://redix.in' }
     });
   }
 
@@ -345,9 +404,9 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     kpis.forEach((kpi, idx) => {
       const col = idx % 5;
       const row = Math.floor(idx / 5);
-      const x = 0.5 + col * 2.45;
-      const y = 1.1 + row * 2.8;
-      addKPICard(slide2, kpi.title, kpi.val, kpi.sub, x, y, 2.3, 2.5, kpi.color);
+      const x = 0.6 + col * 2.45;
+      const y = 1.15 + row * 2.7;
+      addKPICard(slide2, kpi.title, kpi.val, kpi.sub, x, y, 2.26, 2.45, kpi.color);
     });
 
     addSlideFooter(slide2, 2, totalSlides, data);
@@ -369,10 +428,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide3.addChart(pres.ChartType.pie, pieData, {
-      x: 0.5,
+      x: 0.6,
       y: 1.1,
       w: 5.8,
-      h: 3.2,
+      h: 3.1,
       showLegend: true,
       legendPos: 'b',
       showTitle: true,
@@ -394,10 +453,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide3.addChart(pres.ChartType.bar, barData, {
-      x: 6.6,
+      x: 6.7,
       y: 1.1,
-      w: 6.2,
-      h: 3.2,
+      w: 6.03,
+      h: 3.1,
       showLegend: true,
       legendPos: 'b',
       showTitle: true,
@@ -406,25 +465,20 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     });
 
     // Table: Monthly Breakdown
-    const tableHeader = ['Month', 'New Members', 'Renewals', 'Expired Members'].map(h => ({
-      text: h,
-      options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-    }));
-    const tableRows = data.membershipOverview.monthlyJoinTrend.map(t => [
+    const headers = ['Month', 'New Members', 'Renewals', 'Expired Members'];
+    const rows = data.membershipOverview.monthlyJoinTrend.map(t => [
       t.month,
-      String(t.joins),
-      String(t.renewals),
-      String(t.expired)
-    ].map(text => ({ text })));
+      t.joins,
+      t.renewals,
+      t.expired
+    ]);
 
-    slide3.addTable([tableHeader, ...tableRows], {
-      x: 0.5,
-      y: 4.5,
-      w: 12.3,
-      colW: [3.0, 3.1, 3.1, 3.1],
-      fontSize: 10,
-      fontFace: 'Arial',
-      align: 'center',
+    const formattedTable = formatTableData(headers, rows);
+    slide3.addTable(formattedTable, {
+      x: 0.6,
+      y: 4.4,
+      w: 12.13,
+      colW: [3.0, 3.0, 3.0, 3.13],
       border: { pt: 1, color: COLORS.CARD_BORDER },
       fill: { color: COLORS.CARD_BG }
     });
@@ -448,10 +502,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide4.addChart(pres.ChartType.pie, genderPieData, {
-      x: 0.5,
-      y: 1.2,
+      x: 0.6,
+      y: 1.1,
       w: 5.8,
-      h: 3.4,
+      h: 3.3,
       showLegend: true,
       legendPos: 'b',
       showTitle: true,
@@ -468,10 +522,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide4.addChart(pres.ChartType.bar, genderAttData, {
-      x: 6.6,
-      y: 1.2,
-      w: 6.2,
-      h: 3.4,
+      x: 6.7,
+      y: 1.1,
+      w: 6.03,
+      h: 3.3,
       showLegend: false,
       showTitle: true,
       title: 'Monthly Attendance Check-ins by Gender',
@@ -480,8 +534,8 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
     // KPI Summary Tiles (Bottom)
     data.genderAnalytics.counts.forEach((g, idx) => {
-      const x = 0.5 + idx * 6.4;
-      addKPICard(slide4, `${g.gender} Members`, `${g.count} Members`, `${g.percentage}% of Total Gym Members`, x, 4.8, 6.0, 1.8, idx === 0 ? COLORS.BLUE_MAIN : COLORS.PURPLE);
+      const x = 0.6 + idx * 6.2;
+      addKPICard(slide4, `${g.gender} Members`, `${g.count} Members`, `${g.percentage}% of Total Gym Members`, x, 4.6, 5.93, 1.9, idx === 0 ? COLORS.BLUE_MAIN : COLORS.PURPLE);
     });
 
     addSlideFooter(slide4, 4, totalSlides, data);
@@ -503,10 +557,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide5.addChart(pres.ChartType.pie, pkgPie, {
-      x: 0.5,
-      y: 1.2,
-      w: 5.5,
-      h: 5.2,
+      x: 0.6,
+      y: 1.1,
+      w: 5.6,
+      h: 5.3,
       showLegend: true,
       legendPos: 'b',
       showTitle: true,
@@ -515,25 +569,20 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     });
 
     // Table: Package Breakdown
-    const headers = ['Package Name', 'Enrolled Members', 'Revenue (₹)', 'Average Duration'].map(h => ({
-      text: h,
-      options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-    }));
+    const headers = ['Package Name', 'Enrolled Members', 'Revenue (₹)', 'Average Duration'];
     const rows = data.packageAnalytics.packageTable.map(p => [
       p.name,
-      String(p.members),
+      p.members,
       `₹${p.revenue.toLocaleString('en-IN')}`,
       p.avgDuration
-    ].map(text => ({ text })));
+    ]);
 
-    slide5.addTable([headers, ...rows], {
-      x: 6.3,
-      y: 1.2,
-      w: 6.5,
-      colW: [2.2, 1.3, 1.6, 1.4],
-      fontSize: 10,
-      fontFace: 'Arial',
-      align: 'center',
+    const formattedTable = formatTableData(headers, rows);
+    slide5.addTable(formattedTable, {
+      x: 6.5,
+      y: 1.1,
+      w: 6.23,
+      colW: [2.2, 1.2, 1.4, 1.43],
       border: { pt: 1, color: COLORS.CARD_BORDER },
       fill: { color: COLORS.CARD_BG }
     });
@@ -549,10 +598,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     addSlideHeader(slide6, 'Slide 6 — Personal Training (PT)', 'PT Enrolment, Gender Split & Top Performing Trainers', data);
 
     // Top KPIs Row
-    addKPICard(slide6, 'Total PT Clients', data.ptAnalytics.totalPTClients, 'Active & Completed', 0.5, 1.1, 2.8, 1.8, COLORS.PURPLE);
-    addKPICard(slide6, 'Male PT Clients', data.ptAnalytics.malePTClients, 'Gents Training', 3.5, 1.1, 2.8, 1.8, COLORS.BLUE_MAIN);
-    addKPICard(slide6, 'Female PT Clients', data.ptAnalytics.femalePTClients, 'Ladies Training', 6.5, 1.1, 2.8, 1.8, COLORS.AMBER);
-    addKPICard(slide6, 'Active PT Plans', data.ptAnalytics.activePT, 'Ongoing Sessions', 9.5, 1.1, 3.3, 1.8, COLORS.GREEN);
+    addKPICard(slide6, 'Total PT Clients', data.ptAnalytics.totalPTClients, 'Active & Completed', 0.6, 1.1, 2.83, 1.6, COLORS.PURPLE);
+    addKPICard(slide6, 'Male PT Clients', data.ptAnalytics.malePTClients, 'Gents Training', 3.7, 1.1, 2.83, 1.6, COLORS.BLUE_MAIN);
+    addKPICard(slide6, 'Female PT Clients', data.ptAnalytics.femalePTClients, 'Ladies Training', 6.8, 1.1, 2.83, 1.6, COLORS.AMBER);
+    addKPICard(slide6, 'Active PT Plans', data.ptAnalytics.activePT, 'Ongoing Sessions', 9.9, 1.1, 2.83, 1.6, COLORS.GREEN);
 
     // Pie Chart: PT Male vs Female
     const ptPie = [
@@ -563,9 +612,9 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide6.addChart(pres.ChartType.pie, ptPie, {
-      x: 0.5,
-      y: 3.1,
-      w: 5.5,
+      x: 0.6,
+      y: 2.9,
+      w: 5.8,
       h: 3.7,
       showLegend: true,
       legendPos: 'b',
@@ -583,9 +632,9 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide6.addChart(pres.ChartType.bar, trainerBar, {
-      x: 6.3,
-      y: 3.1,
-      w: 6.5,
+      x: 6.7,
+      y: 2.9,
+      w: 6.03,
       h: 3.7,
       showLegend: false,
       showTitle: true,
@@ -604,7 +653,7 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     addSlideHeader(slide7, 'Slide 7 — Revenue Analysis', 'Financial Performance, Revenue Streams & Monthly Growth', data);
 
     // Large Hero KPI Card
-    addKPICard(slide7, 'TOTAL REVENUE GENERATED', `₹${data.revenueAnalysis.totalRevenue.toLocaleString('en-IN')}`, 'Realized Receipts for Evaluated Period', 0.5, 1.1, 12.3, 1.6, COLORS.GREEN);
+    addKPICard(slide7, 'TOTAL REVENUE GENERATED', `₹${data.revenueAnalysis.totalRevenue.toLocaleString('en-IN')}`, 'Realized Receipts for Evaluated Period', 0.6, 1.1, 12.13, 1.5, COLORS.GREEN);
 
     // Pie Chart: Revenue Sources
     const revPie = [
@@ -615,10 +664,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide7.addChart(pres.ChartType.pie, revPie, {
-      x: 0.5,
-      y: 2.9,
+      x: 0.6,
+      y: 2.8,
       w: 5.8,
-      h: 3.9,
+      h: 3.8,
       showLegend: true,
       legendPos: 'b',
       showTitle: true,
@@ -635,10 +684,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide7.addChart(pres.ChartType.bar, revBar, {
-      x: 6.6,
-      y: 2.9,
-      w: 6.2,
-      h: 3.9,
+      x: 6.7,
+      y: 2.8,
+      w: 6.03,
+      h: 3.8,
       showLegend: false,
       showTitle: true,
       title: 'Monthly Revenue Realization (₹)',
@@ -656,9 +705,9 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     addSlideHeader(slide8, 'Slide 8 — Attendance Analytics', 'Daily Footfall, Weekly Summary & Peak Hour Heatmap', data);
 
     // Attendance KPIs Top Row
-    addKPICard(slide8, "Today's Attendance", data.attendanceAnalytics.todayCount, 'Check-ins Today', 0.5, 1.1, 3.8, 1.6, COLORS.BLUE_MAIN);
-    addKPICard(slide8, 'Weekly Attendance', data.attendanceAnalytics.weeklyCount, 'Last 7 Days Footfall', 4.7, 1.1, 3.8, 1.6, COLORS.CYAN_ACCENT);
-    addKPICard(slide8, 'Monthly Attendance', data.attendanceAnalytics.monthlyCount, 'Total Monthly Punch Logs', 8.9, 1.1, 3.9, 1.6, COLORS.PURPLE);
+    addKPICard(slide8, "Today's Attendance", data.attendanceAnalytics.todayCount, 'Check-ins Today', 0.6, 1.1, 3.93, 1.6, COLORS.BLUE_MAIN);
+    addKPICard(slide8, 'Weekly Attendance', data.attendanceAnalytics.weeklyCount, 'Last 7 Days Footfall', 4.7, 1.1, 3.93, 1.6, COLORS.CYAN_ACCENT);
+    addKPICard(slide8, 'Monthly Attendance', data.attendanceAnalytics.monthlyCount, 'Total Monthly Punch Logs', 8.8, 1.1, 3.93, 1.6, COLORS.PURPLE);
 
     // Peak Hour Heatmap (Hourly Bar Chart)
     const peakChart = [
@@ -669,10 +718,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide8.addChart(pres.ChartType.bar, peakChart, {
-      x: 0.5,
+      x: 0.6,
       y: 2.9,
-      w: 12.3,
-      h: 3.9,
+      w: 12.13,
+      h: 3.7,
       showLegend: false,
       showTitle: true,
       title: 'Peak Hour Footfall Heatmap (Hourly Check-ins 06:00 AM – 09:00 PM)',
@@ -683,16 +732,13 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
   }
 
   // -------------------------------------------------------------------
-  // SLIDE 9: Top Members
+  // SLIDE 9: Top Members Spotlight
   // -------------------------------------------------------------------
   {
     const slide9 = pres.addSlide();
     addSlideHeader(slide9, 'Slide 9 — Top Members Spotlight', 'Recognizing Most Frequent & Dedicated Gym Members', data);
 
-    const headers = ['Member Name', 'Member ID', 'Package', 'Join Date', 'Total Visits', 'Last Visit'].map(h => ({
-      text: h,
-      options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-    }));
+    const headers = ['Member Name', 'Member ID', 'Package', 'Join Date', 'Total Visits', 'Last Visit'];
     const rows = data.topMembers.map(m => [
       m.name,
       m.memberId,
@@ -700,16 +746,14 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       m.joinDate,
       `${m.totalVisits} Check-ins`,
       m.lastVisit
-    ].map(text => ({ text })));
+    ]);
 
-    slide9.addTable([headers, ...rows], {
-      x: 0.5,
+    const formattedTable = formatTableData(headers, rows);
+    slide9.addTable(formattedTable, {
+      x: 0.6,
       y: 1.2,
-      w: 12.3,
-      colW: [2.6, 1.8, 2.4, 1.8, 1.8, 1.9],
-      fontSize: 10,
-      fontFace: 'Arial',
-      align: 'center',
+      w: 12.13,
+      colW: [2.6, 1.8, 2.4, 1.8, 1.73, 1.8],
       border: { pt: 1, color: COLORS.CARD_BORDER },
       fill: { color: COLORS.CARD_BG }
     });
@@ -725,31 +769,26 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     addSlideHeader(slide10, 'Slide 10 — Expiring Memberships', '30-Day Renewal Pipeline & Urgent Follow-up List', data);
 
     // KPI Cards
-    addKPICard(slide10, 'Expiring in 7 Days', data.expiringMemberships.in7Days, 'Critical Follow-up', 0.5, 1.1, 3.8, 1.6, COLORS.RED);
-    addKPICard(slide10, 'Expiring in 15 Days', data.expiringMemberships.in15Days, 'High Priority', 4.7, 1.1, 3.8, 1.6, COLORS.AMBER);
-    addKPICard(slide10, 'Expiring in 30 Days', data.expiringMemberships.in30Days, 'Renewal Pipeline', 8.9, 1.1, 3.9, 1.6, COLORS.BLUE_MAIN);
+    addKPICard(slide10, 'Expiring in 7 Days', data.expiringMemberships.in7Days, 'Critical Follow-up', 0.6, 1.1, 3.93, 1.6, COLORS.RED);
+    addKPICard(slide10, 'Expiring in 15 Days', data.expiringMemberships.in15Days, 'High Priority', 4.7, 1.1, 3.93, 1.6, COLORS.AMBER);
+    addKPICard(slide10, 'Expiring in 30 Days', data.expiringMemberships.in30Days, 'Renewal Pipeline', 8.8, 1.1, 3.93, 1.6, COLORS.BLUE_MAIN);
 
     // Table
-    const headers = ['Member Name', 'Phone Number', 'Current Package', 'Expiry Date', 'Days Remaining'].map(h => ({
-      text: h,
-      options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-    }));
+    const headers = ['Member Name', 'Phone Number', 'Current Package', 'Expiry Date', 'Days Remaining'];
     const rows = data.expiringMemberships.list.slice(0, 8).map(m => [
       m.name,
       m.phone,
       m.packageName,
       m.expiryDate,
       `${m.daysRemaining} Days`
-    ].map(text => ({ text })));
+    ]);
 
-    slide10.addTable([headers, ...rows], {
-      x: 0.5,
+    const formattedTable = formatTableData(headers, rows);
+    slide10.addTable(formattedTable, {
+      x: 0.6,
       y: 2.9,
-      w: 12.3,
-      colW: [2.8, 2.4, 2.6, 2.3, 2.2],
-      fontSize: 10,
-      fontFace: 'Arial',
-      align: 'center',
+      w: 12.13,
+      colW: [2.8, 2.4, 2.6, 2.3, 2.03],
       border: { pt: 1, color: COLORS.CARD_BORDER },
       fill: { color: COLORS.CARD_BG }
     });
@@ -765,31 +804,26 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     addSlideHeader(slide11, 'Slide 11 — Payment & Dues Report', 'Paid Receipts, Outstanding Dues & Pending Invoices', data);
 
     // KPIs Top Row
-    addKPICard(slide11, 'Paid Revenue', `₹${data.paymentReport.paidAmount.toLocaleString('en-IN')}`, 'Cleared Payments', 0.5, 1.1, 3.8, 1.6, COLORS.GREEN);
-    addKPICard(slide11, 'Pending Dues', `₹${data.paymentReport.pendingAmount.toLocaleString('en-IN')}`, 'Awaiting Clearance', 4.7, 1.1, 3.8, 1.6, COLORS.AMBER);
-    addKPICard(slide11, 'Overdue Amount', `₹${data.paymentReport.overdueAmount.toLocaleString('en-IN')}`, 'Overdue Invoices', 8.9, 1.1, 3.9, 1.6, COLORS.RED);
+    addKPICard(slide11, 'Paid Revenue', `₹${data.paymentReport.paidAmount.toLocaleString('en-IN')}`, 'Cleared Payments', 0.6, 1.1, 3.93, 1.6, COLORS.GREEN);
+    addKPICard(slide11, 'Pending Dues', `₹${data.paymentReport.pendingAmount.toLocaleString('en-IN')}`, 'Awaiting Clearance', 4.7, 1.1, 3.93, 1.6, COLORS.AMBER);
+    addKPICard(slide11, 'Overdue Amount', `₹${data.paymentReport.overdueAmount.toLocaleString('en-IN')}`, 'Overdue Invoices', 8.8, 1.1, 3.93, 1.6, COLORS.RED);
 
     // Table of Pending Dues
-    const headers = ['Member Name', 'Phone Number', 'Outstanding Amount (₹)', 'Due Date', 'Status'].map(h => ({
-      text: h,
-      options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-    }));
+    const headers = ['Member Name', 'Phone Number', 'Outstanding Amount (₹)', 'Due Date', 'Status'];
     const rows = data.paymentReport.pendingMembersTable.map(p => [
       p.name,
       p.phone,
       `₹${p.amount.toLocaleString('en-IN')}`,
       p.dueDate,
       p.status
-    ].map(text => ({ text })));
+    ]);
 
-    slide11.addTable([headers, ...rows], {
-      x: 0.5,
+    const formattedTable = formatTableData(headers, rows);
+    slide11.addTable(formattedTable, {
+      x: 0.6,
       y: 2.9,
-      w: 12.3,
-      colW: [2.8, 2.4, 2.6, 2.3, 2.2],
-      fontSize: 10,
-      fontFace: 'Arial',
-      align: 'center',
+      w: 12.13,
+      colW: [2.8, 2.4, 2.6, 2.3, 2.03],
       border: { pt: 1, color: COLORS.CARD_BORDER },
       fill: { color: COLORS.CARD_BG }
     });
@@ -798,34 +832,29 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
   }
 
   // -------------------------------------------------------------------
-  // SLIDE 12: Trainer Performance
+  // SLIDE 12: Trainer Performance Leaderboard
   // -------------------------------------------------------------------
   {
     const slide12 = pres.addSlide();
     addSlideHeader(slide12, 'Slide 12 — Trainer Performance Leaderboard', 'Staff Productivity, Member Assignments & PT Revenue Generation', data);
 
     // Table of Trainers
-    const headers = ['Trainer Name', 'Role', 'Assigned Members', 'PT Clients', 'Sessions Conducted', 'Revenue Generated'].map(h => ({
-      text: h,
-      options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-    }));
+    const headers = ['Trainer Name', 'Role', 'Members', 'PT Clients', 'Sessions', 'Revenue (₹)'];
     const rows = data.trainerPerformance.trainers.map(t => [
       t.name,
       t.role,
-      String(t.totalMembers),
-      String(t.ptClients),
-      String(t.sessionsCount),
+      t.totalMembers,
+      t.ptClients,
+      t.sessionsCount,
       `₹${t.revenue.toLocaleString('en-IN')}`
-    ].map(text => ({ text })));
+    ]);
 
-    slide12.addTable([headers, ...rows], {
-      x: 0.5,
+    const formattedTable = formatTableData(headers, rows);
+    slide12.addTable(formattedTable, {
+      x: 0.6,
       y: 1.2,
-      w: 6.0,
-      colW: [1.6, 1.0, 0.9, 0.8, 0.9, 0.8],
-      fontSize: 9,
-      fontFace: 'Arial',
-      align: 'center',
+      w: 6.2,
+      colW: [1.6, 1.0, 0.8, 0.9, 0.9, 1.0],
       border: { pt: 1, color: COLORS.CARD_BORDER },
       fill: { color: COLORS.CARD_BG }
     });
@@ -839,10 +868,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide12.addChart(pres.ChartType.bar, trainerRevBar, {
-      x: 6.7,
+      x: 7.1,
       y: 1.2,
-      w: 6.1,
-      h: 5.5,
+      w: 5.63,
+      h: 5.4,
       showLegend: false,
       showTitle: true,
       title: 'Trainer Revenue Ranking (₹)',
@@ -868,10 +897,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide13.addChart(pres.ChartType.pie, agePie, {
-      x: 0.5,
+      x: 0.6,
       y: 1.2,
       w: 5.8,
-      h: 5.5,
+      h: 5.4,
       showLegend: true,
       legendPos: 'b',
       showTitle: true,
@@ -888,10 +917,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       }
     ];
     slide13.addChart(pres.ChartType.bar, occBar, {
-      x: 6.6,
+      x: 6.7,
       y: 1.2,
-      w: 6.2,
-      h: 5.5,
+      w: 6.03,
+      h: 5.4,
       showLegend: false,
       showTitle: true,
       title: 'Member Occupation Profiles',
@@ -917,33 +946,28 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
       addSlideHeader(slide14, pageTitle, 'Comprehensive Registry of Active & Enrolled Gym Members', data);
 
-      const headers = ['Member ID', 'Full Name', 'Gender', 'Age', 'Phone', 'Package', 'Status', 'PT Status', 'Expiry Date', 'Att %'].map(h => ({
-        text: h,
-        options: { fill: { color: COLORS.NAVY_DARK }, color: COLORS.WHITE, bold: true }
-      }));
+      const headers = ['Member ID', 'Full Name', 'Gender', 'Age', 'Phone', 'Package', 'Status', 'PT Status', 'Expiry Date', 'Att %'];
       const pageItems = memberItems.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
 
       const rows = pageItems.map(m => [
         m.memberId,
         m.name,
         m.gender,
-        String(m.age),
+        m.age,
         m.phone,
         m.packageName,
         m.status,
         m.ptStatus,
         m.expiryDate,
         `${m.attendancePercent}%`
-      ].map(text => ({ text })));
+      ]);
 
-      slide14.addTable([headers, ...rows], {
-        x: 0.5,
+      const formattedTable = formatTableData(headers, rows);
+      slide14.addTable(formattedTable, {
+        x: 0.6,
         y: 1.2,
-        w: 12.3,
-        colW: [1.2, 2.0, 0.9, 0.6, 1.6, 1.8, 1.0, 1.0, 1.2, 1.0],
-        fontSize: 9,
-        fontFace: 'Arial',
-        align: 'center',
+        w: 12.13,
+        colW: [1.2, 2.0, 0.8, 0.6, 1.6, 1.8, 1.0, 1.0, 1.13, 1.0],
         border: { pt: 1, color: COLORS.CARD_BORDER },
         fill: { color: COLORS.CARD_BG }
       });
@@ -953,25 +977,25 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
   }
 
   // -------------------------------------------------------------------
-  // SLIDE 15: Business Insights
+  // SLIDE 15: AI Business Insights & Recommendations
   // -------------------------------------------------------------------
   {
     const slide15 = pres.addSlide();
     addSlideHeader(slide15, 'Slide 15 — AI Business Insights & Recommendations', 'Data-driven Strategic Takeaways Generated by ERP Intelligence', data);
 
-    // Grid of 8 Insight Cards (2 columns x 4 rows)
+    // Grid of 8 Insight Cards (2 columns x 4 rows) cleanly aligned inside 6.4" height
     data.businessInsights.slice(0, 8).forEach((item, idx) => {
       const col = idx % 2;
       const row = Math.floor(idx / 2);
-      const x = 0.5 + col * 6.3;
-      const y = 1.1 + row * 1.4;
+      const x = 0.6 + col * 6.2;
+      const y = 1.15 + row * 1.35;
 
       // Card Background Box
       slide15.addShape('rect', {
         x,
         y,
-        w: 6.0,
-        h: 1.28,
+        w: 5.93,
+        h: 1.22,
         fill: { color: COLORS.CARD_BG },
         line: { color: COLORS.CARD_BORDER, width: 1 }
       });
@@ -979,7 +1003,7 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       // Category Tag
       slide15.addText(item.category.toUpperCase(), {
         x: x + 0.15,
-        y: y + 0.1,
+        y: y + 0.08,
         w: 3.5,
         h: 0.2,
         fontSize: 8,
@@ -990,8 +1014,8 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
 
       // Metric Badge (Top Right of Card)
       slide15.addText(item.metricTag, {
-        x: x + 3.8,
-        y: y + 0.1,
+        x: x + 3.7,
+        y: y + 0.08,
         w: 2.0,
         h: 0.2,
         fontSize: 8,
@@ -1004,10 +1028,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       // Insight Text
       slide15.addText(item.insight, {
         x: x + 0.15,
-        y: y + 0.32,
-        w: 5.7,
+        y: y + 0.3,
+        w: 5.6,
         h: 0.45,
-        fontSize: 9.5,
+        fontSize: 9,
         fontFace: 'Arial',
         bold: true,
         color: COLORS.NAVY_DARK
@@ -1016,10 +1040,10 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       // Impact Text
       slide15.addText(`Impact: ${item.impactText}`, {
         x: x + 0.15,
-        y: y + 0.8,
-        w: 5.7,
+        y: y + 0.78,
+        w: 5.6,
         h: 0.35,
-        fontSize: 8.5,
+        fontSize: 8,
         fontFace: 'Arial',
         color: COLORS.TEXT_MUTED
       });
@@ -1043,22 +1067,22 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       fill: { color: COLORS.NAVY_DARK }
     });
 
-    // Decorative Accent Line
+    // Decorative Bottom Accent Bar
     slide16.addShape('rect', {
       x: 0,
-      y: 6.8,
+      y: 6.7,
       w: '100%',
-      h: 0.7,
+      h: 0.8,
       fill: { color: COLORS.BLUE_MAIN }
     });
 
     // Main Thank You Headline
     slide16.addText('THANK YOU', {
-      x: 1.0,
-      y: 1.0,
-      w: 11.3,
-      h: 1.0,
-      fontSize: 44,
+      x: 0.6,
+      y: 0.8,
+      w: 12.13,
+      h: 0.9,
+      fontSize: 42,
       fontFace: 'Arial',
       bold: true,
       color: COLORS.WHITE,
@@ -1067,21 +1091,21 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     });
 
     slide16.addText(`${data.gymInfo.name.toUpperCase()} — EXECUTIVE REPORT COMPLETE`, {
-      x: 1.0,
-      y: 2.1,
-      w: 11.3,
+      x: 0.6,
+      y: 1.8,
+      w: 12.13,
       h: 0.4,
-      fontSize: 14,
+      fontSize: 13,
       fontFace: 'Arial',
       bold: true,
       color: COLORS.CYAN_ACCENT,
       align: 'center'
     });
 
-    // Generate Dynamic QR Code URL to ERP Dashboard
+    // Generate Dynamic QR Code URL to fusionfit.vercel.app
     let qrDataUrl = '';
     try {
-      qrDataUrl = await QRCode.toDataURL(data.gymInfo.website || 'https://fusionfitness-erp.com', {
+      qrDataUrl = await QRCode.toDataURL('https://fusionfit.vercel.app', {
         margin: 1,
         width: 250,
         color: { dark: '#0F172A', light: '#FFFFFF' }
@@ -1090,42 +1114,20 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       console.error('Failed to generate QR code for PPTX:', e);
     }
 
-    // QR Code Image (Center Right)
-    if (qrDataUrl) {
-      slide16.addImage({
-        data: qrDataUrl,
-        x: 8.0,
-        y: 2.8,
-        w: 2.2,
-        h: 2.2
-      });
-
-      slide16.addText('Scan for Live ERP Dashboard', {
-        x: 7.6,
-        y: 5.1,
-        w: 3.0,
-        h: 0.3,
-        fontSize: 10,
-        fontFace: 'Arial',
-        color: COLORS.CARD_BORDER,
-        align: 'center'
-      });
-    }
-
     // Contact Details Card (Left Side)
     slide16.addShape('rect', {
-      x: 1.5,
-      y: 2.8,
+      x: 1.2,
+      y: 2.6,
       w: 5.5,
-      h: 2.6,
+      h: 3.4,
       fill: { color: '1E293B' },
       line: { color: '334155', width: 1 }
     });
 
     slide16.addText('CONTACT & SYSTEM DETAILS', {
-      x: 1.8,
-      y: 3.0,
-      w: 4.8,
+      x: 1.5,
+      y: 2.85,
+      w: 4.9,
       h: 0.3,
       fontSize: 11,
       fontFace: 'Arial',
@@ -1137,13 +1139,13 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       `Phone: ${data.gymInfo.phone}`,
       `Email: ${data.gymInfo.email}`,
       `Address: ${data.gymInfo.address}`,
-      `Portal: ${data.gymInfo.website}`
+      `Portal: fusionfit.vercel.app`
     ];
 
     contactItems.forEach((text, i) => {
       slide16.addText(text, {
-        x: 1.8,
-        y: 3.4 + i * 0.4,
+        x: 1.5,
+        y: 3.3 + i * 0.45,
         w: 5.0,
         h: 0.35,
         fontSize: 10,
@@ -1152,17 +1154,64 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       });
     });
 
-    // Footer Text in Blue Accent Bar
-    slide16.addText(`${data.gymInfo.name} ERP System | Presentation Ready Report | Confidential`, {
-      x: 0.5,
+    // QR Code Card (Right Side)
+    slide16.addShape('rect', {
+      x: 7.1,
+      y: 2.6,
+      w: 5.0,
+      h: 3.4,
+      fill: { color: '1E293B' },
+      line: { color: '334155', width: 1 }
+    });
+
+    if (qrDataUrl) {
+      slide16.addImage({
+        data: qrDataUrl,
+        x: 8.5,
+        y: 2.85,
+        w: 2.2,
+        h: 2.2
+      });
+
+      slide16.addText('Scan to Visit fusionfit.vercel.app', {
+        x: 7.3,
+        y: 5.2,
+        w: 4.6,
+        h: 0.3,
+        fontSize: 10,
+        fontFace: 'Arial',
+        bold: true,
+        color: COLORS.CYAN_ACCENT,
+        align: 'center'
+      });
+    }
+
+    // Footer Text inside Blue Accent Bar
+    slide16.addText(`${data.gymInfo.name} ERP | fusionfit.vercel.app | Presentation Ready Report`, {
+      x: 0.6,
       y: 6.9,
-      w: 12.3,
+      w: 9.5,
       h: 0.4,
       fontSize: 10,
       fontFace: 'Arial',
       bold: true,
       color: COLORS.WHITE,
-      align: 'center'
+      align: 'left'
+    });
+
+    // redix.in Watermark Hyperlink (Bottom Right inside bar)
+    slide16.addText('redix.in', {
+      x: 10.8,
+      y: 6.9,
+      w: 1.93,
+      h: 0.4,
+      fontSize: 10,
+      fontFace: 'Arial',
+      bold: true,
+      italic: true,
+      color: COLORS.WHITE,
+      align: 'right',
+      hyperlink: { url: 'https://redix.in' }
     });
   }
 

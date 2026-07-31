@@ -201,53 +201,58 @@ export async function preparePPTXReportData(
   const gymEmail = settingsData?.gym_email || 'info@fusionfitness.com';
   const gymAddress = settingsData?.gym_address || 'Main Boulevard, Central Avenue, Tech Park';
   const gymLogo = settingsData?.gym_logo || '';
-  const gymWebsite = 'https://fusionfitness-erp.com';
+  const gymWebsite = 'https://fusionfit.vercel.app';
 
   // 1. Members Statistics
-  const totalMembers = membersData.length || 184;
-  const activeMembers = membersData.filter(m => m.status === 'Active').length || Math.round(totalMembers * 0.72);
-  const expiredMembers = membersData.filter(m => m.status === 'Expired').length || Math.round(totalMembers * 0.18);
-  const frozenMembers = membersData.filter(m => m.status === 'Frozen' || m.is_frozen).length || Math.round(totalMembers * 0.05);
+  const hasRealMembers = membersData && membersData.length > 0;
+  const totalMembers = hasRealMembers ? membersData.length : 184;
+  const activeMembers = hasRealMembers ? membersData.filter(m => m.status === 'Active').length : Math.round(totalMembers * 0.72);
+  const expiredMembers = hasRealMembers ? membersData.filter(m => m.status === 'Expired').length : Math.round(totalMembers * 0.18);
+  const frozenMembers = hasRealMembers ? membersData.filter(m => m.status === 'Frozen' || m.is_frozen).length : Math.round(totalMembers * 0.05);
   const inactiveMembers = Math.max(0, totalMembers - activeMembers - expiredMembers - frozenMembers);
 
   // New Members & Renewals in Period
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const newMembersPeriod = membersData.filter(m => m.created_at && new Date(m.created_at) >= thirtyDaysAgo).length || 28;
-  const renewalsPeriod = membersData.filter(m => m.package_start_date && new Date(m.package_start_date) >= thirtyDaysAgo && m.status === 'Active').length || 42;
+  const newMembersPeriod = hasRealMembers ? membersData.filter(m => m.created_at && new Date(m.created_at) >= thirtyDaysAgo).length : 28;
+  const renewalsPeriod = hasRealMembers ? membersData.filter(m => m.package_start_date && new Date(m.package_start_date) >= thirtyDaysAgo && m.status === 'Active').length : 42;
 
   // 2. Attendance Metrics
+  const hasRealAttendance = attendanceData && attendanceData.length > 0;
   const todayStr = now.toISOString().split('T')[0];
-  const todayLogs = attendanceData.filter(a => a.punch_time && a.punch_time.startsWith(todayStr));
-  const todayAttendance = todayLogs.length || 54;
+  const todayLogs = hasRealAttendance ? attendanceData.filter(a => a.punch_time && a.punch_time.startsWith(todayStr)) : [];
+  const todayAttendance = hasRealAttendance ? todayLogs.length : 54;
 
-  const weeklyAttendanceCount = attendanceData.filter(a => {
+  const weeklyAttendanceCount = hasRealAttendance ? attendanceData.filter(a => {
     const d = new Date(a.punch_time);
     return (now.getTime() - d.getTime()) <= 7 * 24 * 60 * 60 * 1000;
-  }).length || 368;
+  }).length : 368;
 
-  const monthlyAttendanceCount = attendanceData.length || 1420;
+  const monthlyAttendanceCount = hasRealAttendance ? attendanceData.length : 1420;
 
   // 3. Financial Metrics
+  const hasRealInvoices = invoicesData && invoicesData.length > 0;
   let totalRevenuePeriod = 0;
   let pendingPaymentsAmount = 0;
   let overdueAmount = 0;
 
-  invoicesData.forEach(inv => {
-    const amt = Number(inv.amount) || 0;
-    if (inv.status === 'Paid') {
-      totalRevenuePeriod += amt;
-    } else if (inv.status === 'Pending' || inv.status === 'Unpaid' || inv.status === 'Partially Paid') {
-      pendingPaymentsAmount += amt;
-    } else if (inv.status === 'Overdue') {
-      overdueAmount += amt;
-    }
-  });
-
-  if (totalRevenuePeriod === 0) totalRevenuePeriod = 485000;
-  if (pendingPaymentsAmount === 0) pendingPaymentsAmount = 62000;
-  if (overdueAmount === 0) overdueAmount = 18500;
+  if (hasRealInvoices) {
+    invoicesData.forEach(inv => {
+      const amt = Number(inv.amount) || 0;
+      if (inv.status === 'Paid') {
+        totalRevenuePeriod += amt;
+      } else if (inv.status === 'Pending' || inv.status === 'Unpaid' || inv.status === 'Partially Paid') {
+        pendingPaymentsAmount += amt;
+      } else if (inv.status === 'Overdue') {
+        overdueAmount += amt;
+      }
+    });
+  } else {
+    totalRevenuePeriod = 485000;
+    pendingPaymentsAmount = 62000;
+    overdueAmount = 18500;
+  }
 
   // 4. Personal Training
   const ptClientsCount = ptClientsData.length || 38;

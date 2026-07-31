@@ -188,3 +188,35 @@ export async function getRevenueReport() {
     invoices: list,
   };
 }
+
+export async function getPowerPointLiveData() {
+  const supabase = await createClient();
+
+  const [
+    { data: members },
+    { data: invoices },
+    { data: attendanceLogs },
+    { data: ptTrainers },
+    { data: ptClients },
+    { data: staff },
+    { data: settings }
+  ] = await Promise.all([
+    supabase.from('members').select('*'),
+    supabase.from('invoices').select('*'),
+    supabase.from('attendance_logs').select('*').order('punch_time', { ascending: false }),
+    supabase.from('pt_trainers').select('*'),
+    supabase.from('pt_clients').select('*'),
+    supabase.from('staff').select('*'),
+    supabase.from('settings').select('*').single(),
+  ]);
+
+  return {
+    members: members || [],
+    invoices: invoices || [],
+    attendanceLogs: attendanceLogs || [],
+    ptTrainers: ptTrainers || [],
+    ptClients: ptClients || [],
+    staff: staff || [],
+    settings: settings || undefined,
+  };
+}

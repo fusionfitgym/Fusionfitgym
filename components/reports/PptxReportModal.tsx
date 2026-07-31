@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Presentation,
   Download,
@@ -15,11 +15,14 @@ import {
   Zap,
   Printer,
   X,
-  FileText
+  FileText,
+  Database,
+  RefreshCw
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { preparePPTXReportData, PPTXReportOptions } from '@/lib/reports/pptx-data';
 import { generatePowerPointReport } from '@/lib/reports/pptx-generator';
+import { getPowerPointLiveData } from '@/lib/actions/reports';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
@@ -55,8 +58,67 @@ export function PptxReportModal({
   const [startDate, setStartDate] = useState<string>(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [generating, setGenerating] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
+
+  // Live Database State
+  const [liveData, setLiveData] = useState<{
+    members: any[];
+    invoices: any[];
+    attendanceLogs: any[];
+    ptTrainers: any[];
+    ptClients: any[];
+    staff: any[];
+    settings?: any;
+  }>({
+    members: [],
+    invoices: [],
+    attendanceLogs: [],
+    ptTrainers: [],
+    ptClients: [],
+    staff: [],
+    settings: undefined,
+  });
+
+  // Fetch full live database data when modal opens
+  const fetchLiveData = async () => {
+    setLoadingData(true);
+    try {
+      if (isDemo) {
+        setLiveData({
+          members: demo.members || [],
+          invoices: demo.invoices || [],
+          attendanceLogs: attendanceData || [],
+          ptTrainers: demo.ptTrainers || [],
+          ptClients: demo.ptClients || [],
+          staff: demo.staff || [],
+          settings: settingsData,
+        });
+      } else {
+        const res = await getPowerPointLiveData();
+        setLiveData({
+          members: res.members.length > 0 ? res.members : membersData,
+          invoices: res.invoices.length > 0 ? res.invoices : invoicesData,
+          attendanceLogs: res.attendanceLogs.length > 0 ? res.attendanceLogs : attendanceData,
+          ptTrainers: res.ptTrainers.length > 0 ? res.ptTrainers : ptTrainersData,
+          ptClients: res.ptClients.length > 0 ? res.ptClients : ptClientsData,
+          staff: res.staff.length > 0 ? res.staff : staffData,
+          settings: res.settings || settingsData,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching live PowerPoint data:', err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      fetchLiveData();
+    }
+  }, [open, isDemo]);
 
   // 16 Slide List Metadata for Preview Outline
   const slidesOutline = [
@@ -78,26 +140,57 @@ export function PptxReportModal({
     { num: 16, title: 'Closing & QR Code', tag: 'Contact & Portal QR Code', icon: CheckCircle2 },
   ];
 
+  // Helper to filter data by selected period
+  const getFilteredPeriodData = () => {
+    const now = new Date();
+    let periodStart = new Date();
+
+    if (dateRange === 'weekly') {
+      periodStart.setDate(now.getDate() - 7);
+    } else if (dateRange === 'monthly') {
+      periodStart.setDate(now.getDate() - 30);
+    } else if (dateRange === 'yearly') {
+      periodStart = new Date(now.getFullYear(), 0, 1);
+    } else if (dateRange === 'custom' && startDate) {
+      periodStart = new Date(startDate);
+    }
+
+    const periodEnd = (dateRange === 'custom' && endDate) ? new Date(endDate) : now;
+
+    const filteredInvoices = (liveData.invoices || []).filter(inv => {
+      const invDate = new Date(inv.created_at || inv.due_date || '');
+      return isNaN(invDate.getTime()) || (invDate >= periodStart && invDate <= periodEnd);
+    });
+
+    const filteredLogs = (liveData.attendanceLogs || []).filter(log => {
+      const punchDate = new Date(log.punch_time || '');
+      return isNaN(punchDate.getTime()) || (punchDate >= periodStart && punchDate <= periodEnd);
+    });
+
+    return {
+      members: liveData.members,
+      invoices: filteredInvoices.length > 0 ? filteredInvoices : liveData.invoices,
+      attendance: filteredLogs.length > 0 ? filteredLogs : liveData.attendanceLogs,
+      trainers: liveData.ptTrainers,
+      ptClients: liveData.ptClients,
+      staff: liveData.staff,
+      settings: liveData.settings,
+    };
+  };
+
   // PowerPoint Generator Handler
   const handleGeneratePPTX = async () => {
     setGenerating(true);
     setGenerationProgress(15);
-    setStatusMessage('Aggregating real-time database metrics...');
-    const toastId = toast.loading('Building 16-Slide Executive PowerPoint Presentation...');
+    setStatusMessage('Aggregating dynamic period database metrics...');
+    const toastId = toast.loading(`Building 16-Slide PowerPoint (${dateRange.toUpperCase()})...`);
 
     try {
-      // 1. Gather raw data sources (or demo state if in demo mode)
-      const rawMembers = isDemo ? demo.members : membersData;
-      const rawInvoices = isDemo ? demo.invoices : invoicesData;
-      const rawAttendance = attendanceData;
-      const rawStaff = isDemo ? demo.staff : staffData;
-      const rawTrainers = isDemo ? demo.ptTrainers : ptTrainersData;
-      const rawPTClients = isDemo ? demo.ptClients : ptClientsData;
+      const dataset = getFilteredPeriodData();
 
-      setGenerationProgress(40);
-      setStatusMessage('Calculating 16-slide analytics & AI insights...');
+      setGenerationProgress(45);
+      setStatusMessage(`Computing real statistics for ${dataset.members.length} members & ${dataset.invoices.length} invoices...`);
 
-      // 2. Prepare aggregated data
       const options: PPTXReportOptions = {
         dateRange,
         startDate,
@@ -107,26 +200,24 @@ export function PptxReportModal({
       };
 
       const fullReportData = await preparePPTXReportData(
-        rawMembers,
-        rawInvoices,
-        rawAttendance,
-        rawTrainers,
-        rawPTClients,
-        rawStaff,
-        settingsData,
+        dataset.members,
+        dataset.invoices,
+        dataset.attendance,
+        dataset.trainers,
+        dataset.ptClients,
+        dataset.staff,
+        dataset.settings,
         options
       );
 
-      setGenerationProgress(70);
+      setGenerationProgress(75);
       setStatusMessage('Rendering editable PowerPoint vector charts & multi-slide tables...');
 
-      // 3. Generate PPTX presentation blob
       const pptxBlob = await generatePowerPointReport(fullReportData);
 
       setGenerationProgress(95);
-      setStatusMessage('Finalizing presentation bundle...');
+      setStatusMessage('Finalizing presentation file...');
 
-      // 4. Trigger download
       const filename = `Gym_ERP_Executive_Report_${dateRange.toUpperCase()}_${new Date().toISOString().split('T')[0]}.pptx`;
       const url = URL.createObjectURL(pptxBlob);
       const link = document.createElement('a');
@@ -138,7 +229,7 @@ export function PptxReportModal({
       URL.revokeObjectURL(url);
 
       setGenerationProgress(100);
-      toast.success('✓ PowerPoint (.pptx) Report Generated & Downloaded Successfully!', { id: toastId });
+      toast.success('✓ PowerPoint (.pptx) Report Generated & Downloaded!', { id: toastId });
     } catch (err: any) {
       console.error('Failed to generate PPTX report:', err);
       toast.error(`Generation Failed: ${err.message || 'Unknown error'}`, { id: toastId });
@@ -155,24 +246,28 @@ export function PptxReportModal({
     window.print();
   };
 
+  const membersCount = liveData.members?.length || 0;
+  const invoicesCount = liveData.invoices?.length || 0;
+  const logsCount = liveData.attendanceLogs?.length || 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange} containerClassName="max-w-3xl sm:max-w-4xl">
-      <DialogContent className="bg-slate-950 border border-slate-800 text-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] p-0">
-        {/* Fixed Header */}
-        <DialogHeader className="px-6 py-4 border-b border-slate-800 bg-slate-900/80">
+      <DialogContent className="bg-zinc-950 border border-zinc-800 text-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] p-0">
+        {/* Header - High Contrast Gold Accent */}
+        <DialogHeader className="px-6 py-4 border-b border-zinc-800 bg-zinc-900/90">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+              <div className="h-10 w-10 rounded-xl bg-amber-400 text-zinc-950 flex items-center justify-center font-bold shadow-lg shadow-amber-400/20">
                 <Presentation className="h-5 w-5" />
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
                   Automatic PowerPoint (.pptx) Executive Report Generator
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-semibold uppercase">
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-bold uppercase">
                     16 Slides
                   </span>
                 </DialogTitle>
-                <DialogDescription className="text-xs text-slate-400 mt-0.5">
+                <DialogDescription className="text-xs text-zinc-400 mt-0.5">
                   Generate presentation-ready, dynamic PowerPoint slides with native editable vector charts & auto-paginated tables.
                 </DialogDescription>
               </div>
@@ -180,7 +275,7 @@ export function PptxReportModal({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg p-1 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="rounded-lg p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -189,14 +284,38 @@ export function PptxReportModal({
 
         {/* Scrollable Body Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Real-time DB Connection Badge */}
+          <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
+            <div className="flex items-center gap-2 text-xs">
+              <Database className="h-4 w-4 text-amber-400" />
+              <span className="font-semibold text-zinc-200">
+                {loadingData ? 'Syncing Live Database...' : `Live Database Synced:`}
+              </span>
+              {!loadingData && (
+                <span className="text-amber-400 font-mono font-medium">
+                  {membersCount} Members | {invoicesCount} Invoices | {logsCount} Logs
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={fetchLiveData}
+              disabled={loadingData}
+              className="text-xs text-zinc-400 hover:text-amber-400 flex items-center gap-1 transition-colors"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingData ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
           {/* Controls Bar: Date Range Picker */}
-          <div className="bg-slate-900/80 rounded-xl p-4 border border-slate-800/80 space-y-3">
+          <div className="bg-zinc-900/80 rounded-xl p-4 border border-zinc-800 space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-blue-400" />
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-amber-400" />
                 Select Report Period & Date Range
               </label>
-              <span className="text-xs text-slate-400">Real-time DB Data Sync</span>
+              <span className="text-xs text-zinc-400">Dynamic Metrics Calculation</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -209,10 +328,10 @@ export function PptxReportModal({
                 <button
                   key={tab.id}
                   onClick={() => setDateRange(tab.id as any)}
-                  className={`py-2 px-3 rounded-lg text-xs font-medium transition-all ${
+                  className={`py-2 px-3 rounded-lg text-xs font-bold transition-all ${
                     dateRange === tab.id
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 border border-blue-500'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-transparent'
+                      ? 'bg-amber-400 text-zinc-950 shadow-md shadow-amber-400/20 border border-amber-400'
+                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white border border-transparent'
                   }`}
                 >
                   {tab.label}
@@ -224,21 +343,21 @@ export function PptxReportModal({
             {dateRange === 'custom' && (
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
-                  <label className="text-[11px] text-slate-400 mb-1 block">Start Date</label>
+                  <label className="text-[11px] text-zinc-400 mb-1 block">Start Date</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400 mb-1 block">End Date</label>
+                  <label className="text-[11px] text-zinc-400 mb-1 block">End Date</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
                   />
                 </div>
               </div>
@@ -248,11 +367,11 @@ export function PptxReportModal({
           {/* Slide Deck Outline Grid */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Layers className="h-4 w-4 text-cyan-400" />
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-amber-400" />
                 16-Slide Executive Deck Structure
               </h4>
-              <span className="text-[11px] text-slate-400">Native Vector Charts & Editable Tables</span>
+              <span className="text-[11px] text-zinc-400">Native Vector Charts & Editable Tables</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
@@ -261,18 +380,18 @@ export function PptxReportModal({
                 return (
                   <div
                     key={item.num}
-                    className="bg-slate-900 border border-slate-800/80 rounded-lg p-2 hover:border-blue-500/50 transition-all group"
+                    className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 hover:border-amber-400/40 transition-all group"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">
                         Slide {item.num}
                       </span>
-                      <IconComponent className="h-3.5 w-3.5 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                      <IconComponent className="h-3.5 w-3.5 text-zinc-500 group-hover:text-amber-400 transition-colors" />
                     </div>
-                    <p className="text-xs font-semibold text-slate-200 line-clamp-1 group-hover:text-white">
+                    <p className="text-xs font-semibold text-zinc-200 line-clamp-1 group-hover:text-white">
                       {item.title}
                     </p>
-                    <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">{item.tag}</p>
+                    <p className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">{item.tag}</p>
                   </div>
                 );
               })}
@@ -281,17 +400,17 @@ export function PptxReportModal({
 
           {/* Progress Indicator when generating */}
           {generating && (
-            <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-4 space-y-2 animate-pulse">
+            <div className="bg-zinc-900 border border-amber-400/30 rounded-xl p-4 space-y-2 animate-pulse">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-blue-300 flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-400 animate-spin" />
+                <span className="font-semibold text-amber-400 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-400 animate-spin" />
                   {statusMessage || 'Generating PowerPoint Report...'}
                 </span>
-                <span className="font-bold text-blue-400">{generationProgress}%</span>
+                <span className="font-bold text-amber-400">{generationProgress}%</span>
               </div>
-              <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-blue-600 to-cyan-400 h-full transition-all duration-300"
+                  className="bg-gradient-to-r from-amber-400 to-amber-500 h-full transition-all duration-300"
                   style={{ width: `${generationProgress}%` }}
                 />
               </div>
@@ -300,10 +419,10 @@ export function PptxReportModal({
         </div>
 
         {/* Sticky Pinned Footer */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/95 backdrop-blur sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            <span>Ready for Client & Stakeholder Meetings</span>
+            <span>Presentation-Ready & Executive Level</span>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -311,9 +430,9 @@ export function PptxReportModal({
               type="button"
               onClick={handleGeneratePDF}
               disabled={generating}
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Printer className="h-4 w-4 text-slate-400" />
+              <Printer className="h-4 w-4 text-zinc-400" />
               Export PDF
             </button>
 
@@ -321,11 +440,11 @@ export function PptxReportModal({
               type="button"
               onClick={handleGeneratePPTX}
               disabled={generating}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-lg shadow-amber-400/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {generating ? (
                 <>
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="h-4 w-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
                   Generating...
                 </>
               ) : (

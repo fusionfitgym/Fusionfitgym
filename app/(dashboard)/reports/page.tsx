@@ -145,16 +145,16 @@ export default function ReportsPage() {
       />
 
       {/* Executive PowerPoint Report Generator Hero Banner */}
-      <div className="mb-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950 p-6 border border-slate-800 shadow-xl relative overflow-hidden text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="mb-6 rounded-2xl bg-zinc-900 p-6 border border-zinc-800 shadow-xl relative overflow-hidden text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2 relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="h-3.5 w-3.5" />
             Executive Presentation Engine
           </div>
           <h3 className="text-xl font-bold tracking-tight text-white">
             Automatic PowerPoint (.pptx) Executive Report Generator
           </h3>
-          <p className="text-xs text-slate-300 leading-relaxed">
+          <p className="text-xs text-zinc-400 leading-relaxed">
             Generate dynamic, presentation-ready 16-slide PowerPoint decks with real-time database data, editable vector charts, 10 executive KPIs, multi-slide table auto-pagination, and AI-style business insights.
           </p>
         </div>
@@ -163,9 +163,9 @@ export default function ReportsPage() {
           <button
             type="button"
             onClick={() => setPptxModalOpen(true)}
-            className="px-5 py-3 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2 group whitespace-nowrap"
+            className="px-5 py-3 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-lg shadow-amber-400/20 transition-all flex items-center gap-2 group whitespace-nowrap"
           >
-            <Presentation className="h-4 w-4 group-hover:scale-110 transition-transform" />
+            <Presentation className="h-4 w-4 group-hover:scale-110 transition-transform text-zinc-950" />
             Generate PowerPoint (.pptx)
           </button>
         </div>
