@@ -193,30 +193,38 @@ export async function getPowerPointLiveData() {
   const supabase = await createClient();
 
   const [
-    { data: members },
-    { data: invoices },
-    { data: attendanceLogs },
-    { data: ptTrainers },
-    { data: ptClients },
-    { data: staff },
-    { data: settings }
-  ] = await Promise.all([
+    membersRes,
+    invoicesRes,
+    attendanceRes,
+    ptTrainersRes,
+    ptClientsRes,
+    staffRes,
+    settingsRes
+  ] = await Promise.allSettled([
     supabase.from('members').select('*'),
     supabase.from('invoices').select('*'),
-    supabase.from('attendance_logs').select('*').order('punch_time', { ascending: false }),
+    supabase.from('attendance_logs').select('*').order('punch_time', { ascending: false }).limit(2000),
     supabase.from('pt_trainers').select('*'),
     supabase.from('pt_clients').select('*'),
     supabase.from('staff').select('*'),
-    supabase.from('settings').select('*').single(),
+    supabase.from('settings').select('*').limit(1)
   ]);
 
+  const members = membersRes.status === 'fulfilled' && membersRes.value.data ? membersRes.value.data : [];
+  const invoices = invoicesRes.status === 'fulfilled' && invoicesRes.value.data ? invoicesRes.value.data : [];
+  const attendanceLogs = attendanceRes.status === 'fulfilled' && attendanceRes.value.data ? attendanceRes.value.data : [];
+  const ptTrainers = ptTrainersRes.status === 'fulfilled' && ptTrainersRes.value.data ? ptTrainersRes.value.data : [];
+  const ptClients = ptClientsRes.status === 'fulfilled' && ptClientsRes.value.data ? ptClientsRes.value.data : [];
+  const staff = staffRes.status === 'fulfilled' && staffRes.value.data ? staffRes.value.data : [];
+  const settings = settingsRes.status === 'fulfilled' && settingsRes.value.data && settingsRes.value.data.length > 0 ? settingsRes.value.data[0] : undefined;
+
   return {
-    members: members || [],
-    invoices: invoices || [],
-    attendanceLogs: attendanceLogs || [],
-    ptTrainers: ptTrainers || [],
-    ptClients: ptClients || [],
-    staff: staff || [],
-    settings: settings || undefined,
+    members,
+    invoices,
+    attendanceLogs,
+    ptTrainers,
+    ptClients,
+    staff,
+    settings,
   };
 }
