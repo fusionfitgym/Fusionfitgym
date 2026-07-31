@@ -1,6 +1,6 @@
 import { Member, AttendanceLog, Invoice, Staff, GymSettings } from '@/types';
-import { PTTrainer, PTClient, PTSession } from '@/types/pt';
-import { formatCurrency, formatDate, calculateAge } from '@/lib/utils';
+import { PTTrainer, PTClient } from '@/types/pt';
+import { formatDate, calculateAge } from '@/lib/utils';
 
 export interface PPTXReportOptions {
   dateRange: 'monthly' | 'weekly' | 'yearly' | 'custom';
@@ -84,13 +84,6 @@ export interface ExpiringMember {
   daysRemaining: number;
 }
 
-export interface ExpiringBreakdown {
-  in7Days: number;
-  in15Days: number;
-  in30Days: number;
-  list: ExpiringMember[];
-}
-
 export interface PaymentReportData {
   paidAmount: number;
   pendingAmount: number;
@@ -135,15 +128,6 @@ export interface MemberListItem {
   outstandingBalance: number;
 }
 
-export interface BusinessInsightItem {
-  id: string;
-  category: 'Membership' | 'Revenue' | 'Attendance' | 'Personal Training' | 'Operations';
-  insight: string;
-  impactText: string;
-  trend: 'up' | 'down' | 'neutral';
-  metricTag: string;
-}
-
 export interface FullPPTXReportData {
   gymInfo: {
     name: string;
@@ -168,15 +152,18 @@ export interface FullPPTXReportData {
   revenueAnalysis: RevenueAnalysisData;
   attendanceAnalytics: AttendanceAnalyticsData;
   topMembers: TopMember[];
-  expiringMemberships: ExpiringBreakdown;
+  expiringMemberships: {
+    in7Days: number;
+    in15Days: number;
+    in30Days: number;
+    list: ExpiringMember[];
+  };
   paymentReport: PaymentReportData;
   trainerPerformance: TrainerPerformanceData;
   demographics: DemographicsData;
   memberList: MemberListItem[];
-  businessInsights: BusinessInsightItem[];
 }
 
-// ── Aggregator Function ──────────────────────────────────────────────
 export async function preparePPTXReportData(
   membersData: Member[] = [],
   invoicesData: Invoice[] = [],
@@ -211,14 +198,60 @@ export async function preparePPTXReportData(
   const frozenMembers = hasRealMembers ? membersData.filter(m => m.status === 'Frozen' || m.is_frozen).length : Math.round(totalMembers * 0.05);
   const inactiveMembers = Math.max(0, totalMembers - activeMembers - expiredMembers - frozenMembers);
 
-  // New Members & Renewals in Period
+  // Period Date Window
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const newMembersPeriod = hasRealMembers ? membersData.filter(m => m.created_at && new Date(m.created_at) >= thirtyDaysAgo).length : 28;
   const renewalsPeriod = hasRealMembers ? membersData.filter(m => m.package_start_date && new Date(m.package_start_date) >= thirtyDaysAgo && m.status === 'Active').length : 42;
 
-  // 2. Attendance Metrics
+  // 2. Real Monthly Join & Renewal Trend (Past 6 Months)
+  const past6Months: { month: string; year: number; monthIdx: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    past6Months.push({
+      month: d.toLocaleString('default', { month: 'short' }),
+      year: d.getFullYear(),
+      monthIdx: d.getMonth()
+    });
+  }
+
+  const monthlyJoinTrend = past6Months.map(mInfo => {
+    let joins = 0;
+    let renewals = 0;
+    let expired = 0;
+
+    if (hasRealMembers) {
+      membersData.forEach(m => {
+        if (m.created_at) {
+          const cd = new Date(m.created_at);
+          if (cd.getMonth() === mInfo.monthIdx && cd.getFullYear() === mInfo.year) {
+            joins++;
+          }
+        }
+        if (m.package_start_date && m.status === 'Active') {
+          const sd = new Date(m.package_start_date);
+          if (sd.getMonth() === mInfo.monthIdx && sd.getFullYear() === mInfo.year) {
+            renewals++;
+          }
+        }
+        if (m.package_end_date && m.status === 'Expired') {
+          const ed = new Date(m.package_end_date);
+          if (ed.getMonth() === mInfo.monthIdx && ed.getFullYear() === mInfo.year) {
+            expired++;
+          }
+        }
+      });
+    } else {
+      joins = mInfo.month === 'Feb' ? 22 : mInfo.month === 'Mar' ? 26 : mInfo.month === 'Apr' ? 31 : mInfo.month === 'May' ? 28 : mInfo.month === 'Jun' ? 35 : newMembersPeriod;
+      renewals = mInfo.month === 'Feb' ? 35 : mInfo.month === 'Mar' ? 38 : mInfo.month === 'Apr' ? 40 : mInfo.month === 'May' ? 44 : mInfo.month === 'Jun' ? 48 : renewalsPeriod;
+      expired = mInfo.month === 'Feb' ? 12 : mInfo.month === 'Mar' ? 10 : mInfo.month === 'Apr' ? 15 : mInfo.month === 'May' ? 14 : mInfo.month === 'Jun' ? 11 : expiredMembers;
+    }
+
+    return { month: mInfo.month, joins, renewals, expired };
+  });
+
+  // 3. Attendance Metrics
   const hasRealAttendance = attendanceData && attendanceData.length > 0;
   const todayStr = now.toISOString().split('T')[0];
   const todayLogs = hasRealAttendance ? attendanceData.filter(a => a.punch_time && a.punch_time.startsWith(todayStr)) : [];
@@ -231,45 +264,129 @@ export async function preparePPTXReportData(
 
   const monthlyAttendanceCount = hasRealAttendance ? attendanceData.length : 1420;
 
-  // 3. Financial Metrics
+  // Real Day of Week Attendance Distribution (Mon-Sun)
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayCountsMap: Record<string, number> = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+
+  if (hasRealAttendance) {
+    attendanceData.forEach(a => {
+      if (!a.punch_time) return;
+      const d = new Date(a.punch_time);
+      const dayName = dayNames[d.getDay()];
+      if (dayCountsMap[dayName] !== undefined) {
+        dayCountsMap[dayName] += 1;
+      }
+    });
+  } else {
+    dayCountsMap.Mon = 72; dayCountsMap.Tue = 68; dayCountsMap.Wed = 78;
+    dayCountsMap.Thu = 74; dayCountsMap.Fri = 65; dayCountsMap.Sat = 52; dayCountsMap.Sun = 34;
+  }
+
+  const dailyAttendance = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({
+    day,
+    count: dayCountsMap[day] || 0
+  }));
+
+  // 4. Financial Metrics
   const hasRealInvoices = invoicesData && invoicesData.length > 0;
   let totalRevenuePeriod = 0;
   let pendingPaymentsAmount = 0;
   let overdueAmount = 0;
+  let paidInvoicesCount = 0;
+  let pendingInvoicesCount = 0;
+  let overdueInvoicesCount = 0;
 
   if (hasRealInvoices) {
     invoicesData.forEach(inv => {
       const amt = Number(inv.amount) || 0;
       if (inv.status === 'Paid') {
         totalRevenuePeriod += amt;
+        paidInvoicesCount++;
       } else if (inv.status === 'Pending' || inv.status === 'Unpaid' || inv.status === 'Partially Paid') {
         pendingPaymentsAmount += amt;
+        pendingInvoicesCount++;
       } else if (inv.status === 'Overdue') {
         overdueAmount += amt;
+        overdueInvoicesCount++;
       }
     });
   } else {
     totalRevenuePeriod = 485000;
     pendingPaymentsAmount = 62000;
     overdueAmount = 18500;
+    paidInvoicesCount = 142;
+    pendingInvoicesCount = 18;
+    overdueInvoicesCount = 6;
   }
 
-  // 4. Personal Training
+  // Real Monthly Revenue Realization (Past 6 Months)
+  const monthlyRevenue = past6Months.map(mInfo => {
+    let amt = 0;
+    if (hasRealInvoices) {
+      invoicesData.forEach(inv => {
+        if (inv.status === 'Paid' && (inv.created_at || inv.due_date)) {
+          const idate = new Date(inv.created_at || inv.due_date || '');
+          if (idate.getMonth() === mInfo.monthIdx && idate.getFullYear() === mInfo.year) {
+            amt += Number(inv.amount) || 0;
+          }
+        }
+      });
+    } else {
+      amt = mInfo.month === 'Feb' ? 380000 : mInfo.month === 'Mar' ? 410000 : mInfo.month === 'Apr' ? 440000 : mInfo.month === 'May' ? 435000 : mInfo.month === 'Jun' ? 470000 : totalRevenuePeriod;
+    }
+    return { month: mInfo.month, amount: amt };
+  });
+
+  // 5. Personal Training & Deduplicated Trainer Aggregation
   const ptClientsCount = ptClientsData.length || 38;
   const malePTClients = ptClientsData.filter(c => (c as any).gender === 'Gents' || (c as any).gender === 'Male').length || Math.round(ptClientsCount * 0.58);
   const femalePTClients = Math.max(0, ptClientsCount - malePTClients) || Math.round(ptClientsCount * 0.42);
 
-  // 5. Gender Breakdown
+  // Group and Deduplicate Trainers by UNIQUE Name
+  const trainerMap: Record<string, { name: string; role: string; totalMembers: number; ptClients: number; sessionsCount: number; revenue: number }> = {};
+
+  if (staffData.length > 0) {
+    staffData.forEach((s, idx) => {
+      const name = s.full_name?.trim() || `Trainer #${idx + 1}`;
+      if (!trainerMap[name]) {
+        trainerMap[name] = {
+          name,
+          role: (s.role as string) || 'Trainer',
+          totalMembers: Math.max(1, 24 - idx * 3),
+          ptClients: Math.max(0, 8 - idx),
+          sessionsCount: Math.max(0, 64 - idx * 8),
+          revenue: Math.max(10000, 64000 - idx * 8000)
+        };
+      }
+    });
+  }
+
+  const uniqueTrainersList = Object.values(trainerMap).length > 0
+    ? Object.values(trainerMap)
+    : [
+        { name: 'Coach Marcus Vance', role: 'Head Trainer', totalMembers: 32, ptClients: 14, sessionsCount: 96, revenue: 112000 },
+        { name: 'Coach Sarah Jenkins', role: 'Senior Trainer', totalMembers: 26, ptClients: 11, sessionsCount: 78, revenue: 88000 },
+        { name: 'Coach David Miller', role: 'Fitness Coach', totalMembers: 20, ptClients: 8, sessionsCount: 56, revenue: 64000 },
+        { name: 'Coach Elena Rostova', role: 'Strength Coach', totalMembers: 16, ptClients: 5, sessionsCount: 38, revenue: 40000 }
+      ];
+
+  const topTrainersBar = uniqueTrainersList.slice(0, 5).map(t => ({
+    name: t.name,
+    clientCount: t.ptClients,
+    revenue: t.revenue
+  }));
+
+  // 6. Gender Breakdown
   let maleMembers = membersData.filter(m => m.gender === 'Gents').length;
   let femaleMembers = membersData.filter(m => m.gender === 'Ladies').length;
   if (maleMembers === 0 && femaleMembers === 0) {
     maleMembers = Math.round(totalMembers * 0.62);
     femaleMembers = totalMembers - maleMembers;
   }
-  const malePct = Math.round((maleMembers / totalMembers) * 100);
-  const femalePct = Math.round((femaleMembers / totalMembers) * 100);
+  const malePct = Math.round((maleMembers / (totalMembers || 1)) * 100);
+  const femalePct = Math.round((femaleMembers / (totalMembers || 1)) * 100);
 
-  // 6. Packages Breakdown
+  // 7. Packages Breakdown
   const packageMap: Record<string, { count: number; revenue: number }> = {};
   membersData.forEach(m => {
     const pkgName = m.package_name || 'Standard Monthly';
@@ -279,10 +396,10 @@ export async function preparePPTXReportData(
   });
 
   const packageDistributionList = Object.keys(packageMap).length > 0
-    ? Object.entries(packageMap).map(([name, data]) => ({
+    ? Object.entries(packageMap).map(([name, pData]) => ({
         name,
-        membersCount: data.count,
-        revenue: data.revenue || data.count * 3500
+        membersCount: pData.count,
+        revenue: pData.revenue || pData.count * 3500
       }))
     : [
         { name: 'Monthly Basic', membersCount: 65, revenue: 195000 },
@@ -299,7 +416,7 @@ export async function preparePPTXReportData(
     avgDuration: p.name.includes('Annual') ? '12 Months' : p.name.includes('Half') ? '6 Months' : p.name.includes('Quarter') ? '3 Months' : '1 Month'
   }));
 
-  // 7. Expiring Memberships
+  // 8. Expiring Memberships
   const expiringList: ExpiringMember[] = [];
   let in7 = 0;
   let in15 = 0;
@@ -341,28 +458,18 @@ export async function preparePPTXReportData(
     }
   }
 
-  // 8. Revenue Sources
+  // 9. Revenue Sources
   const membershipRev = Math.round(totalRevenuePeriod * 0.68);
   const ptRev = Math.round(totalRevenuePeriod * 0.22);
   const productsRev = Math.round(totalRevenuePeriod * 0.06);
   const otherRev = Math.max(0, totalRevenuePeriod - membershipRev - ptRev - productsRev);
 
-  // 9. Peak Hours Heatmap (6 AM - 9 PM)
+  // 10. Peak Hours Heatmap (6 AM - 9 PM)
   const hourCounts: Record<string, number> = {
-    '06:00 AM': 0,
-    '07:00 AM': 0,
-    '08:00 AM': 0,
-    '09:00 AM': 0,
-    '10:00 AM': 0,
-    '11:00 AM': 0,
-    '12:00 PM': 0,
-    '01:00 PM': 0,
-    '04:00 PM': 0,
-    '05:00 PM': 0,
-    '06:00 PM': 0,
-    '07:00 PM': 0,
-    '08:00 PM': 0,
-    '09:00 PM': 0
+    '06:00 AM': 0, '07:00 AM': 0, '08:00 AM': 0, '09:00 AM': 0,
+    '10:00 AM': 0, '11:00 AM': 0, '12:00 PM': 0, '01:00 PM': 0,
+    '04:00 PM': 0, '05:00 PM': 0, '06:00 PM': 0, '07:00 PM': 0,
+    '08:00 PM': 0, '09:00 PM': 0
   };
 
   if (hasRealAttendance) {
@@ -377,25 +484,16 @@ export async function preparePPTXReportData(
       }
     });
   } else {
-    hourCounts['06:00 AM'] = 38;
-    hourCounts['07:00 AM'] = 62;
-    hourCounts['08:00 AM'] = 54;
-    hourCounts['09:00 AM'] = 28;
-    hourCounts['10:00 AM'] = 18;
-    hourCounts['11:00 AM'] = 14;
-    hourCounts['12:00 PM'] = 10;
-    hourCounts['01:00 PM'] = 8;
-    hourCounts['04:00 PM'] = 22;
-    hourCounts['05:00 PM'] = 48;
-    hourCounts['06:00 PM'] = 86;
-    hourCounts['07:00 PM'] = 94;
-    hourCounts['08:00 PM'] = 72;
-    hourCounts['09:00 PM'] = 34;
+    hourCounts['06:00 AM'] = 38; hourCounts['07:00 AM'] = 62; hourCounts['08:00 AM'] = 54;
+    hourCounts['09:00 AM'] = 28; hourCounts['10:00 AM'] = 18; hourCounts['11:00 AM'] = 14;
+    hourCounts['12:00 PM'] = 10; hourCounts['01:00 PM'] = 8; hourCounts['04:00 PM'] = 22;
+    hourCounts['05:00 PM'] = 48; hourCounts['06:00 PM'] = 86; hourCounts['07:00 PM'] = 94;
+    hourCounts['08:00 PM'] = 72; hourCounts['09:00 PM'] = 34;
   }
 
   const peakHoursHeatmap = Object.entries(hourCounts).map(([hour, count]) => ({ hour, count }));
 
-  // 10. Top Members
+  // 11. Top Members & Master List
   const topMembersList: TopMember[] = hasRealMembers
     ? membersData.slice(0, 10).map((m, idx) => ({
         id: m.id,
@@ -417,7 +515,6 @@ export async function preparePPTXReportData(
         lastVisit: 'Today',
       }));
 
-  // 11. Member List (For Multi-slide table)
   const fullMemberList: MemberListItem[] = hasRealMembers
     ? membersData.map((m, idx) => ({
         photoUrl: m.profile_photo || '',
@@ -451,73 +548,63 @@ export async function preparePPTXReportData(
         outstandingBalance: i % 4 === 0 ? 2500 : 0
       }));
 
-  // 12. Business Insights Engine (AI-style computed highlights)
-  const businessInsights: BusinessInsightItem[] = [
-    {
-      id: 'ins-1',
-      category: 'Membership',
-      insight: `Active member ratio stands strong at ${Math.round((activeMembers / totalMembers) * 100)}% with ${newMembersPeriod} new joiners this period.`,
-      impactText: 'Strong retention rate with consistent monthly pipeline acquisition.',
-      trend: 'up',
-      metricTag: `+${Math.round((newMembersPeriod / (totalMembers || 1)) * 100)}% Growth`
-    },
-    {
-      id: 'ins-2',
-      category: 'Personal Training',
-      insight: `Personal Training contributes ${Math.round((ptRev / totalRevenuePeriod) * 100)}% (₹${ptRev.toLocaleString('en-IN')}) of total gym revenue.`,
-      impactText: 'High margin upsell opportunity. Recommend expanding peak trainer slots.',
-      trend: 'up',
-      metricTag: `${Math.round((ptRev / totalRevenuePeriod) * 100)}% Total Rev`
-    },
-    {
-      id: 'ins-3',
-      category: 'Attendance',
-      insight: `Peak gym occupancy is concentrated between 06:00 PM – 08:00 PM with 180+ hourly check-ins.`,
-      impactText: 'Requires floor staff optimization during evening rush hours.',
-      trend: 'neutral',
-      metricTag: '06-08 PM Peak'
-    },
-    {
-      id: 'ins-4',
-      category: 'Operations',
-      insight: `${in30} memberships are expiring within the next 30 days requiring urgent renewal calls.`,
-      impactText: 'Potential revenue recovery of approx ₹1,47,000 upon successful renewal.',
-      trend: 'down',
-      metricTag: `${in30} Expiring Soon`
-    },
-    {
-      id: 'ins-5',
-      category: 'Membership',
-      insight: `Female membership ratio has reached ${femalePct}% (${femaleMembers} active female members).`,
-      impactText: 'Positive response to Ladies Special equipment & slot scheduling.',
-      trend: 'up',
-      metricTag: `${femalePct}% Female Ratio`
-    },
-    {
-      id: 'ins-6',
-      category: 'Revenue',
-      insight: `Outstanding pending dues total ₹${pendingPaymentsAmount.toLocaleString('en-IN')} across pending invoices.`,
-      impactText: 'Automated WhatsApp & SMS reminders recommended for fast clearance.',
-      trend: 'down',
-      metricTag: `₹${(pendingPaymentsAmount / 1000).toFixed(0)}k Dues`
-    },
-    {
-      id: 'ins-7',
-      category: 'Membership',
-      insight: `${packageTableList[0]?.name || 'Annual Plan'} continues to be the highest revenue generating membership package.`,
-      impactText: 'Drives consistent long-term member commitment & cash flow.',
-      trend: 'up',
-      metricTag: 'Top Package'
-    },
-    {
-      id: 'ins-8',
-      category: 'Revenue',
-      insight: `Overall renewal conversion rate achieved ${Math.round((renewalsPeriod / (renewalsPeriod + expiredMembers || 1)) * 100)}% for the evaluated period.`,
-      impactText: 'Reflects high member satisfaction and strong community retention.',
-      trend: 'up',
-      metricTag: `${Math.round((renewalsPeriod / (renewalsPeriod + expiredMembers || 1)) * 100)}% Renewal Rate`
-    }
-  ];
+  // 12. Real Demographics (Age Groups & Occupations)
+  const ageGroupCounts = { '18-24 yrs': 0, '25-34 yrs': 0, '35-44 yrs': 0, '45-54 yrs': 0, '55+ yrs': 0 };
+  const occupationMap: Record<string, number> = {};
+
+  if (hasRealMembers) {
+    membersData.forEach(m => {
+      const age = calculateAge(m.dob) || Number((m as any).age) || 25;
+      if (age < 25) ageGroupCounts['18-24 yrs']++;
+      else if (age < 35) ageGroupCounts['25-34 yrs']++;
+      else if (age < 45) ageGroupCounts['35-44 yrs']++;
+      else if (age < 55) ageGroupCounts['45-54 yrs']++;
+      else ageGroupCounts['55+ yrs']++;
+
+      const occ = (m as any).occupation || 'General / Business';
+      occupationMap[occ] = (occupationMap[occ] || 0) + 1;
+    });
+  }
+
+  const ageGroups = hasRealMembers
+    ? Object.entries(ageGroupCounts).map(([group, count]) => ({ group, count }))
+    : [
+        { group: '18-24 yrs', count: Math.round(totalMembers * 0.28) },
+        { group: '25-34 yrs', count: Math.round(totalMembers * 0.44) },
+        { group: '35-44 yrs', count: Math.round(totalMembers * 0.18) },
+        { group: '45-54 yrs', count: Math.round(totalMembers * 0.07) },
+        { group: '55+ yrs', count: Math.round(totalMembers * 0.03) }
+      ];
+
+  const occupations = Object.keys(occupationMap).length > 0
+    ? Object.entries(occupationMap).map(([occupation, count]) => ({ occupation, count }))
+    : [
+        { occupation: 'IT / Software', count: Math.round(totalMembers * 0.38) },
+        { occupation: 'Business / Owner', count: Math.round(totalMembers * 0.24) },
+        { occupation: 'Students', count: Math.round(totalMembers * 0.18) },
+        { occupation: 'Medical / Healthcare', count: Math.round(totalMembers * 0.12) },
+        { occupation: 'Others', count: Math.round(totalMembers * 0.08) }
+      ];
+
+  // 13. Pending Payments Table
+  const pendingMembersTable = hasRealInvoices
+    ? invoicesData
+        .filter(inv => inv.status === 'Pending' || inv.status === 'Overdue' || inv.status === 'Unpaid')
+        .slice(0, 8)
+        .map(inv => ({
+          name: (inv as any).members?.full_name || (inv as any).member_name || 'Gym Member',
+          phone: (inv as any).members?.phone || '—',
+          amount: Number(inv.amount) || 0,
+          dueDate: formatDate(inv.due_date),
+          status: inv.status
+        }))
+    : expiringList.slice(0, 8).map((exp, i) => ({
+        name: exp.name,
+        phone: exp.phone,
+        amount: 3500 + (i * 500),
+        dueDate: exp.expiryDate,
+        status: i % 3 === 0 ? 'Overdue' : 'Pending'
+      }));
 
   return {
     gymInfo: {
@@ -560,14 +647,7 @@ export async function preparePPTXReportData(
         { name: 'Frozen', count: frozenMembers },
         { name: 'Inactive', count: inactiveMembers }
       ],
-      monthlyJoinTrend: [
-        { month: 'Feb', joins: 22, renewals: 35, expired: 12 },
-        { month: 'Mar', joins: 26, renewals: 38, expired: 10 },
-        { month: 'Apr', joins: 31, renewals: 40, expired: 15 },
-        { month: 'May', joins: 28, renewals: 44, expired: 14 },
-        { month: 'Jun', joins: 35, renewals: 48, expired: 11 },
-        { month: 'Jul', joins: newMembersPeriod, renewals: renewalsPeriod, expired: expiredMembers }
-      ]
+      monthlyJoinTrend
     },
     genderAnalytics: {
       counts: [
@@ -593,35 +673,17 @@ export async function preparePPTXReportData(
         { gender: 'Male PT', count: malePTClients },
         { gender: 'Female PT', count: femalePTClients }
       ],
-      topTrainers: ptTrainersData.length > 0
-        ? ptTrainersData.map(t => ({
-            name: t.full_name,
-            clientCount: (t as any).clientsCount || 8,
-            revenue: (t as any).revenue || 45000
-          }))
-        : [
-            { name: 'Coach Marcus Vance', clientCount: 14, revenue: 112000 },
-            { name: 'Coach Sarah Jenkins', clientCount: 11, revenue: 88000 },
-            { name: 'Coach David Miller', clientCount: 8, revenue: 64000 },
-            { name: 'Coach Elena Rostova', clientCount: 5, revenue: 40000 }
-          ]
+      topTrainers: topTrainersBar
     },
     revenueAnalysis: {
       totalRevenue: totalRevenuePeriod,
       sources: [
-        { source: 'Membership Fees', amount: membershipRev, percentage: Math.round((membershipRev / totalRevenuePeriod) * 100) },
-        { source: 'Personal Training', amount: ptRev, percentage: Math.round((ptRev / totalRevenuePeriod) * 100) },
-        { source: 'Supplements & Products', amount: productsRev, percentage: Math.round((productsRev / totalRevenuePeriod) * 100) },
-        { source: 'Admission & Other', amount: otherRev, percentage: Math.round((otherRev / totalRevenuePeriod) * 100) }
+        { source: 'Membership Fees', amount: membershipRev, percentage: Math.round((membershipRev / (totalRevenuePeriod || 1)) * 100) },
+        { source: 'Personal Training', amount: ptRev, percentage: Math.round((ptRev / (totalRevenuePeriod || 1)) * 100) },
+        { source: 'Supplements & Products', amount: productsRev, percentage: Math.round((productsRev / (totalRevenuePeriod || 1)) * 100) },
+        { source: 'Admission & Other', amount: otherRev, percentage: Math.round((otherRev / (totalRevenuePeriod || 1)) * 100) }
       ],
-      monthlyRevenue: [
-        { month: 'Feb', amount: 380000 },
-        { month: 'Mar', amount: 410000 },
-        { month: 'Apr', amount: 440000 },
-        { month: 'May', amount: 435000 },
-        { month: 'Jun', amount: 470000 },
-        { month: 'Jul', amount: totalRevenuePeriod }
-      ],
+      monthlyRevenue,
       revenueTrend: [
         { date: 'Week 1', amount: Math.round(totalRevenuePeriod * 0.22) },
         { date: 'Week 2', amount: Math.round(totalRevenuePeriod * 0.48) },
@@ -634,15 +696,7 @@ export async function preparePPTXReportData(
       weeklyCount: weeklyAttendanceCount,
       monthlyCount: monthlyAttendanceCount,
       peakHoursHeatmap,
-      dailyAttendance: [
-        { day: 'Mon', count: 72 },
-        { day: 'Tue', count: 68 },
-        { day: 'Wed', count: 78 },
-        { day: 'Thu', count: 74 },
-        { day: 'Fri', count: 65 },
-        { day: 'Sat', count: 52 },
-        { day: 'Sun', count: 34 }
-      ],
+      dailyAttendance,
       genderAttendancePie: [
         { gender: 'Male Attendance', count: Math.round(monthlyAttendanceCount * 0.62) },
         { gender: 'Female Attendance', count: Math.round(monthlyAttendanceCount * 0.38) }
@@ -660,61 +714,19 @@ export async function preparePPTXReportData(
       pendingAmount: pendingPaymentsAmount,
       overdueAmount,
       statusPie: [
-        { status: 'Paid', amount: totalRevenuePeriod, count: 142 },
-        { status: 'Pending', amount: pendingPaymentsAmount, count: 18 },
-        { status: 'Overdue', amount: overdueAmount, count: 6 }
+        { status: 'Paid', amount: totalRevenuePeriod, count: paidInvoicesCount },
+        { status: 'Pending', amount: pendingPaymentsAmount, count: pendingInvoicesCount },
+        { status: 'Overdue', amount: overdueAmount, count: overdueInvoicesCount }
       ],
-      pendingMembersTable: expiringList.slice(0, 8).map((exp, i) => ({
-        name: exp.name,
-        phone: exp.phone,
-        amount: 3500 + (i * 500),
-        dueDate: exp.expiryDate,
-        status: i % 3 === 0 ? 'Overdue' : 'Pending'
-      }))
+      pendingMembersTable
     },
     trainerPerformance: {
-      trainers: staffData.length > 0
-        ? staffData.map((t, idx) => ({
-            name: t.full_name || `Staff #${idx + 1}`,
-            role: (t.role as string) || 'Trainer',
-            totalMembers: Math.max(1, 24 - idx * 3),
-            ptClients: Math.max(0, 8 - idx),
-            sessionsCount: Math.max(0, 64 - idx * 8),
-            revenue: Math.max(0, 64000 - idx * 8000)
-          }))
-        : [
-            { name: 'Coach Marcus Vance', role: 'Head Trainer', totalMembers: 32, ptClients: 14, sessionsCount: 96, revenue: 112000 },
-            { name: 'Coach Sarah Jenkins', role: 'Senior Trainer', totalMembers: 26, ptClients: 11, sessionsCount: 78, revenue: 88000 },
-            { name: 'Coach David Miller', role: 'Fitness Coach', totalMembers: 20, ptClients: 8, sessionsCount: 56, revenue: 64000 },
-            { name: 'Coach Elena Rostova', role: 'Strength Coach', totalMembers: 16, ptClients: 5, sessionsCount: 38, revenue: 40000 }
-          ],
-      topTrainersBar: staffData.length > 0
-        ? staffData.slice(0, 5).map((t, idx) => ({
-            name: t.full_name || `Staff #${idx + 1}`,
-            revenue: Math.max(10000, 112000 - idx * 24000)
-          }))
-        : [
-            { name: 'Marcus Vance', revenue: 112000 },
-            { name: 'Sarah Jenkins', revenue: 88000 },
-            { name: 'David Miller', revenue: 64000 },
-            { name: 'Elena Rostova', revenue: 40000 }
-          ]
+      trainers: uniqueTrainersList,
+      topTrainersBar: topTrainersBar.map(t => ({ name: t.name, revenue: t.revenue }))
     },
     demographics: {
-      ageGroups: [
-        { group: '18-24 yrs', count: Math.round(totalMembers * 0.28) },
-        { group: '25-34 yrs', count: Math.round(totalMembers * 0.44) },
-        { group: '35-44 yrs', count: Math.round(totalMembers * 0.18) },
-        { group: '45-54 yrs', count: Math.round(totalMembers * 0.07) },
-        { group: '55+ yrs', count: Math.round(totalMembers * 0.03) }
-      ],
-      occupations: [
-        { occupation: 'IT / Software', count: Math.round(totalMembers * 0.38) },
-        { occupation: 'Business / Owner', count: Math.round(totalMembers * 0.24) },
-        { occupation: 'Students', count: Math.round(totalMembers * 0.18) },
-        { occupation: 'Medical / Healthcare', count: Math.round(totalMembers * 0.12) },
-        { occupation: 'Others', count: Math.round(totalMembers * 0.08) }
-      ],
+      ageGroups,
+      occupations,
       cityDistribution: [
         { city: 'Central Park / Downtown', count: Math.round(totalMembers * 0.42) },
         { city: 'Westside Residency', count: Math.round(totalMembers * 0.28) },
@@ -727,7 +739,6 @@ export async function preparePPTXReportData(
         { type: 'WT + Strength', count: Math.round(totalMembers * 0.14) }
       ]
     },
-    memberList: fullMemberList,
-    businessInsights
+    memberList: fullMemberList
   };
 }
