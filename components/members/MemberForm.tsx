@@ -61,7 +61,7 @@ const defaultValues: MemberFormValues = {
   parq_fee: 0,
   trainer_package: false,
   trainer_fee: 0,
-  admission_fee: 0,
+  admission_fee: 500,
   machine_type: 'Gents',
   tax: 0,
   discount: 0,
@@ -135,7 +135,7 @@ export function MemberForm({
     parq_fee: initialValues?.parq_fee ?? legacyInitial?.parq_fee ?? 0,
     trainer_package: initialValues?.trainer_package ?? legacyInitial?.trainer_package ?? false,
     trainer_fee: initialValues?.trainer_fee ?? legacyInitial?.trainer_fee ?? 0,
-    admission_fee: initialValues?.admission_fee ?? legacyInitial?.admission_fee ?? 0,
+    admission_fee: initialValues?.admission_fee ?? legacyInitial?.admission_fee ?? 500,
     machine_type: initialValues?.machine_type || legacyInitial?.machine_type || 'Gents',
     package_name: initialValues?.package_name || (legacyInitial?.membership_plan ? `${legacyInitial.membership_plan} Plan` : 'Gents - 1 Month - Weight Training Only'),
     package_duration: initialValues?.package_duration || (legacyInitial?.membership_plan ? (
@@ -255,7 +255,7 @@ export function MemberForm({
   const trainerPackage = watch('trainer_package');
   const machineType = watch('machine_type');
   const startDate = watch('package_start_date');
-  const admissionFee = watch('admission_fee') || 0;
+  const admissionFee = watch('admission_fee') ?? 0;
   
   const membershipFee = watch('membership_fee') || 0;
   const parqFee = watch('parq_fee') || 0;
@@ -747,12 +747,44 @@ export function MemberForm({
                 htmlFor="admission_fee"
                 error={errors.admission_fee?.message}
               >
-                <input
-                  id="admission_fee"
-                  type="number"
-                  className="input-field font-semibold text-slate-800"
-                  {...register('admission_fee', { valueAsNumber: true })}
-                />
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setValue('admission_fee', 500, { shouldDirty: true, shouldValidate: true })}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1",
+                        admissionFee === 500
+                          ? "bg-amber-400 text-zinc-950 border-amber-400 shadow-sm"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                      )}
+                    >
+                      {admissionFee === 500 ? "✓ " : ""}₹500 Fixed Admission Fee
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setValue('admission_fee', 0, { shouldDirty: true, shouldValidate: true })}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer flex items-center gap-1",
+                        admissionFee === 0
+                          ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                      )}
+                    >
+                      {admissionFee === 0 ? "✓ " : ""}₹0 (Waived)
+                    </button>
+                  </div>
+                  <input
+                    id="admission_fee"
+                    type="number"
+                    min="0"
+                    className="input-field font-semibold text-slate-800"
+                    {...register('admission_fee', { valueAsNumber: true })}
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Fixed admission fee of ₹500 is applied by default for new member registrations.
+                  </p>
+                </div>
               </FormField>
 
               <FormField
