@@ -75,12 +75,11 @@ export default function DashboardClientPage() {
     }).length;
   }, [members]);
 
-  const monthlyRevenue = useMemo(() => {
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const totalRevenue = useMemo(() => {
     return invoices
-      .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= thirtyDaysAgo)
+      .filter((invoice) => invoice && invoice.status === 'Paid')
       .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
-  }, [invoices, now]);
+  }, [invoices]);
 
   const dailyPassMembers = members.filter((m) => m.duration === 'Daily Pass' && m.status === 'Active').length;
   const activeMonthlyMembers = members.filter((m) => m.duration !== 'Daily Pass' && m.status === 'Active').length;
@@ -181,10 +180,10 @@ export default function DashboardClientPage() {
           subtitle="Biometric punches logged today"
         />
         <StatCard
-          title="Monthly revenue"
-          value={formatCurrency(monthlyRevenue)}
+          title="Total revenue"
+          value={formatCurrency(totalRevenue)}
           icon={<TrendingUp className="h-5 w-5" />}
-          subtitle="Paid invoices (last 30 days)"
+          subtitle="All paid invoices"
         />
       </div>
 

@@ -231,9 +231,8 @@ export default async function DashboardPage() {
     return diff >= 0 && diff <= 7;
   }).length;
 
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const monthlyRevenue = invoices
-    .filter((invoice) => invoice && invoice.status === 'Paid' && invoice.created_at && new Date(invoice.created_at) >= thirtyDaysAgo)
+  const totalRevenue = invoices
+    .filter((invoice) => invoice && invoice.status === 'Paid')
     .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
 
   const dailyPassMembers = members.filter((m) => m && m.duration === 'Daily Pass' && m.status === 'Active').length;
@@ -247,7 +246,7 @@ export default async function DashboardPage() {
   console.log('Daily Pass:', dailyPassMembers, 'Monthly Active:', activeMonthlyMembers);
   console.log(totalMembers);
   console.log(todayAttendance);
-  console.log(monthlyRevenue);
+  console.log(totalRevenue);
 
   // Chart data formatting
   const planCounts: Record<string, number> = {};
@@ -351,10 +350,10 @@ export default async function DashboardPage() {
         )}
         {showRevenueAnalytics && (
           <StatCard
-            title="Monthly revenue"
-            value={formatCurrency(monthlyRevenue)}
+            title="Total revenue"
+            value={formatCurrency(totalRevenue)}
             icon={<TrendingUp className="h-5 w-5" />}
-            subtitle="Paid invoices (last 30 days)"
+            subtitle="All paid invoices"
           />
         )}
       </div>
