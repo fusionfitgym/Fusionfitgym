@@ -117,23 +117,27 @@ export default function BackupPage() {
   // Handle manual backup trigger
   const handleTriggerBackup = async () => {
     setTriggeringBackup(true);
+    // Set state to running immediately to activate polling UI
+    setProgress({
+      status: 'running',
+      step: 'database_export',
+      progress: 5,
+      error: null,
+      lastUpdated: new Date().toISOString()
+    });
+
     try {
       const res = await triggerBackupAction();
       if (res.success) {
-        toast.info('Backup process started in the background.');
-        // Set state to running immediately to activate polling
-        setProgress({
-          status: 'running',
-          step: 'database_export',
-          progress: 5,
-          error: null,
-          lastUpdated: new Date().toISOString()
-        });
+        toast.success('Backup completed successfully!');
+        await loadData();
       } else {
-        toast.error(res.error || 'Failed to start backup');
+        toast.error(res.error || 'Failed to complete backup');
+        await loadData();
       }
     } catch (err: any) {
       toast.error(err.message || 'An unexpected error occurred');
+      await loadData();
     } finally {
       setTriggeringBackup(false);
     }
@@ -219,25 +223,28 @@ export default function BackupPage() {
     const backupPath = `${year}/${month}/${filename}`;
 
     setRestoring(true);
+    setProgress({
+      status: 'restoring',
+      step: 'restoring_db',
+      progress: 5,
+      error: null,
+      lastUpdated: new Date().toISOString()
+    });
+
     try {
       const res = await restoreFromBackupAction(backupPath);
       if (res.success) {
-        toast.info('Restore process initiated. The system is rebuilding in the background.');
+        toast.success('Database restored successfully!');
         setRestoreItem(null);
         setConfirmText('');
-        // Set state to restoring immediately to activate polling
-        setProgress({
-          status: 'restoring',
-          step: 'restoring_db',
-          progress: 5,
-          error: null,
-          lastUpdated: new Date().toISOString()
-        });
+        await loadData();
       } else {
-        toast.error(res.error || 'Failed to initiate restore');
+        toast.error(res.error || 'Failed to restore database');
+        await loadData();
       }
     } catch (err: any) {
       toast.error(err.message || 'Error restoring database');
+      await loadData();
     } finally {
       setRestoring(false);
     }

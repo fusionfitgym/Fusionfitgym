@@ -88,7 +88,24 @@ export async function getProgress(): Promise<BackupProgress> {
       .maybeSingle();
 
     if (data?.value) {
-      return JSON.parse(data.value);
+      const parsed: BackupProgress = JSON.parse(data.value);
+      // Auto-clear stale tasks (> 2 minutes without update)
+      if (parsed.status === 'running' || parsed.status === 'restoring') {
+        const lastUpdatedMs = parsed.lastUpdated ? new Date(parsed.lastUpdated).getTime() : 0;
+        const nowMs = Date.now();
+        if (!lastUpdatedMs || nowMs - lastUpdatedMs > 2 * 60 * 1000) {
+          const timeoutError = 'Previous operation timed out or was interrupted.';
+          await updateProgress('failed', 'idle', 0, timeoutError);
+          return {
+            status: 'failed',
+            step: 'idle',
+            progress: 0,
+            error: timeoutError,
+            lastUpdated: new Date().toISOString()
+          };
+        }
+      }
+      return parsed;
     }
   } catch (err) {
     console.error('Failed to read progress status:', err);

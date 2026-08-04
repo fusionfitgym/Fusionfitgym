@@ -36,16 +36,14 @@ export async function triggerBackupAction(): Promise<{ success: boolean; error?:
 
     await logAudit('Manually triggered backup', 'Backup', user.id);
     
-    // We execute the backup in the background
-    // To allow the action to return immediately and run in background:
-    // We run it asynchronously without awaiting
-    runBackup(true).catch(err => {
-      console.error('Manual background backup task failed:', err);
-    });
+    // Execute backup and await completion to ensure server action context stays alive
+    await runBackup(true);
+    revalidatePath('/backup');
 
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Unauthorized' };
+    console.error('Manual backup task failed:', err);
+    return { success: false, error: err.message || 'Backup execution failed' };
   }
 }
 
@@ -61,14 +59,14 @@ export async function restoreFromBackupAction(backupPath: string): Promise<{ suc
 
     await logAudit(`Triggered database restore from backup: ${backupPath}`, 'Backup', user.id);
 
-    // Run restore asynchronously in background so client doesn't time out
-    runRestore(backupPath).catch(err => {
-      console.error('Background restore task failed:', err);
-    });
+    // Execute restore and await completion
+    await runRestore(backupPath);
+    revalidatePath('/backup');
 
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Unauthorized' };
+    console.error('Restore task failed:', err);
+    return { success: false, error: err.message || 'Restore execution failed' };
   }
 }
 
