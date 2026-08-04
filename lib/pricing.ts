@@ -20,7 +20,7 @@ export function getBaseMembershipFee(
 ): number {
   const dur = duration.trim();
   if (dur === 'Daily Pass' || dur === 'Daily Base') {
-    return 50;
+    return settings?.plan_daily ? Number(settings.plan_daily) : 50;
   }
   if (dur === 'Cardio') {
     return 1000;

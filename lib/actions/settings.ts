@@ -19,6 +19,7 @@ export async function getSettings(): Promise<GymSettings> {
     gym_phone:     map.gym_phone     ?? '',
     gym_email:     map.gym_email     ?? '',
     gym_address:   map.gym_address   ?? '',
+    plan_daily:    map.plan_daily    ?? '50',
     plan_monthly:  map.plan_monthly  ?? '1500',
     plan_quarterly: map.plan_quarterly ?? '4000',
     plan_biannual: map.plan_biannual ?? '7500',

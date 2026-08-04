@@ -217,6 +217,24 @@ export default function SettingsPage() {
           icon={<CreditCard className="h-5 w-5" />}
         >
           <div className="space-y-8">
+            {/* Daily Client & Daily Pass Rates */}
+            <div>
+              <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-2">
+                Daily Client Pass Rate
+              </h3>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="rounded-xl border border-emerald-300 bg-emerald-50/60 p-4">
+                  <div className="mb-3">
+                    <p className="text-xs font-bold text-emerald-950">Daily Client Pass (Per Day)</p>
+                    <p className="text-[11px] text-emerald-800">Default rate for 1-day client visits (₹50)</p>
+                  </div>
+                  <FormField label="Daily Price (INR)" htmlFor="plan_daily">
+                    <input id="plan_daily" type="number" min="0" defaultValue="50" className="input-field bg-white" {...register('plan_daily')} />
+                  </FormField>
+                </div>
+              </div>
+            </div>
+
             {/* Gents Packages */}
             <div>
               <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-500">Gents Packages</h3>

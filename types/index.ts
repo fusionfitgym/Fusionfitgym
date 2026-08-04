@@ -271,6 +271,7 @@ export interface GymSettings {
   gym_phone: string;
   gym_email: string;
   gym_address: string;
+  plan_daily?: string;
   plan_monthly: string;
   plan_quarterly: string;
   plan_biannual: string;

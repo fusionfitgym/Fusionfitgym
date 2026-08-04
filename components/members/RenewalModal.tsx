@@ -284,7 +284,8 @@ export function RenewalModal({
                   <option value="6 Months">6 Months</option>
                   <option value="Annual">Annual (1 Year)</option>
                   <option value="Cardio">Cardio (1 Month)</option>
-                  <option value="Daily Pass">Daily Pass</option>
+                  <option value="Daily Pass">Daily Pass (₹50 / day)</option>
+                  <option value="Daily Base">Daily Base (₹50 / day)</option>
                 </select>
               </div>
 

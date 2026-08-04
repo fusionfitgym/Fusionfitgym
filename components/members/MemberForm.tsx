@@ -618,8 +618,8 @@ export function MemberForm({
                   aria-invalid={Boolean(errors.duration)}
                   {...register('duration')}
                 >
-                  <option value="Daily Base">Daily Base Package</option>
-                  <option value="Daily Pass">Daily Pass</option>
+                  <option value="Daily Base">Daily Base Package (₹50 / day)</option>
+                  <option value="Daily Pass">Daily Pass (₹50 / day)</option>
                   <option value="Cardio">Cardio</option>
                   <option value="1 Month">1 Month</option>
                   <option value="3 Months">3 Months</option>

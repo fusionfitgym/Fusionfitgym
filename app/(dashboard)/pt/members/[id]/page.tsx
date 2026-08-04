@@ -3,7 +3,7 @@
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, History, Image as ImageIcon, Sparkles, X, Target, Trash2, Clock, Activity, AlertCircle, Flame, FlameKindling, HardHat, CheckCircle2, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, History, Image as ImageIcon, Sparkles, X, Target, Trash2, Clock, Activity, AlertCircle, Flame, FlameKindling, HardHat, CheckCircle2, Download, FileText, Loader2 } from 'lucide-react';
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
@@ -15,6 +15,89 @@ import { GymSettings } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+
+const WORKOUT_ROUTINE_PRESETS = [
+  {
+    day: 'Mon',
+    label: 'Monday (Upper Body)',
+    title: 'Monday (Upper Body)',
+    muscleGroup: 'Chest & Back',
+    exercises: [
+      '1. Multipress, Bench Press',
+      '2. Lat Pulldown',
+      '3. Shoulder Press',
+      '4. Seated Cable Row',
+      '5. Lateral Raises',
+      '6. Triceps Pushdown',
+      '7. Bicep Curls'
+    ]
+  },
+  {
+    day: 'Tue',
+    label: 'Tuesday (Lower Body)',
+    title: 'Tuesday (Lower Body)',
+    muscleGroup: 'Legs & Glutes',
+    exercises: [
+      '1. Squat',
+      '2. Hack squat',
+      '3. Walking Lunges',
+      '4. Adductor',
+      '5. Abductor',
+      '6. Standing Calf raises'
+    ]
+  },
+  {
+    day: 'Wed',
+    label: 'Wednesday (Core & Neck)',
+    title: 'Wednesday Routine',
+    muscleGroup: 'Core & Abs',
+    exercises: [
+      '1. ABS',
+      '2. Neck',
+      '3. Forearms'
+    ]
+  },
+  {
+    day: 'Thu',
+    label: 'Thursday (Upper Body)',
+    title: 'Thursday (Upper Body)',
+    muscleGroup: 'Chest & Arms',
+    exercises: [
+      '1. Incline chest Press',
+      '2. Close-Grip Pulldown',
+      '3. Machine Chest fly',
+      '4. Shrugs',
+      '5. Face Pulls',
+      '6. Overhead Triceps Extension',
+      '7. Preacher Curls'
+    ]
+  },
+  {
+    day: 'Fri',
+    label: 'Friday (Lower Body)',
+    title: 'Friday (Lower Body)',
+    muscleGroup: 'Legs & Glutes',
+    exercises: [
+      '1. Deadlift',
+      '2. Leg press',
+      '3. Leg Curl',
+      '4. Leg Extension',
+      '5. Hip thrust',
+      '6. Seated calf raises'
+    ]
+  },
+  {
+    day: 'Sat',
+    label: 'Saturday (Core & Neck)',
+    title: 'Saturday Routine',
+    muscleGroup: 'Core & Abs',
+    exercises: [
+      '1. ABS',
+      '2. Neck',
+      '3. Forearms'
+    ]
+  }
+];
 
 export default function PTClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -58,7 +141,52 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [workoutDuration, setWorkoutDuration] = useState('45');
   const [caloriesBurned, setCaloriesBurned] = useState('');
   const [intensity, setIntensity] = useState<'Low' | 'Moderate' | 'High' | 'Extreme'>('Moderate');
+  // Configurator state for Sets, Reps & Weight
+  const [builderSets, setBuilderSets] = useState('4');
+  const [builderReps, setBuilderReps] = useState('15, 12, 10');
+  const [builderWeight, setBuilderWeight] = useState('25');
+
+  // Submission locking states
+  const [isSubmittingProgress, setIsSubmittingProgress] = useState(false);
+  const [isSubmittingWorkout, setIsSubmittingWorkout] = useState(false);
   const [workoutNotes, setWorkoutNotes] = useState('');
+
+  const loadPresetRoutine = (preset: typeof WORKOUT_ROUTINE_PRESETS[0]) => {
+    setWorkoutTitle(preset.title);
+    setMuscleGroup(preset.muscleGroup);
+
+    const formattedExercises = preset.exercises.map(ex => {
+      const parts = [];
+      if (builderSets) parts.push(`${builderSets} sets`);
+      if (builderReps) parts.push(`x ${builderReps} reps`);
+      if (builderWeight) parts.push(`@ ${builderWeight} kg`);
+      const suffix = parts.length > 0 ? `: ${parts.join(' ')}` : '';
+      return `${ex}${suffix}`;
+    }).join('\n');
+
+    setExercises(formattedExercises);
+    toast.success(`Loaded ${preset.label} routine!`);
+  };
+
+  const applyRepsAndWeightToRoutine = () => {
+    if (!exercises.trim()) {
+      toast.error('Please enter or select a routine first');
+      return;
+    }
+    const lines = exercises.split('\n');
+    const formatted = lines.map(line => {
+      if (!line.trim()) return line;
+      const cleanLine = line.replace(/:\s*\d+\s*sets.*$/i, '').trim();
+      const parts = [];
+      if (builderSets) parts.push(`${builderSets} sets`);
+      if (builderReps) parts.push(`x ${builderReps} reps`);
+      if (builderWeight) parts.push(`@ ${builderWeight} kg`);
+      return `${cleanLine}${parts.length > 0 ? ': ' + parts.join(' ') : ''}`;
+    }).join('\n');
+
+    setExercises(formatted);
+    toast.success('Updated Reps & Weights for routine exercises!');
+  };
 
   // Bulk selection states
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
@@ -213,10 +341,13 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
 
   const handleAddWorkout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingWorkout) return;
     if (!workoutTitle || !workoutDate) {
       toast.error('Workout Title and Date are required');
       return;
     }
+
+    setIsSubmittingWorkout(true);
 
     const isValidUUID = (str?: string | null) => Boolean(str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str));
     const selectedTrainerId = workoutTrainerId || client?.trainer_id || null;
@@ -257,6 +388,8 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to log workout');
+    } finally {
+      setIsSubmittingWorkout(false);
     }
   };
 
@@ -700,10 +833,26 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                     {/* Exercises breakdown */}
                     {workout.exercises && (
                       <div className="mt-3">
-                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1.5">Exercises & Routine</span>
-                        <pre className="whitespace-pre-wrap text-xs font-mono text-slate-800 bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 leading-relaxed">
-                          {workout.exercises}
-                        </pre>
+                        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1.5">Exercises & Routine Breakdown</span>
+                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 space-y-1.5">
+                          {workout.exercises.split('\n').map((line, idx) => {
+                            if (!line.trim()) return null;
+                            const parts = line.split(':');
+                            const name = parts[0].trim();
+                            const details = parts.slice(1).join(':').trim();
+
+                            return (
+                              <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1 border-b border-slate-200/40 last:border-0">
+                                <span className="text-xs font-bold text-slate-900">{name}</span>
+                                {details ? (
+                                  <span className="inline-flex items-center rounded-md bg-amber-100/90 px-2 py-0.5 text-[11px] font-bold text-amber-950 border border-amber-200/80 shadow-2xs">
+                                    ⚡ {details}
+                                  </span>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
@@ -1119,6 +1268,77 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
             </div>
 
             <form onSubmit={handleAddWorkout} className="space-y-4">
+              {/* PDF Routine Presets */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-600" /> Quick Load Routine Preset (From PDF Plan)
+                  </span>
+                  <span className="text-[10px] text-amber-700 font-semibold">1-Click Auto Fill</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {WORKOUT_ROUTINE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.day}
+                      type="button"
+                      onClick={() => loadPresetRoutine(preset)}
+                      className="rounded-lg border border-amber-200 bg-white hover:bg-amber-100/80 px-2.5 py-1.5 text-left transition-colors shadow-xs"
+                    >
+                      <span className="block text-xs font-bold text-amber-950 truncate">{preset.label}</span>
+                      <span className="block text-[10px] text-amber-700 font-medium truncate">{preset.exercises.length} exercises</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reps & Weight Configurator */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5 text-slate-500" /> Sets, Reps & Weight Configurator
+                  </span>
+                  <button
+                    type="button"
+                    onClick={applyRepsAndWeightToRoutine}
+                    className="btn btn-ghost btn-xs text-amber-700 hover:text-amber-900 font-bold underline text-[11px]"
+                  >
+                    ⚡ Apply to Routine
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sets</label>
+                    <input
+                      type="text"
+                      className="input-field w-full text-xs font-semibold py-1 px-2"
+                      placeholder="e.g. 4"
+                      value={builderSets}
+                      onChange={(e) => setBuilderSets(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Reps Breakdown</label>
+                    <input
+                      type="text"
+                      className="input-field w-full text-xs font-semibold py-1 px-2"
+                      placeholder="e.g. 15, 12, 10"
+                      value={builderReps}
+                      onChange={(e) => setBuilderReps(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Weight (KG)</label>
+                    <input
+                      type="text"
+                      className="input-field w-full text-xs font-semibold py-1 px-2"
+                      placeholder="e.g. 25"
+                      value={builderWeight}
+                      onChange={(e) => setBuilderWeight(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label="Workout Date" required>
                   <input
@@ -1230,8 +1450,13 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                 <button type="button" onClick={() => setIsWorkoutModalOpen(false)} className="btn btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary shadow-md shadow-amber-200/50">
-                  <Dumbbell className="h-4 w-4 mr-1.5" /> Save Workout Log
+                <button
+                  type="submit"
+                  disabled={isSubmittingWorkout}
+                  className="btn btn-primary shadow-md shadow-amber-200/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingWorkout ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Dumbbell className="h-4 w-4 mr-1.5" />}
+                  {isSubmittingWorkout ? 'Saving...' : 'Save Workout Log'}
                 </button>
               </div>
             </form>

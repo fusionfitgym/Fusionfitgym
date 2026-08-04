@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, HardHat, X, Check, Dumbbell, AlertTriangle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, HardHat, X, Check, Dumbbell, AlertTriangle, FileText, Download, Printer } from 'lucide-react';
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
@@ -37,6 +37,12 @@ export default function PTSchedulePage() {
   const [workoutPlan, setWorkoutPlan] = useState('');
   const [sessionStatus, setSessionStatus] = useState<'Scheduled' | 'Completed' | 'Missed' | 'Cancelled' | 'Rescheduled'>('Scheduled');
   const [isRecurring, setIsRecurring] = useState(false);
+
+  // PDF Export Modal State
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportClientId, setExportClientId] = useState('');
+  const [exportRange, setExportRange] = useState<'date' | 'month' | 'all'>('month');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const isAdmin = profile?.role === 'Super Admin' || profile?.role === 'Admin';
   const isReceptionist = profile?.role === 'Receptionist';
@@ -221,6 +227,74 @@ export default function PTSchedulePage() {
     }
   };
 
+  const handleExportPDF = async (overrideClientId?: string) => {
+    setExportingPdf(true);
+    try {
+      const targetClientId = overrideClientId !== undefined ? overrideClientId : exportClientId;
+      const selectedExportClient = targetClientId ? clients.find(c => c.id === targetClientId) || null : null;
+
+      let filteredSessions = [...sessions];
+
+      if (isTrainer) {
+        filteredSessions = filteredSessions.filter(s =>
+          s.trainer?.auth_user_id === profile?.auth_user_id || s.trainer_id === 'rohan-trainer'
+        );
+      }
+
+      if (selectedExportClient) {
+        filteredSessions = filteredSessions.filter(s => s.client_id === selectedExportClient.id);
+      }
+
+      let dateLabel = '';
+      if (exportRange === 'date') {
+        const selectedStr = toLocalDateString(selectedDate);
+        filteredSessions = filteredSessions.filter(s => s.session_date === selectedStr);
+        dateLabel = selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      } else if (exportRange === 'month') {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        filteredSessions = filteredSessions.filter(s => {
+          if (!s.session_date) return false;
+          const [y, m] = s.session_date.split('-').map(Number);
+          return y === year && (m - 1) === month;
+        });
+        dateLabel = currentDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      } else {
+        dateLabel = 'All Scheduled Sessions';
+      }
+
+      let currentSettings = undefined;
+      if (isDemo) {
+        currentSettings = demo.getSettings();
+      } else {
+        const { getSettings } = await import('@/lib/actions/settings');
+        currentSettings = await getSettings();
+      }
+
+      const { generatePTSchedulePDF } = await import('@/lib/pdf/generatePTSchedulePDF');
+      await generatePTSchedulePDF({
+        client: selectedExportClient,
+        sessions: filteredSessions,
+        subtitle: selectedExportClient
+          ? `SCHEDULED WORKOUTS & ROUTINES FOR ${selectedExportClient.full_name.toUpperCase()}`
+          : 'PERSONAL TRAINING WORKOUT SCHEDULE',
+        dateLabel,
+        settings: currentSettings,
+      });
+
+      toast.success(
+        selectedExportClient
+          ? `PDF schedule for ${selectedExportClient.full_name} downloaded!`
+          : 'PT Schedule PDF downloaded successfully!'
+      );
+      setIsExportModalOpen(false);
+    } catch (err: any) {
+      toast.error('Failed to export PDF: ' + (err?.message || err));
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Completed': return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
@@ -236,11 +310,22 @@ export default function PTSchedulePage() {
     <div className="page page-enter">
       <PageHeader
         title="Personal Training Schedule"
-        subtitle="Manage scheduled trainer sessions, track workout plans, and register recurring routines."
+        subtitle="Manage scheduled trainer sessions, track workout plans, and export client workout PDFs."
         action={
-          <button onClick={() => handleOpenAddModal(selectedDate)} className="btn btn-primary">
-            <Plus className="h-4 w-4" /> Schedule Session
-          </button>
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => {
+                setExportClientId('');
+                setIsExportModalOpen(true);
+              }}
+              className="btn btn-secondary flex items-center gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-sm"
+            >
+              <FileText className="h-4 w-4 text-amber-500" /> Export PDF
+            </button>
+            <button onClick={() => handleOpenAddModal(selectedDate)} className="btn btn-primary">
+              <Plus className="h-4 w-4" /> Schedule Session
+            </button>
+          </div>
         }
       />
 
@@ -304,14 +389,29 @@ export default function PTSchedulePage() {
         {/* Sessions Side Panel Column */}
         <Card className="bg-white border border-slate-200/80 shadow-sm p-5 flex flex-col justify-between min-h-[400px] rounded-2xl">
           <div>
-            <div className="border-b border-slate-100 pb-3 mb-4 flex justify-between items-center">
+            <div className="border-b border-slate-100 pb-3 mb-4 flex justify-between items-center flex-wrap gap-2">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 Sessions for {selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}
               </h3>
               
-              <span className="text-xs text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold">
-                {activeSessionsForSelectedDate.length} Sessions
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full font-bold">
+                  {activeSessionsForSelectedDate.length} Sessions
+                </span>
+                {activeSessionsForSelectedDate.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setExportClientId('');
+                      setExportRange('date');
+                      setIsExportModalOpen(true);
+                    }}
+                    className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1 transition-all"
+                    title="Export date schedule PDF"
+                  >
+                    <Download className="h-3 w-3" /> PDF
+                  </button>
+                )}
+              </div>
             </div>
 
             {activeSessionsForSelectedDate.length === 0 ? (
@@ -346,6 +446,14 @@ export default function PTSchedulePage() {
                     )}
 
                     <div className="flex gap-2 justify-end border-t border-slate-100 pt-2.5">
+                      <button
+                        onClick={() => handleExportPDF(sess.client_id)}
+                        disabled={exportingPdf}
+                        className="btn btn-secondary btn-xs text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200"
+                        title="Export Client Schedule PDF"
+                      >
+                        <FileText className="h-3 w-3" /> PDF
+                      </button>
                       <button onClick={() => handleOpenEditModal(sess)} className="btn btn-secondary btn-xs">
                         Edit
                       </button>
@@ -360,6 +468,79 @@ export default function PTSchedulePage() {
           </div>
         </Card>
       </div>
+
+      {/* Export Schedule PDF Modal */}
+      {isExportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden animate-enter">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-amber-500" />
+                Export PT Workout Schedule PDF
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <FormField label="Select PT Client (To Send To Client)">
+                <select
+                  className="select-field w-full"
+                  value={exportClientId}
+                  onChange={(e) => setExportClientId(e.target.value)}
+                >
+                  <option value="">-- All Active Clients (Master Schedule) --</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.full_name} ({c.phone})</option>
+                  ))}
+                </select>
+              </FormField>
+
+              <FormField label="Schedule Time Period">
+                <select
+                  className="select-field w-full"
+                  value={exportRange}
+                  onChange={(e) => setExportRange(e.target.value as any)}
+                >
+                  <option value="month">Selected Month ({currentDate.toLocaleString('en-IN', { month: 'long', year: 'numeric' })})</option>
+                  <option value="date">Selected Date ({selectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })})</option>
+                  <option value="all">All Scheduled & Upcoming Sessions</option>
+                </select>
+              </FormField>
+
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 text-xs text-amber-900 flex gap-2">
+                <Download className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p>
+                  Generates a styled PDF report complete with gym logo, trainer assignments, workout routines, session status, and client guidelines ready to print or send via WhatsApp/email.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(false)}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExportPDF()}
+                disabled={exportingPdf}
+                className="btn btn-primary"
+              >
+                {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Schedule Form Modal */}
       {isModalOpen && (
@@ -389,7 +570,20 @@ export default function PTSchedulePage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-[32px] items-start h-full">
                 {/* Left Preview Column */}
                 <div style={{ height: '100%' }} className="flex flex-col justify-start">
-                  <label className="field-label">Session Preview</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="field-label mb-0">Session Preview</label>
+                    {clientId && (
+                      <button
+                        type="button"
+                        onClick={() => handleExportPDF(clientId)}
+                        disabled={exportingPdf}
+                        className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1 transition-all"
+                        title="Export client schedule PDF"
+                      >
+                        <Download className="h-3 w-3" /> Export Client PDF
+                      </button>
+                    )}
+                  </div>
                   <div className="border border-slate-200 bg-white p-6 flex flex-col justify-between shadow-sm rounded-xl flex-1 min-h-[300px]">
                     <div>
                       <div className="flex justify-between items-start gap-2">
@@ -423,7 +617,7 @@ export default function PTSchedulePage() {
                           <span className="font-semibold text-slate-700">{sessionTime || 'Not Set'} ({duration} Mins)</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-slate-405">Weekly Recurring:</span>
+                          <span className="text-slate-400">Weekly Recurring:</span>
                           <span className={`font-semibold ${isRecurring ? 'text-amber-500 font-bold' : 'text-slate-500'}`}>
                             {isRecurring ? 'Yes' : 'No'}
                           </span>
@@ -431,8 +625,8 @@ export default function PTSchedulePage() {
                       </div>
 
                       <div className="mt-6 border-t border-slate-100 pt-4">
-                        <span className="text-xs text-slate-450 block mb-1">Workout Routine:</span>
-                        <p className="text-slate-650 italic font-mono text-[11px] bg-slate-50 p-2.5 rounded border border-slate-200/50 line-clamp-4 min-h-[70px]">
+                        <span className="text-xs text-slate-400 block mb-1">Workout Routine:</span>
+                        <p className="text-slate-600 italic font-mono text-[11px] bg-slate-50 p-2.5 rounded border border-slate-200/50 line-clamp-4 min-h-[70px]">
                           {workoutPlan || 'No routine logged.'}
                         </p>
                       </div>

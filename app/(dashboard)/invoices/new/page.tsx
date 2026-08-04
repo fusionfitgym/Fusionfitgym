@@ -80,6 +80,21 @@ function NewInvoiceForm() {
   const selectedMemberId = useWatch({ control, name: 'member_id' });
   const selectedMember = members.find((member) => member.id === selectedMemberId);
 
+  useEffect(() => {
+    if (selectedMember) {
+      const pkg = (selectedMember.package_name || '').toLowerCase();
+      const dur = (selectedMember.package_duration || '').toLowerCase();
+      const dailyRateVal = settings?.plan_daily ? Number(settings.plan_daily) : 50;
+      
+      if (pkg.includes('daily') || dur.includes('daily')) {
+        setValue('amount', dailyRateVal, { shouldDirty: true, shouldValidate: true });
+        setValue('notes', `Daily Client Pass (${formatCurrency(dailyRateVal)})`, { shouldDirty: true, shouldValidate: true });
+      } else if (selectedMember.package_price) {
+        setValue('amount', selectedMember.package_price, { shouldDirty: true, shouldValidate: true });
+      }
+    }
+  }, [selectedMemberId, selectedMember, settings, setValue]);
+
   function applyPlanPrice(plan: string) {
     if (!settings) return;
     const key = `plan_${plan.toLowerCase()}` as keyof GymSettings;
@@ -122,6 +137,16 @@ function NewInvoiceForm() {
     }
   }
 
+  const dailyRate = settings?.plan_daily ? Number(settings.plan_daily) : 50;
+
+  function applyDailyClientRate() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setValue('amount', dailyRate, { shouldDirty: true, shouldValidate: true });
+    setValue('due_date', todayStr, { shouldDirty: true, shouldValidate: true });
+    setValue('notes', `Daily Client Pass (${formatCurrency(dailyRate)})`, { shouldDirty: true, shouldValidate: true });
+    toast.info(`Daily Client rate (${formatCurrency(dailyRate)}) applied!`);
+  }
+
   return (
     <div className="page-narrow page-enter">
       <Breadcrumb
@@ -137,8 +162,8 @@ function NewInvoiceForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="page-stack" noValidate>
         <SectionCard
-          title="Member"
-          description="Choose the member who will receive this invoice."
+          title="Member & Quick Presets"
+          description="Choose the member and select quick pricing presets (e.g. Daily Client ₹50)."
           icon={<UserRound className="h-5 w-5" />}
         >
           <FormField
@@ -160,39 +185,57 @@ function NewInvoiceForm() {
             </select>
           </FormField>
 
-          {selectedMember && (
-            <div className="mt-4 border-t border-slate-200 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-slate-500">Quick fill by member's package</p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {/* Preset Buttons Grid */}
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Quick Fill Presets</p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {/* Daily Client 50 RS Button */}
+              <button
+                type="button"
+                onClick={applyDailyClientRate}
+                className="rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 p-3 text-left transition-all shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="block text-xs font-bold text-emerald-950">Daily Client Pass</span>
+                  <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    ⚡ {formatCurrency(dailyRate)}
+                  </span>
+                </div>
+                <span className="mt-1 block text-[11px] text-emerald-800 font-medium">
+                  Set amount to {formatCurrency(dailyRate)} (1-Day visit)
+                </span>
+              </button>
+
+              {selectedMember && (
                 <button
                   type="button"
                   onClick={() => setValue('amount', selectedMember.package_price, { shouldDirty: true, shouldValidate: true })}
                   className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-left transition-colors hover:bg-amber-100"
                 >
-                  <span className="block text-xs font-bold text-amber-900">{selectedMember.package_name}</span>
+                  <span className="block text-xs font-bold text-amber-900 line-clamp-1">{selectedMember.package_name}</span>
                   <span className="mt-1 block text-[11px] text-amber-700">
-                    Price: {formatCurrency(selectedMember.package_price)} | Duration: {selectedMember.package_duration}
+                    Price: {formatCurrency(selectedMember.package_price)} | {selectedMember.package_duration}
                   </span>
                 </button>
-                {settings && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Try to match standard plan price from settings if needed
-                      const fallbackKey = `plan_monthly` as keyof GymSettings;
-                      setValue('amount', Number(settings[fallbackKey]), { shouldDirty: true, shouldValidate: true });
-                    }}
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
-                  >
-                    <span className="block text-xs font-semibold text-slate-800">Standard Monthly Rate</span>
-                    <span className="mt-1 block text-[11px] text-slate-600">{formatCurrency(Number(settings.plan_monthly))}</span>
-                  </button>
-                )}
-              </div>
+              )}
+
+              {settings && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fallbackKey = `plan_monthly` as keyof GymSettings;
+                    setValue('amount', Number(settings[fallbackKey]), { shouldDirty: true, shouldValidate: true });
+                  }}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
+                >
+                  <span className="block text-xs font-semibold text-slate-800">Standard Monthly Rate</span>
+                  <span className="mt-1 block text-[11px] text-slate-600">{formatCurrency(Number(settings.plan_monthly))}</span>
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </SectionCard>
 
         <SectionCard

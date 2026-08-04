@@ -294,6 +294,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     gym_phone: '+91 98765 43210',
     gym_email: 'demo@redix.media',
     gym_address: '123 Fitness Street, Bangalore, Karnataka 560001',
+    plan_daily: '50',
     plan_monthly: '1500',
     plan_quarterly: '4000',
     plan_biannual: '7500',
@@ -1647,7 +1648,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const createPTDailyWorkout = (values: any) => {
     const newWorkout: PTDailyWorkout = {
       ...values,
-      id: `pt-workout-uuid-${(ptDailyWorkouts.length + 1).toString().padStart(4, '0')}`,
+      id: `pt-workout-uuid-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
