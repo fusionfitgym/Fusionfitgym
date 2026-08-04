@@ -1103,23 +1103,39 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createInvoice = (values: any) => {
-    const member = getMemberById(values.member_id);
+    let member = values.member_id ? getMemberById(values.member_id) : null;
+    const guestName = values.guest_name ? values.guest_name.trim() : (values.notes ? values.notes.split('(')[0].trim() : 'Walk-in Guest');
+    const guestPhone = values.guest_phone || 'Walk-in Pass';
+
+    const memberDetails = member ? {
+      full_name: member.full_name,
+      phone: member.phone,
+      email: member.email,
+      address: member.address,
+      package_name: member.package_name,
+      package_duration: member.package_duration,
+      package_price: member.package_price,
+      package_start_date: member.package_start_date,
+      package_end_date: member.package_end_date
+    } : {
+      full_name: guestName,
+      phone: guestPhone,
+      email: 'guest@fusionfit.com',
+      address: 'Daily Walk-in',
+      package_name: 'Daily Client Pass',
+      package_duration: '1 Day',
+      package_price: Number(values.amount) || 50,
+      package_start_date: new Date().toISOString().split('T')[0],
+      package_end_date: new Date().toISOString().split('T')[0]
+    };
+
     const newInvoice: Invoice = {
       ...values,
+      member_id: values.member_id || 'demo-member-guest-001',
       id: `demo-invoice-uuid-${(invoices.length + 1).toString().padStart(4, '0')}`,
       invoice_number: `INV-${(1000 + invoices.length + 1)}`,
       created_at: new Date().toISOString(),
-      member: member ? {
-        full_name: member.full_name,
-        phone: member.phone,
-        email: member.email,
-        address: member.address,
-        package_name: member.package_name,
-        package_duration: member.package_duration,
-        package_price: member.package_price,
-        package_start_date: member.package_start_date,
-        package_end_date: member.package_end_date
-      } : undefined
+      member: memberDetails
     };
     setInvoices(prev => [newInvoice, ...prev]);
     return newInvoice;

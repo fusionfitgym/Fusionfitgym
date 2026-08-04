@@ -244,7 +244,9 @@ export interface Invoice {
 }
 
 export const invoiceSchema = z.object({
-  member_id: z.string().uuid('Select a member'),
+  member_id: z.string().optional().or(z.literal('')),
+  guest_name: z.string().optional().or(z.literal('')),
+  guest_phone: z.string().optional().or(z.literal('')),
   amount: z.coerce.number().min(0, 'Amount must be 0 or greater'),
   due_date: z.string().min(1, 'Due date is required'),
   status: z.enum(['Paid', 'Partially Paid', 'Unpaid', 'Pending', 'Overdue', 'Cancelled']),

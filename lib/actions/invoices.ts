@@ -83,9 +83,6 @@ export async function createInvoice(
 ): Promise<{ data?: Invoice; error?: string }> {
   try {
     // 1. Verify every required field before inserting
-    if (!values.member_id) {
-      return { error: 'Member ID is required.' };
-    }
     if (values.amount === undefined || values.amount === null || isNaN(Number(values.amount)) || Number(values.amount) <= 0) {
       return { error: 'Amount must be a numeric value greater than 0.' };
     }
@@ -114,11 +111,54 @@ export async function createInvoice(
 
     const supabase = await createClient();
 
-    // 4. Verify selected member exists (Foreign key existence validation)
+    let targetMemberId = values.member_id;
+
+    // 4. If no member_id provided, locate or create generic Walk-in Guest member
+    if (!targetMemberId) {
+      const guestName = values.guest_name ? values.guest_name.trim() : 'Walk-in Guest';
+      const guestPhone = values.guest_phone ? values.guest_phone.trim() : '0000000000';
+
+      const { data: existingGuest } = await supabase
+        .from('members')
+        .select('id')
+        .eq('full_name', guestName)
+        .maybeSingle();
+
+      if (existingGuest) {
+        targetMemberId = existingGuest.id;
+      } else {
+        const { data: newGuest, error: guestCreateErr } = await supabase
+          .from('members')
+          .insert([{
+            full_name: guestName,
+            phone: guestPhone,
+            gender: 'Others',
+            package_name: 'Daily Pass',
+            status: 'Active',
+            join_date: new Date().toISOString().split('T')[0]
+          }])
+          .select('id')
+          .maybeSingle();
+
+        if (newGuest) {
+          targetMemberId = newGuest.id;
+        } else if (guestCreateErr) {
+          // Fallback to any member or error gracefully
+          const { data: fallbackMember } = await supabase
+            .from('members')
+            .select('id')
+            .limit(1)
+            .maybeSingle();
+          targetMemberId = fallbackMember?.id || '';
+        }
+      }
+    }
+
+    // 5. Verify target member exists
     const { data: memberData, error: memberError } = await supabase
       .from('members')
       .select('id, membership_fee, parq_fee, admission_fee, trainer_fee, package_price, package_start_date, package_end_date')
-      .eq('id', values.member_id)
+      .eq('id', targetMemberId)
       .maybeSingle();
 
     if (memberError) {
@@ -143,7 +183,7 @@ export async function createInvoice(
 
     // 5. Insert invoice
     const insertPayload = {
-      member_id: values.member_id,
+      member_id: targetMemberId,
       amount: Number(values.amount),
       due_date: memberData?.package_end_date || values.due_date, // Next Due Date = Membership Expiry Date
       status: values.status,

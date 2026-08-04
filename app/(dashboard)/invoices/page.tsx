@@ -131,7 +131,7 @@ export default function InvoicesPage() {
                           <span className="font-mono text-xs font-semibold text-slate-900">{invoice.invoice_number}</span>
                         </div>
                       </td>
-                      <td><p className="table-primary">{member?.full_name ?? '-'}</p></td>
+                      <td><p className="table-primary">{member?.full_name ? member.full_name : 'Walk-in Guest'}</p></td>
                       <td className="hidden font-semibold text-slate-900 sm:table-cell">{formatCurrency(invoice.amount)}</td>
                       <td className="hidden md:table-cell">{formatDate(invoice.due_date)}</td>
                       <td><StatusBadge variant={invoice.status} /></td>
@@ -159,7 +159,7 @@ export default function InvoicesPage() {
                       </span>
                       <div className="min-w-0">
                         <p className="truncate font-mono text-xs font-semibold text-slate-900">{invoice.invoice_number}</p>
-                        <p className="mt-1 truncate text-sm font-semibold text-slate-900">{member?.full_name ?? '-'}</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-slate-900">{member?.full_name ? member.full_name : 'Walk-in Guest'}</p>
                       </div>
                     </div>
                     <StatusBadge variant={invoice.status} />
