@@ -240,22 +240,31 @@ export async function runBackup(isManual: boolean = false): Promise<string> {
 
       const adminClient = createAdminClient();
 
-      // 1. Export database tables
+      // 1. Export database tables (in parallel batches for speed)
       const tables = await getTables(adminClient);
       const databaseData: Record<string, any[]> = {};
       let totalRecords = 0;
 
-      for (let i = 0; i < tables.length; i++) {
-        const table = tables[i];
-        const { data, error } = await adminClient.from(table).select('*');
-        if (error) {
-          throw new Error(`Failed to export table ${table}: ${error.message}`);
+      const BATCH_SIZE = 6;
+      for (let i = 0; i < tables.length; i += BATCH_SIZE) {
+        const batch = tables.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async (table) => {
+            const { data, error } = await adminClient.from(table).select('*');
+            if (error) {
+              throw new Error(`Failed to export table ${table}: ${error.message}`);
+            }
+            return { table, data: data || [] };
+          })
+        );
+
+        for (const res of results) {
+          databaseData[res.table] = res.data;
+          totalRecords += res.data.length;
         }
-        databaseData[table] = data || [];
-        totalRecords += (data?.length || 0);
 
         // Update progress dynamically during export (up to 40%)
-        const tableProgress = 10 + Math.round((i / tables.length) * 30);
+        const tableProgress = 10 + Math.round(((i + batch.length) / tables.length) * 30);
         await updateProgress('running', 'database_export', tableProgress);
       }
 
