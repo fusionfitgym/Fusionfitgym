@@ -8,7 +8,7 @@ import { getPTSessions, markPTSessionAttendance } from '@/lib/actions/pt';
 import { PTSession } from '@/types/pt';
 import { toast } from 'sonner';
 import { Dumbbell, Clock, HardHat, Check, X, Calendar, UserCheck } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { formatDate, toLocalDateString } from '@/lib/utils';
 
 export default function PTAttendancePage() {
   const { profile } = useAuth();
@@ -30,7 +30,7 @@ export default function PTAttendancePage() {
         allSessions = await getPTSessions();
       }
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = toLocalDateString(new Date());
       const filtered = allSessions.filter(s => {
         if (isTrainer) {
           const isAssignedTrainer = s.trainer?.auth_user_id === profile?.auth_user_id || s.trainer_id === 'rohan-trainer';

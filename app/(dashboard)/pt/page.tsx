@@ -5,7 +5,7 @@ import { PageHeader, Card } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
 import { getPTDashboardStats, getPTSessions, getPTTrainers } from '@/lib/actions/pt';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, toLocalDateString } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Dumbbell, Users, Activity, TrendingUp, Calendar, AlertCircle, Coins, Clock } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, LineChart, Line } from 'recharts';
@@ -87,7 +87,7 @@ export default function PTDashboard() {
       const last5Days = Array.from({ length: 5 }).map((_, idx) => {
         const d = new Date();
         d.setDate(today.getDate() - (4 - idx));
-        return d.toISOString().split('T')[0];
+        return toLocalDateString(d);
       });
 
       const dayTrend = last5Days.map(dateStr => {

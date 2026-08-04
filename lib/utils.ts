@@ -14,9 +14,38 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+export function toLocalDateString(date: Date | string = new Date()): string {
+  if (!date) return '';
+  if (typeof date === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—';
-  const d = new Date(date);
+  let d: Date;
+  if (typeof date === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const [y, m, dayNum] = date.split('-').map(Number);
+      d = new Date(y, m - 1, dayNum);
+    } else {
+      d = new Date(date);
+    }
+  } else {
+    d = date;
+  }
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-IN', {
     day: '2-digit',

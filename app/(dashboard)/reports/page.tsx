@@ -144,29 +144,37 @@ export default function ReportsPage() {
         subtitle="Extract detailed summaries, compile rosters, check billing tallies, and export spreadsheet audit files."
       />
 
-      {/* Executive PowerPoint Report Generator Hero Banner */}
+      {/* Executive PowerPoint & PDF Report Generator Hero Banner */}
       <div className="mb-6 rounded-2xl bg-zinc-900 p-6 border border-zinc-800 shadow-xl relative overflow-hidden text-white flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2 relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20 text-amber-400 text-xs font-bold uppercase tracking-wider">
             <Sparkles className="h-3.5 w-3.5" />
-            Executive Presentation Engine
+            Executive Presentation & Document Engine
           </div>
           <h3 className="text-xl font-bold tracking-tight text-white">
-            Automatic PowerPoint (.pptx) Executive Report Generator
+            Executive Report Generator (PPTX & PDF)
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Generate dynamic, presentation-ready 16-slide PowerPoint decks with real-time database data, editable vector charts, 10 executive KPIs, multi-slide table auto-pagination, and AI-style business insights.
+            Generate dynamic, presentation-ready 15-slide PowerPoint decks (.pptx) or 15-page PDF executive reports (.pdf) with real-time database data, editable charts, 10 executive KPIs, multi-slide table auto-pagination, and business intelligence.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10">
+        <div className="flex flex-col sm:flex-row items-center gap-3 relative z-10">
           <button
             type="button"
             onClick={() => setPptxModalOpen(true)}
-            className="px-5 py-3 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-lg shadow-amber-400/20 transition-all flex items-center gap-2 group whitespace-nowrap"
+            className="w-full sm:w-auto px-4 py-3 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 group whitespace-nowrap"
+          >
+            <FileText className="h-4 w-4 group-hover:scale-110 transition-transform text-white" />
+            Export PDF (.pdf)
+          </button>
+          <button
+            type="button"
+            onClick={() => setPptxModalOpen(true)}
+            className="w-full sm:w-auto px-5 py-3 rounded-xl text-xs font-bold bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-lg shadow-amber-400/20 transition-all flex items-center justify-center gap-2 group whitespace-nowrap"
           >
             <Presentation className="h-4 w-4 group-hover:scale-110 transition-transform text-zinc-950" />
-            Generate PowerPoint (.pptx)
+            Export PowerPoint (.pptx)
           </button>
         </div>
       </div>

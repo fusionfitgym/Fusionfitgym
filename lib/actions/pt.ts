@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { toLocalDateString } from '@/lib/utils';
 import {
   PTTrainer,
   PTTrainerFormValues,
@@ -695,7 +696,7 @@ export async function payPTCommission(id: string): Promise<{ success?: boolean; 
       .from('pt_commissions')
       .update({
         status: 'Paid',
-        paid_date: new Date().toISOString().split('T')[0]
+        paid_date: toLocalDateString(new Date())
       })
       .eq('id', id);
 
@@ -740,7 +741,7 @@ export async function markPTNotificationAsRead(id: string): Promise<{ success?: 
 
 export async function getPTDashboardStats() {
   const supabase = await createClient();
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString(new Date());
 
   const [
     { data: clients },
@@ -790,7 +791,7 @@ export async function getPTDashboardStats() {
   // Expiring packages (clients whose expiry_date is in next 7 days)
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
-  const nextWeekStr = nextWeek.toISOString().split('T')[0];
+  const nextWeekStr = toLocalDateString(nextWeek);
   const { data: expiringClients } = await supabase
     .from('pt_clients')
     .select('id')

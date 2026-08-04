@@ -22,6 +22,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { preparePPTXReportData, PPTXReportOptions } from '@/lib/reports/pptx-data';
 import { generatePowerPointReport } from '@/lib/reports/pptx-generator';
+import { generatePdfReport } from '@/lib/reports/pdf-generator';
 import { getPowerPointLiveData } from '@/lib/actions/reports';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -239,10 +240,66 @@ export function PptxReportModal({
     }
   };
 
-  // PDF Direct Print / Export Handler
+  // PDF Generator Handler
   const handleGeneratePDF = async () => {
-    toast.info('Preparing presentation print view for PDF export...', { duration: 3000 });
-    window.print();
+    setGenerating(true);
+    setGenerationProgress(15);
+    setStatusMessage('Aggregating dynamic period database metrics for PDF...');
+    const toastId = toast.loading(`Building 15-Page PDF Executive Report (${dateRange.toUpperCase()})...`);
+
+    try {
+      const dataset = getFilteredPeriodData();
+
+      setGenerationProgress(45);
+      setStatusMessage(`Computing statistics for ${dataset.members.length} members & ${dataset.invoices.length} invoices...`);
+
+      const options: PPTXReportOptions = {
+        dateRange,
+        startDate,
+        endDate,
+        generatedBy: profile?.full_name || 'Gym Administrator',
+        isDemo
+      };
+
+      const fullReportData = await preparePPTXReportData(
+        dataset.members,
+        dataset.invoices,
+        dataset.attendance,
+        dataset.trainers,
+        dataset.ptClients,
+        dataset.staff,
+        dataset.settings,
+        options
+      );
+
+      setGenerationProgress(75);
+      setStatusMessage('Rendering executive PDF layout, tables, and KPIs...');
+
+      const pdfBlob = await generatePdfReport(fullReportData);
+
+      setGenerationProgress(95);
+      setStatusMessage('Finalizing PDF document...');
+
+      const filename = `Gym_ERP_Executive_Report_${dateRange.toUpperCase()}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setGenerationProgress(100);
+      toast.success('✓ Executive PDF (.pdf) Report Generated & Downloaded!', { id: toastId });
+    } catch (err: any) {
+      console.error('Failed to generate PDF report:', err);
+      toast.error(`Generation Failed: ${err.message || 'Unknown error'}`, { id: toastId });
+    } finally {
+      setGenerating(false);
+      setGenerationProgress(0);
+      setStatusMessage('');
+    }
   };
 
   const membersCount = liveData.members?.length || 0;
@@ -261,13 +318,13 @@ export function PptxReportModal({
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-                  Automatic PowerPoint (.pptx) Executive Report Generator
+                  Executive Report Generator (PPTX & PDF)
                   <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 font-bold uppercase">
-                    15 Slides
+                    15 Slides / Pages
                   </span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400 mt-0.5">
-                  Generate presentation-ready, dynamic PowerPoint slides with native editable vector charts & auto-paginated tables.
+                  Generate presentation-ready, dynamic PowerPoint slides (.pptx) or PDF executive reports (.pdf) with vector charts & auto-paginated tables.
                 </DialogDescription>
               </div>
             </div>
@@ -429,10 +486,10 @@ export function PptxReportModal({
               type="button"
               onClick={handleGeneratePDF}
               disabled={generating}
-              className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Printer className="h-4 w-4 text-zinc-400" />
-              Export PDF
+              <FileText className="h-4 w-4" />
+              Download PDF (.pdf)
             </button>
 
             <button

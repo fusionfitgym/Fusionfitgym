@@ -7,6 +7,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
 import { getPTSessions, createPTSession, updatePTSession, deletePTSession, getPTClients, getPTTrainers } from '@/lib/actions/pt';
 import { PTSession, PTClient, PTTrainer } from '@/types/pt';
+import { toLocalDateString } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function PTSchedulePage() {
@@ -103,7 +104,7 @@ export default function PTSchedulePage() {
   }
 
   // Filter sessions for selected date
-  const selectedDateStr = selectedDate.toISOString().split('T')[0];
+  const selectedDateStr = toLocalDateString(selectedDate);
   const activeSessionsForSelectedDate = sessions.filter(s => {
     // If trainer logs in, they only see their sessions
     if (isTrainer) {
@@ -114,7 +115,7 @@ export default function PTSchedulePage() {
   });
 
   const getSessionsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = toLocalDateString(date);
     return sessions.filter(s => {
       if (isTrainer) {
         const isAssignedTrainer = s.trainer?.auth_user_id === profile?.auth_user_id || s.trainer_id === 'rohan-trainer';
@@ -128,7 +129,7 @@ export default function PTSchedulePage() {
     setSelectedSession(null);
     setClientId('');
     setTrainerId('');
-    setSessionDate(date.toISOString().split('T')[0]);
+    setSessionDate(toLocalDateString(date));
     setSessionTime('07:00');
     setDuration(60);
     setWorkoutPlan('');
@@ -280,7 +281,7 @@ export default function PTSchedulePage() {
 
               return (
                 <button
-                  key={`day-${day.toISOString()}`}
+                  key={`day-${toLocalDateString(day)}`}
                   onClick={() => setSelectedDate(day)}
                   className={`aspect-square rounded-xl p-1 flex flex-col justify-between items-center transition-all ${
                     isSelected

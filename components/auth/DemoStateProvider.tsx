@@ -14,6 +14,7 @@ import {
   PTProgress,
   PTDailyWorkout
 } from '@/types/pt';
+import { toLocalDateString } from '@/lib/utils';
 
 // Import local JSON demo data
 import dashboardData from '@/src/demo-data/dashboard.json';
@@ -472,7 +473,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       id: 'sess-1',
       client_id: 'pt-client-1',
       trainer_id: 'rohan-trainer',
-      session_date: new Date().toISOString().split('T')[0],
+      session_date: toLocalDateString(new Date()),
       session_time: '07:00',
       duration: 60,
       workout_plan: 'Lower body strength training (Squats, Lunges, Leg curls)',
@@ -483,7 +484,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       id: 'sess-2',
       client_id: 'pt-client-1',
       trainer_id: 'rohan-trainer',
-      session_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      session_date: toLocalDateString(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)),
       session_time: '07:00',
       duration: 60,
       workout_plan: 'Upper body hypertrophy (Bench Press, Row, Shoulder Press)',
@@ -494,7 +495,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       id: 'sess-3',
       client_id: 'pt-client-1',
       trainer_id: 'rohan-trainer',
-      session_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      session_date: toLocalDateString(new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)),
       session_time: '07:00',
       duration: 60,
       workout_plan: 'Active cardio and core conditioning',
@@ -1769,7 +1770,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getPTDashboardStats = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = toLocalDateString(new Date());
     const activeClientsCount = ptClients.filter(c => c.status === 'Active').length;
     const todaySessionsCount = ptSessions.filter(s => s.session_date === todayStr).length;
     const completedSessionsCount = ptSessions.filter(s => s.status === 'Completed').length;
@@ -1790,7 +1791,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
 
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+    const nextWeekStr = toLocalDateString(nextWeek);
     const expiringPackagesCount = ptClients.filter(c => c.status === 'Active' && c.expiry_date >= todayStr && c.expiry_date <= nextWeekStr).length;
 
     return {
