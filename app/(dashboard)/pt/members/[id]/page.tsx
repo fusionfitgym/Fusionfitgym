@@ -99,6 +99,15 @@ const WORKOUT_ROUTINE_PRESETS = [
   }
 ];
 
+export interface RoutineChecklistItem {
+  id: string;
+  name: string;
+  completed: boolean;
+  sets: string;
+  reps: string;
+  weight: string;
+}
+
 export default function PTClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
@@ -141,51 +150,100 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [workoutDuration, setWorkoutDuration] = useState('45');
   const [caloriesBurned, setCaloriesBurned] = useState('');
   const [intensity, setIntensity] = useState<'Low' | 'Moderate' | 'High' | 'Extreme'>('Moderate');
-  // Configurator state for Sets, Reps & Weight
+  // Configurator & To-Do Checklist state for Sets, Reps & Weight
   const [builderSets, setBuilderSets] = useState('4');
   const [builderReps, setBuilderReps] = useState('15, 12, 10');
   const [builderWeight, setBuilderWeight] = useState('25');
+  const [checklistItems, setChecklistItems] = useState<RoutineChecklistItem[]>([]);
+  const [activeDayPreset, setActiveDayPreset] = useState<string>('Mon');
 
   // Submission locking states
   const [isSubmittingProgress, setIsSubmittingProgress] = useState(false);
   const [isSubmittingWorkout, setIsSubmittingWorkout] = useState(false);
   const [workoutNotes, setWorkoutNotes] = useState('');
 
-  const loadPresetRoutine = (preset: typeof WORKOUT_ROUTINE_PRESETS[0]) => {
+  // Helper to format exercises string from checklist array
+  const formatExercisesFromChecklist = (items: RoutineChecklistItem[]) => {
+    return items
+      .filter(item => item.completed)
+      .map((item, idx) => {
+        const parts = [];
+        if (item.sets) parts.push(`${item.sets} sets`);
+        if (item.reps) parts.push(`x ${item.reps} reps`);
+        if (item.weight) parts.push(`@ ${item.weight} kg`);
+        const suffix = parts.length > 0 ? `: ${parts.join(' ')}` : '';
+        return `${idx + 1}. ${item.name}${suffix}`;
+      })
+      .join('\n');
+  };
+
+  // Load routine preset into interactive checklist
+  const loadChecklistPreset = (preset: typeof WORKOUT_ROUTINE_PRESETS[0]) => {
+    setActiveDayPreset(preset.day);
     setWorkoutTitle(preset.title);
     setMuscleGroup(preset.muscleGroup);
 
-    const formattedExercises = preset.exercises.map(ex => {
-      const parts = [];
-      if (builderSets) parts.push(`${builderSets} sets`);
-      if (builderReps) parts.push(`x ${builderReps} reps`);
-      if (builderWeight) parts.push(`@ ${builderWeight} kg`);
-      const suffix = parts.length > 0 ? `: ${parts.join(' ')}` : '';
-      return `${ex}${suffix}`;
-    }).join('\n');
+    const newItems: RoutineChecklistItem[] = preset.exercises.map((ex, idx) => ({
+      id: `ex-${idx}-${Date.now()}`,
+      name: ex.replace(/^\d+\.\s*/, ''),
+      completed: true,
+      sets: '4',
+      reps: '15, 12, 10',
+      weight: '25'
+    }));
 
-    setExercises(formattedExercises);
-    toast.success(`Loaded ${preset.label} routine!`);
+    setChecklistItems(newItems);
+    setExercises(formatExercisesFromChecklist(newItems));
+    toast.success(`Loaded ${preset.label} Checklist!`);
+  };
+
+  // Toggle item completion
+  const toggleChecklistItem = (id: string) => {
+    setChecklistItems(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, completed: !item.completed } : item);
+      setExercises(formatExercisesFromChecklist(updated));
+      return updated;
+    });
+  };
+
+  // Update item field (sets, reps, weight)
+  const updateChecklistItemField = (id: string, field: 'sets' | 'reps' | 'weight' | 'name', value: string) => {
+    setChecklistItems(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, [field]: value } : item);
+      setExercises(formatExercisesFromChecklist(updated));
+      return updated;
+    });
+  };
+
+  // Toggle select all checklist items
+  const toggleSelectAllChecklist = (checked: boolean) => {
+    setChecklistItems(prev => {
+      const updated = prev.map(item => ({ ...item, completed: checked }));
+      setExercises(formatExercisesFromChecklist(updated));
+      return updated;
+    });
+  };
+
+  const loadPresetRoutine = (preset: typeof WORKOUT_ROUTINE_PRESETS[0]) => {
+    loadChecklistPreset(preset);
   };
 
   const applyRepsAndWeightToRoutine = () => {
-    if (!exercises.trim()) {
-      toast.error('Please enter or select a routine first');
+    if (checklistItems.length === 0) {
+      toast.error('Please select a routine first');
       return;
     }
-    const lines = exercises.split('\n');
-    const formatted = lines.map(line => {
-      if (!line.trim()) return line;
-      const cleanLine = line.replace(/:\s*\d+\s*sets.*$/i, '').trim();
-      const parts = [];
-      if (builderSets) parts.push(`${builderSets} sets`);
-      if (builderReps) parts.push(`x ${builderReps} reps`);
-      if (builderWeight) parts.push(`@ ${builderWeight} kg`);
-      return `${cleanLine}${parts.length > 0 ? ': ' + parts.join(' ') : ''}`;
-    }).join('\n');
-
-    setExercises(formatted);
-    toast.success('Updated Reps & Weights for routine exercises!');
+    setChecklistItems(prev => {
+      const updated = prev.map(item => ({
+        ...item,
+        sets: builderSets || item.sets,
+        reps: builderReps || item.reps,
+        weight: builderWeight || item.weight
+      }));
+      setExercises(formatExercisesFromChecklist(updated));
+      return updated;
+    });
+    toast.success('Updated Reps & Weights for checklist exercises!');
   };
 
   // Bulk selection states
@@ -1268,74 +1326,123 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
             </div>
 
             <form onSubmit={handleAddWorkout} className="space-y-4">
-              {/* PDF Routine Presets */}
-              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-600" /> Quick Load Routine Preset (From PDF Plan)
-                  </span>
-                  <span className="text-[10px] text-amber-700 font-semibold">1-Click Auto Fill</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                  {WORKOUT_ROUTINE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.day}
-                      type="button"
-                      onClick={() => loadPresetRoutine(preset)}
-                      className="rounded-lg border border-amber-200 bg-white hover:bg-amber-100/80 px-2.5 py-1.5 text-left transition-colors shadow-xs"
-                    >
-                      <span className="block text-xs font-bold text-amber-950 truncate">{preset.label}</span>
-                      <span className="block text-[10px] text-amber-700 font-medium truncate">{preset.exercises.length} exercises</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Today's Workout To-Do Checklist */}
+              <div className="rounded-2xl border border-amber-300/80 bg-gradient-to-b from-amber-50/70 to-orange-50/30 p-4 space-y-3 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-amber-600" />
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-950">
+                        Today's Workout Checklist
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Check completed exercises & enter sets, reps, weight (kg) for each:
+                    </p>
+                  </div>
 
-              {/* Reps & Weight Configurator */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Target className="h-3.5 w-3.5 text-slate-500" /> Sets, Reps & Weight Configurator
-                  </span>
-                  <button
-                    type="button"
-                    onClick={applyRepsAndWeightToRoutine}
-                    className="btn btn-ghost btn-xs text-amber-700 hover:text-amber-900 font-bold underline text-[11px]"
-                  >
-                    ⚡ Apply to Routine
-                  </button>
+                  {/* Day Tabs */}
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+                    {WORKOUT_ROUTINE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.day}
+                        type="button"
+                        onClick={() => loadChecklistPreset(preset)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                          activeDayPreset === preset.day
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-white/80 text-amber-900 border border-amber-200 hover:bg-amber-100'
+                        }`}
+                      >
+                        {preset.day}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Sets</label>
+
+                {/* Bulk Select & Quick Applicator */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold text-slate-700 px-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
-                      type="text"
-                      className="input-field w-full text-xs font-semibold py-1 px-2"
-                      placeholder="e.g. 4"
-                      value={builderSets}
-                      onChange={(e) => setBuilderSets(e.target.value)}
+                      type="checkbox"
+                      checked={checklistItems.length > 0 && checklistItems.every(i => i.completed)}
+                      onChange={(e) => toggleSelectAllChecklist(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
                     />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Reps Breakdown</label>
-                    <input
-                      type="text"
-                      className="input-field w-full text-xs font-semibold py-1 px-2"
-                      placeholder="e.g. 15, 12, 10"
-                      value={builderReps}
-                      onChange={(e) => setBuilderReps(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Weight (KG)</label>
-                    <input
-                      type="text"
-                      className="input-field w-full text-xs font-semibold py-1 px-2"
-                      placeholder="e.g. 25"
-                      value={builderWeight}
-                      onChange={(e) => setBuilderWeight(e.target.value)}
-                    />
-                  </div>
+                    <span>Select All ({checklistItems.filter(i => i.completed).length} / {checklistItems.length} checked)</span>
+                  </label>
+                  <span className="text-[11px] text-amber-900 font-bold bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200">
+                    ⚡ {checklistItems.filter(i => i.completed).length} items selected to log
+                  </span>
+                </div>
+
+                {/* Checklist Exercise Items Rows */}
+                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                  {checklistItems.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border transition-all p-3 ${
+                        item.completed
+                          ? 'border-amber-300 bg-white shadow-xs'
+                          : 'border-slate-200 bg-slate-50/60 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <label className="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-slate-900 select-none">
+                          <input
+                            type="checkbox"
+                            checked={item.completed}
+                            onChange={() => toggleChecklistItem(item.id)}
+                            className="h-4.5 w-4.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                          />
+                          <span className={item.completed ? 'text-slate-950 font-extrabold' : 'text-slate-500 line-through'}>
+                            {idx + 1}. {item.name}
+                          </span>
+                        </label>
+                        {item.completed && (
+                          <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
+                            ⚡ {item.sets || 4} sets x {item.reps || '15,12,10'} reps @ {item.weight || 25} kg
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Reps & Weight Input Fields for Checked Exercise */}
+                      {item.completed && (
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Sets</label>
+                            <input
+                              type="text"
+                              className="input-field w-full text-xs font-semibold py-1 px-2 bg-slate-50"
+                              placeholder="e.g. 4"
+                              value={item.sets}
+                              onChange={(e) => updateChecklistItemField(item.id, 'sets', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Reps</label>
+                            <input
+                              type="text"
+                              className="input-field w-full text-xs font-semibold py-1 px-2 bg-slate-50"
+                              placeholder="e.g. 15, 12, 10"
+                              value={item.reps}
+                              onChange={(e) => updateChecklistItemField(item.id, 'reps', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">Weight (KG)</label>
+                            <input
+                              type="text"
+                              className="input-field w-full text-xs font-semibold py-1 px-2 bg-slate-50"
+                              placeholder="e.g. 25"
+                              value={item.weight}
+                              onChange={(e) => updateChecklistItemField(item.id, 'weight', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
