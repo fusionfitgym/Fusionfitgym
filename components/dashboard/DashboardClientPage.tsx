@@ -23,9 +23,10 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentMembers } from '@/components/dashboard/RecentMembers';
 import { ExpiringMembersList } from '@/components/dashboard/ExpiringMembersList';
 import { ExpiryAndBiometricsSection } from '@/components/dashboard/ExpiryAndBiometricsSection';
-import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { formatCurrency, formatDate, getMonthlyCycleRange, isInvoiceInCycle, cn } from '@/lib/utils';
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
+import MonthlyRevenueSection from '@/components/dashboard/MonthlyRevenueSection';
 
 export default function DashboardClientPage() {
   const { members, invoices, trainers, expenses, callLogs, notifications, attendance, renewals, getAttendanceAnalytics, getStaffStats, getStaffAttendanceTodayStats } = useDemoState();
@@ -77,9 +78,17 @@ export default function DashboardClientPage() {
 
   const totalRevenue = useMemo(() => {
     return invoices
-      .filter((invoice) => invoice && invoice.status === 'Paid')
-      .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+      .filter((invoice) => invoice && String(invoice.status || '').toLowerCase() === 'paid')
+      .reduce((sum, invoice) => sum + Number(invoice.paid_amount || invoice.amount || 0), 0);
   }, [invoices]);
+
+  const demoCycleRange = useMemo(() => getMonthlyCycleRange(now), [now]);
+
+  const monthlyCycleRevenue = useMemo(() => {
+    return invoices
+      .filter((inv) => isInvoiceInCycle(inv, demoCycleRange))
+      .reduce((sum, inv) => sum + Number(inv.paid_amount || inv.amount || 0), 0);
+  }, [invoices, demoCycleRange]);
 
   const dailyPassMembers = members.filter((m) => m.duration === 'Daily Pass' && m.status === 'Active').length;
   const activeMonthlyMembers = members.filter((m) => m.duration !== 'Daily Pass' && m.status === 'Active').length;
@@ -159,7 +168,7 @@ export default function DashboardClientPage() {
       </header>
 
       {/* Adaptive Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 lg:gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 md:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Total members"
           value={total}
@@ -178,6 +187,12 @@ export default function DashboardClientPage() {
           value={analytics.checkins}
           icon={<UserCheck className="h-5 w-5" />}
           subtitle="Biometric punches logged today"
+        />
+        <StatCard
+          title="Monthly Revenue (4th-3rd)"
+          value={formatCurrency(monthlyCycleRevenue)}
+          icon={<TrendingUp className="h-5 w-5 text-emerald-600" />}
+          subtitle={`Cycle: ${demoCycleRange.startDayMonth} – ${demoCycleRange.endDayMonth}`}
         />
         <StatCard
           title="Total revenue"
@@ -334,7 +349,8 @@ export default function DashboardClientPage() {
         disabledBiometrics={disabledBiometrics}
       />
 
-      {/* Dynamic Visualizations & Expiring Alerts */}
+      {/* Monthly Revenue Section & Dynamic Visualizations */}
+      <MonthlyRevenueSection invoices={invoices} referenceDate={now} />
       <DashboardChartsSection revenueData={revenueData} pieData={pieData} />
 
       {/* Attendance Trend Widget & Expiry warnings list */}

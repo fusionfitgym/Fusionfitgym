@@ -30,10 +30,11 @@ import { getAttendanceAnalytics, getStaffAttendanceTodayStats } from '@/lib/acti
 import { getSMSStats } from '@/lib/actions/sms';
 import { getStaffStats } from '@/lib/actions/staff';
 import { getDashboardRenewalStats } from '@/lib/actions/renewals';
-import { formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
+import { getMonthlyCycleRange, isInvoiceInCycle, formatCurrency, isExpiringSoon, getMembershipExpiry, formatDate, cn } from '@/lib/utils';
 import DashboardChartsSection from '@/components/dashboard/DashboardChartsSection';
 import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection';
 import DashboardClientPage from '@/components/dashboard/DashboardClientPage';
+import MonthlyRevenueSection from '@/components/dashboard/MonthlyRevenueSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,8 +129,20 @@ export default async function DashboardPage() {
           try {
             return await supabase
               .from('invoices')
-              .select('amount, status, created_at')
-              .eq('status', 'Paid');
+              .select(`
+                id,
+                invoice_number,
+                amount,
+                paid_amount,
+                status,
+                created_at,
+                payment_date,
+                payment_method,
+                member_id,
+                member:members(full_name, phone)
+              `)
+              .eq('status', 'Paid')
+              .order('created_at', { ascending: false });
           } catch (err: any) {
             console.error("Error fetching invoices:", err);
             return { data: null, error: err };
@@ -231,9 +244,16 @@ export default async function DashboardPage() {
     return diff >= 0 && diff <= 7;
   }).length;
 
+  const cycleRange = getMonthlyCycleRange(now);
+  const cyclePaidInvoices = invoices.filter((inv) => isInvoiceInCycle(inv, cycleRange));
+  const monthlyCycleRevenue = cyclePaidInvoices.reduce(
+    (sum, invoice) => sum + Number(invoice.paid_amount || invoice.amount || 0),
+    0
+  );
+
   const totalRevenue = invoices
-    .filter((invoice) => invoice && invoice.status === 'Paid')
-    .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+    .filter((invoice) => invoice && String(invoice.status || '').toLowerCase() === 'paid')
+    .reduce((sum, invoice) => sum + Number(invoice.paid_amount || invoice.amount || 0), 0);
 
   const dailyPassMembers = members.filter((m) => m && m.duration === 'Daily Pass' && m.status === 'Active').length;
   const activeMonthlyMembers = members.filter((m) => m && m.duration !== 'Daily Pass' && m.status === 'Active').length;
@@ -300,7 +320,7 @@ export default async function DashboardPage() {
     { href: '/parq/new', label: 'New PAR-Q form', description: 'Readiness screening', icon: ClipboardList, roles: ['Super Admin', 'Admin', 'Trainer'] },
   ].filter((action) => action.roles.includes(role));
 
-  const visibleCardsCount = 1 + (showAttendanceAnalytics ? 2 : 0) + (showRevenueAnalytics ? 1 : 0);
+  const visibleCardsCount = 1 + (showAttendanceAnalytics ? 2 : 0) + (showRevenueAnalytics ? 2 : 0);
 
   return (
     <div className="page page-enter">
@@ -322,7 +342,7 @@ export default async function DashboardPage() {
             ? 'md:grid-cols-1 lg:grid-cols-1'
             : visibleCardsCount === 3
             ? 'md:grid-cols-3 lg:grid-cols-3'
-            : 'md:grid-cols-2 lg:grid-cols-4',
+            : 'md:grid-cols-2 lg:grid-cols-5',
         )}
       >
         <StatCard
@@ -349,12 +369,20 @@ export default async function DashboardPage() {
           </>
         )}
         {showRevenueAnalytics && (
-          <StatCard
-            title="Total revenue"
-            value={formatCurrency(totalRevenue)}
-            icon={<TrendingUp className="h-5 w-5" />}
-            subtitle="All paid invoices"
-          />
+          <>
+            <StatCard
+              title="Monthly Revenue (4th-3rd)"
+              value={formatCurrency(monthlyCycleRevenue)}
+              icon={<TrendingUp className="h-5 w-5 text-emerald-600" />}
+              subtitle={`Cycle: ${cycleRange.startDayMonth} – ${cycleRange.endDayMonth}`}
+            />
+            <StatCard
+              title="Total revenue"
+              value={formatCurrency(totalRevenue)}
+              icon={<TrendingUp className="h-5 w-5" />}
+              subtitle="All paid invoices"
+            />
+          </>
         )}
       </div>
 
@@ -548,9 +576,12 @@ export default async function DashboardPage() {
         disabledBiometrics={disabledBiometrics}
       />
 
-      {/* Dynamic Visualizations & Expiring Alerts */}
+      {/* Dynamic Visualizations, Monthly Revenue & Expiring Alerts */}
       {showRevenueAnalytics && (
-        <DashboardChartsSection revenueData={revenueData} pieData={pieData} />
+        <>
+          <MonthlyRevenueSection invoices={invoices} />
+          <DashboardChartsSection revenueData={revenueData} pieData={pieData} />
+        </>
       )}
 
       {/* Attendance Trend Widget & Expiry warnings list */}

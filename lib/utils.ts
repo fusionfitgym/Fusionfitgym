@@ -97,3 +97,88 @@ export function isExpiringSoon(joinDate: string | null | undefined, plan: string
   const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
   return diff >= 0 && diff <= days;
 }
+
+export interface MonthlyCycleRange {
+  startDate: Date;
+  endDate: Date;
+  startDateStr: string;
+  endDateStr: string;
+  formattedRange: string;
+  startDayMonth: string;
+  endDayMonth: string;
+}
+
+export function getMonthlyCycleRange(refDate: Date | string = new Date()): MonthlyCycleRange {
+  let d: Date;
+  if (typeof refDate === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(refDate)) {
+      const [y, m, dayNum] = refDate.split('-').map(Number);
+      d = new Date(y, m - 1, dayNum);
+    } else {
+      d = new Date(refDate);
+    }
+  } else {
+    d = refDate;
+  }
+  if (isNaN(d.getTime())) {
+    d = new Date();
+  }
+
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const day = d.getDate();
+
+  let startYear = year;
+  let startMonth = month;
+
+  if (day < 4) {
+    if (month === 0) {
+      startYear = year - 1;
+      startMonth = 11;
+    } else {
+      startMonth = month - 1;
+    }
+  }
+
+  const startDate = new Date(startYear, startMonth, 4, 0, 0, 0, 0);
+  const endYear = startMonth === 11 ? startYear + 1 : startYear;
+  const endMonth = (startMonth + 1) % 12;
+  const endDate = new Date(endYear, endMonth, 3, 23, 59, 59, 999);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const startDateStr = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
+  const endDateStr = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}`;
+
+  const formatShort = (date: Date) => date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return {
+    startDate,
+    endDate,
+    startDateStr,
+    endDateStr,
+    formattedRange: `${formatShort(startDate)} – ${formatShort(endDate)}`,
+    startDayMonth: startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    endDayMonth: endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+  };
+}
+
+export function isInvoiceInCycle(invoice: any, cycle: MonthlyCycleRange): boolean {
+  if (!invoice) return false;
+  const status = String(invoice.status || '').toLowerCase();
+  if (status !== 'paid') return false;
+
+  const rawDate = invoice.payment_date || invoice.created_at;
+  if (!rawDate) return false;
+
+  if (typeof rawDate === 'string') {
+    const datePart = rawDate.split('T')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart >= cycle.startDateStr && datePart <= cycle.endDateStr;
+    }
+  }
+
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) return false;
+  return d >= cycle.startDate && d <= cycle.endDate;
+}
+
