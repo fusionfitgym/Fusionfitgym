@@ -13,20 +13,20 @@ interface StatCardProps {
 
 export const StatCard = memo(function StatCard({ title, value, icon, trend, subtitle, accent }: StatCardProps) {
   return (
-    <article className={cn('card card-hover flex min-h-40 flex-col justify-between p-5 sm:p-6', accent && 'border-amber-300 bg-amber-300')}>
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className={cn('text-[13px] font-medium', accent ? 'text-black/60' : 'text-slate-500')}>{title}</p>
-          <p className={cn('mt-2 truncate text-3xl font-bold leading-none tracking-[-0.04em]', accent ? 'text-black' : 'text-slate-950')}>
+    <article className={cn('card card-hover flex min-h-36 flex-col justify-between p-4 sm:p-5', accent && 'border-amber-300 bg-amber-300')}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className={cn('text-[13px] font-medium leading-tight', accent ? 'text-black/60' : 'text-slate-500')}>{title}</p>
+          <p className={cn('mt-2 text-xl sm:text-2xl xl:text-3xl font-extrabold leading-none tracking-tight', accent ? 'text-black' : 'text-slate-950')}>
             {value}
           </p>
         </div>
-        <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', accent ? 'bg-black/10 text-black' : 'bg-amber-50 text-amber-600')}>
+        <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', accent ? 'bg-black/10 text-black' : 'bg-amber-50 text-amber-600')}>
           {icon}
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         {typeof trend === 'number' ? (
           <div className="flex items-center gap-1.5 text-xs font-medium">
             {trend > 0 ? (

@@ -342,7 +342,7 @@ export default async function DashboardPage() {
             ? 'md:grid-cols-1 lg:grid-cols-1'
             : visibleCardsCount === 3
             ? 'md:grid-cols-3 lg:grid-cols-3'
-            : 'md:grid-cols-2 lg:grid-cols-5',
+            : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
         )}
       >
         <StatCard
