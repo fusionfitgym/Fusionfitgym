@@ -796,6 +796,9 @@ export default function MemberDetailPage({ params }: { params: Promise<{ id: str
                   { label: 'Weight', value: latestAssessment.weight ? `${latestAssessment.weight} kg` : '-' },
                   { label: 'BMI', value: latestAssessment.bmi ? String(latestAssessment.bmi) : '-' },
                   { label: 'Body fat', value: latestAssessment.body_fat ? `${latestAssessment.body_fat}%` : '-' },
+                  { label: 'Subcut. Fat (WB)', value: latestAssessment.subcutaneous_fat_whole_body ? `${latestAssessment.subcutaneous_fat_whole_body}%` : '-' },
+                  { label: 'Skel. Muscle (WB)', value: latestAssessment.skeletal_muscle_whole_body ? `${latestAssessment.skeletal_muscle_whole_body}%` : '-' },
+                  { label: 'RM (Metabolism)', value: latestAssessment.resting_metabolism ? `${latestAssessment.resting_metabolism} kcal` : '-' },
                 ].map(({ label, value }) => (
                   <div key={label} className="metric-tile">
                     <p className="metric-label">{label}</p>

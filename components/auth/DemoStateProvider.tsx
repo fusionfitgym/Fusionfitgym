@@ -1303,10 +1303,19 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createHealthAssessment = (values: any) => {
+    const member = members.find(m => m.id === values.member_id);
+    let bmi: number | undefined;
+    if (values.height && values.weight) {
+      const heightM = Number(values.height) / 100;
+      bmi = parseFloat((Number(values.weight) / (heightM * heightM)).toFixed(1));
+    }
+
     const newAss: HealthAssessment = {
       ...values,
+      bmi: values.bmi ?? bmi,
       id: `demo-health-uuid-${(healthAssessments.length + 1).toString().padStart(4, '0')}`,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      member: member ? { full_name: member.full_name, gender: member.gender, dob: member.dob } : undefined,
     };
     setHealthAssessments(prev => [newAss, ...prev]);
     return newAss;

@@ -22,7 +22,7 @@ export default function HealthPage() {
     <div className="page page-enter">
       <PageHeader
         title="Health assessments"
-        subtitle="Track body measurements, BMI, medical history, and fitness progress."
+        subtitle="Track body measurements, subcutaneous fat, resting metabolism (RM), skeletal muscle, and fitness progress."
         action={
           <Link href="/health/new" className="btn btn-primary">
             <Plus className="h-4 w-4" /> New assessment
@@ -50,10 +50,12 @@ export default function HealthPage() {
               <thead>
                 <tr>
                   <th>Member</th>
-                  <th className="hidden sm:table-cell">Height</th>
-                  <th className="hidden sm:table-cell">Weight</th>
+                  <th className="hidden sm:table-cell">Height / Weight</th>
                   <th>BMI</th>
-                  <th className="hidden md:table-cell">Date</th>
+                  <th className="hidden md:table-cell">Subcutaneous Fat</th>
+                  <th className="hidden lg:table-cell">Skeletal Muscle</th>
+                  <th className="hidden lg:table-cell">RM (kcal)</th>
+                  <th className="hidden xl:table-cell">Date</th>
                   <th className="text-right">Action</th>
                 </tr>
               </thead>
@@ -64,8 +66,9 @@ export default function HealthPage() {
                   return (
                     <tr key={assessment.id}>
                       <td><p className="table-primary">{member?.full_name ?? 'Unknown member'}</p></td>
-                      <td className="hidden sm:table-cell">{assessment.height ? `${assessment.height} cm` : '-'}</td>
-                      <td className="hidden sm:table-cell">{assessment.weight ? `${assessment.weight} kg` : '-'}</td>
+                      <td className="hidden sm:table-cell">
+                        {assessment.height || assessment.weight ? `${assessment.height ?? '-'} cm / ${assessment.weight ?? '-'} kg` : '-'}
+                      </td>
                       <td>
                         {assessment.bmi && bmiInfo ? (
                           <span
@@ -76,7 +79,16 @@ export default function HealthPage() {
                           </span>
                         ) : '-'}
                       </td>
-                      <td className="hidden md:table-cell">{formatDate(assessment.created_at)}</td>
+                      <td className="hidden md:table-cell">
+                        {assessment.subcutaneous_fat_whole_body ? `${assessment.subcutaneous_fat_whole_body}%` : (assessment.body_fat ? `${assessment.body_fat}% (Body)` : '-')}
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        {assessment.skeletal_muscle_whole_body ? `${assessment.skeletal_muscle_whole_body}%` : '-'}
+                      </td>
+                      <td className="hidden lg:table-cell">
+                        {assessment.resting_metabolism ? `${assessment.resting_metabolism} kcal` : '-'}
+                      </td>
+                      <td className="hidden xl:table-cell">{formatDate(assessment.created_at)}</td>
                       <td className="text-right">
                         <Link href={`/health/${assessment.id}`} className="btn btn-ghost btn-sm">
                           View <ArrowRight className="h-3.5 w-3.5" />
@@ -108,12 +120,12 @@ export default function HealthPage() {
                   </div>
                   <div className="mobile-record-meta">
                     <div>
-                      <p className="metric-label">Height</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{assessment.height ? `${assessment.height} cm` : '-'}</p>
+                      <p className="metric-label">Subcutaneous Fat</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{assessment.subcutaneous_fat_whole_body ? `${assessment.subcutaneous_fat_whole_body}%` : '-'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="metric-label">Weight</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{assessment.weight ? `${assessment.weight} kg` : '-'}</p>
+                      <p className="metric-label">Skeletal Muscle</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{assessment.skeletal_muscle_whole_body ? `${assessment.skeletal_muscle_whole_body}%` : '-'}</p>
                     </div>
                   </div>
                   <div className="mobile-record-actions">

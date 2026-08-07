@@ -8,7 +8,7 @@ export async function getHealthAssessments(): Promise<HealthAssessment[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('health_assessments')
-    .select('*, member:members(full_name)')
+    .select('*, member:members(full_name, gender, dob)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data as HealthAssessment[];
@@ -29,7 +29,7 @@ export async function getHealthById(id: string): Promise<HealthAssessment | null
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('health_assessments')
-    .select('*, member:members(full_name)')
+    .select('*, member:members(full_name, gender, dob)')
     .eq('id', id)
     .single();
   if (error) return null;

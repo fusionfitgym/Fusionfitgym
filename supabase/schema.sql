@@ -34,16 +34,25 @@ CREATE TABLE IF NOT EXISTS parq_responses (
 
 -- ── Health Assessments ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS health_assessments (
-  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  member_id           UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
-  height              NUMERIC(5,2),   -- cm
-  weight              NUMERIC(5,2),   -- kg
-  bmi                 NUMERIC(4,2),   -- auto calculated
-  body_fat            NUMERIC(4,2),   -- %
-  injuries            TEXT,
-  medical_conditions  TEXT,
-  notes               TEXT,
-  created_at          TIMESTAMPTZ DEFAULT NOW()
+  id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  member_id                   UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  height                      NUMERIC(5,2),   -- cm
+  weight                      NUMERIC(5,2),   -- kg
+  bmi                         NUMERIC(4,2),   -- auto calculated
+  body_fat                    NUMERIC(4,2),   -- % whole body
+  subcutaneous_fat_whole_body NUMERIC(4,2),   -- %
+  subcutaneous_fat_trunk      NUMERIC(4,2),   -- %
+  subcutaneous_fat_arms       NUMERIC(4,2),   -- %
+  subcutaneous_fat_legs       NUMERIC(4,2),   -- %
+  resting_metabolism          NUMERIC(6,2),   -- RM kcal
+  skeletal_muscle_whole_body  NUMERIC(4,2),   -- %
+  skeletal_muscle_trunk       NUMERIC(4,2),   -- %
+  skeletal_muscle_arms        NUMERIC(4,2),   -- %
+  skeletal_muscle_legs       NUMERIC(4,2),   -- %
+  injuries                    TEXT,
+  medical_conditions          TEXT,
+  notes                       TEXT,
+  created_at                  TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ── Invoices ───────────────────────────────────────────────

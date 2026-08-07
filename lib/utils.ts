@@ -183,3 +183,88 @@ export function isInvoiceInCycle(invoice: any, cycle: MonthlyCycleRange): boolea
   return d >= cycle.startDate && d <= cycle.endDate;
 }
 
+// ── Body Composition Calculations & Evaluations ─────────────────────
+
+/**
+ * Calculates Basal Metabolic Rate / Resting Metabolism (RM in kcal/day) using Mifflin-St Jeor equation.
+ */
+export function calculateBMR(
+  weightKg: number,
+  heightCm: number,
+  age: number = 30,
+  gender: string = 'Gents'
+): number {
+  const isFemale = gender.toLowerCase() === 'ladies' || gender.toLowerCase() === 'female';
+  const bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * age) + (isFemale ? -161 : 5);
+  return Math.round(bmr);
+}
+
+/**
+ * Categorizes Whole Body Fat % based on gender standards.
+ */
+export function getBodyFatCategory(bodyFat: number, gender: string = 'Gents'): { label: string; color: string } {
+  const isFemale = gender.toLowerCase() === 'ladies' || gender.toLowerCase() === 'female';
+  if (isFemale) {
+    if (bodyFat < 20) return { label: 'Low', color: '#60a5fa' };
+    if (bodyFat < 30) return { label: 'Normal', color: '#4ade80' };
+    if (bodyFat < 35) return { label: 'High', color: '#fb923c' };
+    return { label: 'Very High', color: '#f87171' };
+  } else {
+    if (bodyFat < 10) return { label: 'Low', color: '#60a5fa' };
+    if (bodyFat < 20) return { label: 'Normal', color: '#4ade80' };
+    if (bodyFat < 25) return { label: 'High', color: '#fb923c' };
+    return { label: 'Very High', color: '#f87171' };
+  }
+}
+
+/**
+ * Categorizes Subcutaneous Fat % by body segment and gender.
+ */
+export function getSubcutaneousFatCategory(
+  value: number,
+  region: 'whole_body' | 'trunk' | 'arms' | 'legs',
+  gender: string = 'Gents'
+): { label: string; color: string } {
+  const isFemale = gender.toLowerCase() === 'ladies' || gender.toLowerCase() === 'female';
+
+  const thresholds = {
+    whole_body: isFemale ? [18.5, 26.7, 30.9] : [8.6, 16.7, 20.9],
+    trunk: isFemale ? [16.0, 24.4, 28.4] : [6.5, 14.4, 18.4],
+    arms: isFemale ? [22.0, 29.9, 34.9] : [12.0, 19.9, 24.9],
+    legs: isFemale ? [24.0, 31.9, 36.9] : [14.0, 21.9, 26.9],
+  };
+
+  const [low, normal, high] = thresholds[region] || thresholds.whole_body;
+
+  if (value < low) return { label: 'Low', color: '#60a5fa' };
+  if (value <= normal) return { label: 'Normal', color: '#4ade80' };
+  if (value <= high) return { label: 'High', color: '#fb923c' };
+  return { label: 'Very High', color: '#f87171' };
+}
+
+/**
+ * Categorizes Skeletal Muscle % by body segment and gender.
+ */
+export function getSkeletalMuscleCategory(
+  value: number,
+  region: 'whole_body' | 'trunk' | 'arms' | 'legs',
+  gender: string = 'Gents'
+): { label: string; color: string } {
+  const isFemale = gender.toLowerCase() === 'ladies' || gender.toLowerCase() === 'female';
+
+  const thresholds = {
+    whole_body: isFemale ? [25.9, 27.9, 29.0] : [32.9, 35.7, 37.3],
+    trunk: isFemale ? [19.0, 22.0, 25.0] : [25.0, 28.0, 31.0],
+    arms: isFemale ? [27.0, 32.0, 36.0] : [35.0, 40.0, 44.0],
+    legs: isFemale ? [38.0, 44.0, 48.0] : [47.0, 53.0, 57.0],
+  };
+
+  const [low, normal, high] = thresholds[region] || thresholds.whole_body;
+
+  if (value < low) return { label: 'Low', color: '#60a5fa' };
+  if (value <= normal) return { label: 'Normal', color: '#4ade80' };
+  if (value <= high) return { label: 'High', color: '#38bdf8' };
+  return { label: 'Very High', color: '#a855f7' };
+}
+
+

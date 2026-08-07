@@ -190,18 +190,56 @@ export interface HealthAssessment {
   weight?: number | null;
   bmi?: number | null;
   body_fat?: number | null;
+  
+  // Subcutaneous Fat (%)
+  subcutaneous_fat_whole_body?: number | null;
+  subcutaneous_fat_trunk?: number | null;
+  subcutaneous_fat_arms?: number | null;
+  subcutaneous_fat_legs?: number | null;
+
+  // Resting Metabolism (RM in kcal)
+  resting_metabolism?: number | null;
+
+  // Skeletal Muscle (%)
+  skeletal_muscle_whole_body?: number | null;
+  skeletal_muscle_trunk?: number | null;
+  skeletal_muscle_arms?: number | null;
+  skeletal_muscle_legs?: number | null;
+
   injuries?: string | null;
   medical_conditions?: string | null;
   notes?: string | null;
   created_at: string;
-  member?: Pick<Member, 'full_name'>;
+  member?: Pick<Member, 'full_name' | 'gender' | 'dob'>;
 }
+
+const optionalNumber = (min: number, max: number) =>
+  z.preprocess(
+    (val) => (val === '' || val === null || val === undefined || Number.isNaN(Number(val)) ? undefined : Number(val)),
+    z.number().min(min).max(max).optional().nullable()
+  );
 
 export const healthSchema = z.object({
   member_id: z.string().uuid('Select a member'),
-  height: z.coerce.number().min(50).max(300).optional(),
-  weight: z.coerce.number().min(10).max(500).optional(),
-  body_fat: z.coerce.number().min(0).max(100).optional(),
+  height: optionalNumber(30, 300),
+  weight: optionalNumber(10, 500),
+  body_fat: optionalNumber(0, 100),
+
+  // Subcutaneous Fat (%)
+  subcutaneous_fat_whole_body: optionalNumber(0, 100),
+  subcutaneous_fat_trunk: optionalNumber(0, 100),
+  subcutaneous_fat_arms: optionalNumber(0, 100),
+  subcutaneous_fat_legs: optionalNumber(0, 100),
+
+  // Resting Metabolism (RM kcal)
+  resting_metabolism: optionalNumber(100, 10000),
+
+  // Skeletal Muscle (%)
+  skeletal_muscle_whole_body: optionalNumber(0, 100),
+  skeletal_muscle_trunk: optionalNumber(0, 100),
+  skeletal_muscle_arms: optionalNumber(0, 100),
+  skeletal_muscle_legs: optionalNumber(0, 100),
+
   injuries: z.string().optional().or(z.literal('')),
   medical_conditions: z.string().optional().or(z.literal('')),
   notes: z.string().optional().or(z.literal('')),
