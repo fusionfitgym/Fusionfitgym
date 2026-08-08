@@ -903,8 +903,8 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                               <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1 border-b border-slate-200/40 last:border-0">
                                 <span className="text-xs font-bold text-slate-900">{name}</span>
                                 {details ? (
-                                  <span className="inline-flex items-center rounded-md bg-amber-100/90 px-2 py-0.5 text-[11px] font-bold text-amber-950 border border-amber-200/80 shadow-2xs">
-                                    ⚡ {details}
+                                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-800 border border-slate-200">
+                                    {details}
                                   </span>
                                 ) : null}
                               </div>
@@ -1085,7 +1085,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   />
                 ) : (
                   <div className="w-full max-w-xs aspect-square rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
-                    <Sparkles className="h-10 w-10 mb-2 text-amber-400" />
+                    <ImageIcon className="h-10 w-10 mb-2 text-slate-300" />
                     <span className="text-xs font-semibold">No Current Photo Uploaded</span>
                   </div>
                 )}
@@ -1327,16 +1327,16 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
 
             <form onSubmit={handleAddWorkout} className="space-y-4">
               {/* Today's Workout To-Do Checklist */}
-              <div className="rounded-2xl border border-amber-300/80 bg-gradient-to-b from-amber-50/70 to-orange-50/30 p-4 space-y-3 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-3 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-amber-600" />
-                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-950">
+                      <ClipboardCheck className="h-4 w-4 text-amber-600" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                         Today's Workout Checklist
                       </h4>
                     </div>
-                    <p className="text-[11px] text-amber-800 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5">
                       Check completed exercises & enter sets, reps, weight (kg) for each:
                     </p>
                   </div>
@@ -1350,8 +1350,8 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                         onClick={() => loadChecklistPreset(preset)}
                         className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
                           activeDayPreset === preset.day
-                            ? 'bg-amber-600 text-white shadow-xs'
-                            : 'bg-white/80 text-amber-900 border border-amber-200 hover:bg-amber-100'
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
                         }`}
                       >
                         {preset.day}
@@ -1371,8 +1371,9 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                     />
                     <span>Select All ({checklistItems.filter(i => i.completed).length} / {checklistItems.length} checked)</span>
                   </label>
-                  <span className="text-[11px] text-amber-900 font-bold bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-200">
-                    ⚡ {checklistItems.filter(i => i.completed).length} items selected to log
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-800 font-bold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    {checklistItems.filter(i => i.completed).length} items selected to log
                   </span>
                 </div>
 
@@ -1383,7 +1384,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                       key={item.id}
                       className={`rounded-xl border transition-all p-3 ${
                         item.completed
-                          ? 'border-amber-300 bg-white shadow-xs'
+                          ? 'border-amber-200 bg-amber-50/40 shadow-xs'
                           : 'border-slate-200 bg-slate-50/60 opacity-60'
                       }`}
                     >
@@ -1400,8 +1401,9 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                           </span>
                         </label>
                         {item.completed && (
-                          <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900 border border-amber-200">
-                            ⚡ {item.sets || 4} sets x {item.reps || '15,12,10'} reps @ {item.weight || 25} kg
+                          <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200 shadow-xs">
+                            <Dumbbell className="h-3 w-3 text-amber-600" />
+                            {item.sets || 4} sets × {item.reps || '15,12,10'} reps @ {item.weight || 25} kg
                           </span>
                         )}
                       </div>

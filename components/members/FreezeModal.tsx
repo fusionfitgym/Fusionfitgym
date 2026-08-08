@@ -263,7 +263,7 @@ export function FreezeModal({ member, isOpen, onClose, onSuccess }: FreezeModalP
                 </span>
               </div>
               <div className="text-[11px] text-slate-500 pt-1">
-                ⚡ Active invoice expiry and due dates will also be automatically extended by <strong className="text-slate-700 dark:text-slate-300">{freezeDays} day{freezeDays === 1 ? '' : 's'}</strong>.
+                Active invoice expiry and due dates will also be automatically extended by <strong className="text-slate-700 dark:text-slate-300">{freezeDays} day{freezeDays === 1 ? '' : 's'}</strong>.
               </div>
             </div>
 
