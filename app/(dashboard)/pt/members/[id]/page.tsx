@@ -156,6 +156,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
   const [builderWeight, setBuilderWeight] = useState('25');
   const [checklistItems, setChecklistItems] = useState<RoutineChecklistItem[]>([]);
   const [activeDayPreset, setActiveDayPreset] = useState<string>('Mon');
+  const [newExerciseName, setNewExerciseName] = useState('');
 
   // Submission locking states
   const [isSubmittingProgress, setIsSubmittingProgress] = useState(false);
@@ -175,6 +176,35 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
         return `${idx + 1}. ${item.name}${suffix}`;
       })
       .join('\n');
+  };
+
+  // Add a new custom exercise to current checklist
+  const addCustomExercise = () => {
+    const nameToUse = newExerciseName.trim() || `Custom Exercise ${checklistItems.length + 1}`;
+    const newItem: RoutineChecklistItem = {
+      id: `ex-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: nameToUse,
+      completed: true,
+      sets: builderSets || '4',
+      reps: builderReps || '15, 12, 10',
+      weight: builderWeight || '25'
+    };
+    setChecklistItems(prev => {
+      const updated = [...prev, newItem];
+      setExercises(formatExercisesFromChecklist(updated));
+      return updated;
+    });
+    setNewExerciseName('');
+    toast.success(`Added "${nameToUse}" to checklist`);
+  };
+
+  // Remove an exercise item from checklist
+  const removeChecklistItem = (id: string) => {
+    setChecklistItems(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      setExercises(formatExercisesFromChecklist(updated));
+      return updated;
+    });
   };
 
   // Load routine preset into interactive checklist
@@ -206,7 +236,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
     });
   };
 
-  // Update item field (sets, reps, weight)
+  // Update item field (sets, reps, weight, name)
   const updateChecklistItemField = (id: string, field: 'sets' | 'reps' | 'weight' | 'name', value: string) => {
     setChecklistItems(prev => {
       const updated = prev.map(item => item.id === id ? { ...item, [field]: value } : item);
@@ -1378,7 +1408,7 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                 </div>
 
                 {/* Checklist Exercise Items Rows */}
-                <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                   {checklistItems.map((item, idx) => (
                     <div
                       key={item.id}
@@ -1388,24 +1418,42 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                           : 'border-slate-200 bg-slate-50/60 opacity-60'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <label className="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-slate-900 select-none">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
                           <input
                             type="checkbox"
                             checked={item.completed}
                             onChange={() => toggleChecklistItem(item.id)}
-                            className="h-4.5 w-4.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                            className="h-4.5 w-4.5 rounded border-slate-300 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
                           />
-                          <span className={item.completed ? 'text-slate-950 font-extrabold' : 'text-slate-500 line-through'}>
-                            {idx + 1}. {item.name}
-                          </span>
-                        </label>
-                        {item.completed && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200 shadow-xs">
-                            <Dumbbell className="h-3 w-3 text-amber-600" />
-                            {item.sets || 4} sets × {item.reps || '15,12,10'} reps @ {item.weight || 25} kg
-                          </span>
-                        )}
+                          <span className="text-xs font-bold text-slate-400 shrink-0">{idx + 1}.</span>
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => updateChecklistItemField(item.id, 'name', e.target.value)}
+                            placeholder="Exercise Name"
+                            className={`input-field text-xs font-bold py-1 px-2.5 flex-1 min-w-[140px] ${
+                              item.completed ? 'text-slate-900 bg-white border-slate-200' : 'text-slate-400 bg-slate-100 line-through border-transparent'
+                            }`}
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.completed && (
+                            <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200 shadow-xs">
+                              <Dumbbell className="h-3 w-3 text-amber-600" />
+                              {item.sets || 4} sets × {item.reps || '15,12,10'} reps @ {item.weight || 25} kg
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeChecklistItem(item.id)}
+                            title="Remove exercise"
+                            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Reps & Weight Input Fields for Checked Exercise */}
@@ -1445,6 +1493,30 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                       )}
                     </div>
                   ))}
+                </div>
+
+                {/* Add Custom Exercise Bar */}
+                <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                  <input
+                    type="text"
+                    value={newExerciseName}
+                    onChange={(e) => setNewExerciseName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomExercise();
+                      }
+                    }}
+                    placeholder="Type new exercise name (e.g. Incline Dumbbell Press)..."
+                    className="input-field flex-1 text-xs font-medium bg-slate-50 border-slate-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomExercise}
+                    className="btn btn-secondary btn-sm py-1.5 px-3 flex items-center gap-1.5 font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-200 shrink-0"
+                  >
+                    <Plus className="h-4 w-4 text-amber-600" /> Add Exercise
+                  </button>
                 </div>
               </div>
 
