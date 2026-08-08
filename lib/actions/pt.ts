@@ -65,6 +65,17 @@ export async function createPTTrainer(values: PTTrainerFormValues): Promise<{ da
     const validated = ptTrainerSchema.parse(values);
     const supabase = await createClient();
 
+    const { data: existingTrainer } = await supabase
+      .from('pt_trainers')
+      .select('id, full_name')
+      .eq('phone', validated.phone)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (existingTrainer) {
+      return { error: `A trainer with phone number ${validated.phone} is already registered (${existingTrainer.full_name}).` };
+    }
+
     const { data, error } = await supabase
       .from('pt_trainers')
       .insert([validated])
@@ -255,6 +266,17 @@ export async function createPTClient(values: PTClientFormValues): Promise<{ data
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist']);
     const validated = ptClientSchema.parse(values);
     const supabase = await createClient();
+
+    const { data: existingClient } = await supabase
+      .from('pt_clients')
+      .select('id, full_name')
+      .eq('phone', validated.phone)
+      .eq('status', 'Active')
+      .maybeSingle();
+
+    if (existingClient) {
+      return { error: `A PT Client with phone number ${validated.phone} is already registered (${existingClient.full_name}).` };
+    }
 
     const { data, error } = await supabase
       .from('pt_clients')

@@ -121,6 +121,7 @@ export default function AddPTClientPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!fullName || !phone || !startDate || !expiryDate) {
       toast.error('Please fill all required fields');
       return;

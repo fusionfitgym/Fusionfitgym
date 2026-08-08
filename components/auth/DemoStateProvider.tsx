@@ -1435,6 +1435,12 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   const getPTTrainers = () => ptTrainers;
   const getPTTrainerById = (id: string) => ptTrainers.find(t => t.id === id) || null;
   const createPTTrainer = (values: any) => {
+    if (values.phone) {
+      const existing = ptTrainers.find(t => t.phone.trim() === String(values.phone).trim());
+      if (existing) {
+        return { error: `Trainer with phone number ${values.phone} is already registered (${existing.full_name}).` };
+      }
+    }
     const newTrainer: PTTrainer = {
       ...values,
       id: `pt-trainer-uuid-${(ptTrainers.length + 1).toString().padStart(4, '0')}`,
@@ -1515,6 +1521,12 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     };
   };
   const createPTClient = (values: any) => {
+    if (values.phone) {
+      const existing = ptClients.find(c => c.phone.trim() === String(values.phone).trim() && c.status === 'Active');
+      if (existing) {
+        return { error: `PT Client with phone number ${values.phone} is already actively registered (${existing.full_name}).` };
+      }
+    }
     const newClient: PTClient = {
       ...values,
       id: `pt-client-uuid-${(ptClients.length + 1).toString().padStart(4, '0')}`,

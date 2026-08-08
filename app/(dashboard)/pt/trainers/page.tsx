@@ -90,12 +90,18 @@ export default function PTTrainersPage() {
     setIsModalOpen(true);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+
     if (!name || !phone) {
       toast.error('Name and Phone are required');
       return;
     }
+
+    setSubmitting(true);
 
     const payload = {
       full_name: name,
@@ -112,7 +118,8 @@ export default function PTTrainersPage() {
     try {
       if (editingTrainer) {
         if (isDemo) {
-          demo.updatePTTrainer(editingTrainer.id, payload);
+          const res = demo.updatePTTrainer(editingTrainer.id, payload);
+          if (res.error) throw new Error(res.error);
           toast.success('Trainer updated successfully (Demo)');
         } else {
           const res = await updatePTTrainer(editingTrainer.id, payload);
@@ -121,7 +128,8 @@ export default function PTTrainersPage() {
         }
       } else {
         if (isDemo) {
-          demo.createPTTrainer(payload);
+          const res = demo.createPTTrainer(payload);
+          if (res.error) throw new Error(res.error);
           toast.success('Trainer registered successfully (Demo)');
         } else {
           const res = await createPTTrainer(payload);
@@ -133,6 +141,8 @@ export default function PTTrainersPage() {
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save trainer');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -569,10 +579,11 @@ export default function PTTrainersPage() {
               </button>
               <button
                 type="submit"
+                disabled={submitting}
                 className="btn btn-primary"
                 style={{ height: '42px', minWidth: '110px' }}
               >
-                Save Trainer
+                {submitting ? 'Saving...' : 'Save Trainer'}
               </button>
             </div>
           </form>
