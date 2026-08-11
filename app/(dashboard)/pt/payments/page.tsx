@@ -8,7 +8,17 @@ import { getPTPayments, createPTPayment, getPTClients, getPTInvoices } from '@/l
 import { PTPayment, PTClient, PTInvoice } from '@/types/pt';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
-import { DollarSign, Search, Plus, Filter, Wallet, CreditCard, X, Check } from 'lucide-react';
+import { DollarSign, Search, Plus, Filter, Wallet, CreditCard, X } from 'lucide-react';
+
+const paymentMethods = ['Cash', 'UPI', 'Card', 'Bank Transfer', 'Split Payment', 'Partial Payment'] as const;
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function isPaymentMethod(value: string): value is PTPayment['payment_method'] {
+  return paymentMethods.includes(value as PTPayment['payment_method']);
+}
 
 export default function PTPaymentsPage() {
   const { profile } = useAuth();
@@ -55,15 +65,18 @@ export default function PTPaymentsPage() {
         setClients(clientData.filter(c => c.status === 'Active'));
         setInvoices(invData.filter(i => i.status === 'Pending'));
       }
-    } catch (err: any) {
-      toast.error('Failed to load payments: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to load payments: ' + getErrorMessage(err, 'Unknown error'));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Existing page behavior: load payments whenever demo-backed PT data changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demo.ptPayments, demo.ptClients, demo.ptInvoices]);
 
   const handleClientChange = (cId: string) => {
@@ -148,8 +161,8 @@ export default function PTPaymentsPage() {
       setCardAmount('');
 
       loadData();
-    } catch (err: any) {
-      toast.error(err.message || 'Payment recording failed');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Payment recording failed'));
     } finally {
       setSubmitting(false);
     }
@@ -192,50 +205,50 @@ export default function PTPaymentsPage() {
 
       {/* Summary Widgets */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
-        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-amber-500/30">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20">
+        <Card className="flex items-center gap-4 p-5 border border-amber-500/30">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
             <DollarSign className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Gym Net Revenue</p>
-            <p className="mt-1 text-2xl font-black text-amber-300">{formatCurrency(totalGymNetRevenue)}</p>
-            <p className="text-[10px] text-zinc-500 font-medium">After Trainer Fee Deduction</p>
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Gym Net Revenue</p>
+            <p className="mt-1 text-2xl font-black text-amber-600">{formatCurrency(totalGymNetRevenue)}</p>
+            <p className="text-[10px] text-black font-medium">After Trainer Fee Deduction</p>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+        <Card className="flex items-center gap-4 p-5 border border-slate-200">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600 border border-purple-200">
             <Wallet className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Trainer Share Deducted</p>
-            <p className="mt-1 text-xl font-black text-purple-400">{formatCurrency(totalTrainerFees)}</p>
-            <p className="text-[10px] text-zinc-500 font-medium">Payouts to Trainers</p>
+            <p className="text-xs font-semibold text-black uppercase tracking-wider">Trainer Share Deducted</p>
+            <p className="mt-1 text-xl font-black text-purple-600">{formatCurrency(totalTrainerFees)}</p>
+            <p className="text-[10px] text-black font-medium">Payouts to Trainers</p>
           </div>
         </Card>
 
-        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+        <Card className="flex items-center gap-4 p-5 border border-slate-200">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-200">
             <CreditCard className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Total Gross Sales</p>
-            <p className="mt-1 text-xl font-black text-zinc-100">{formatCurrency(totalCollected)}</p>
-            <p className="text-[10px] text-zinc-500 font-medium">{payments.length} Transactions</p>
+            <p className="text-xs font-semibold text-black uppercase tracking-wider">Total Gross Sales</p>
+            <p className="mt-1 text-xl font-black text-black">{formatCurrency(totalCollected)}</p>
+            <p className="text-[10px] text-black font-medium">{payments.length} Transactions</p>
           </div>
         </Card>
       </div>
 
       {/* Filters Card */}
-      <Card className="mb-6 p-4 sm:p-5 bg-zinc-950 border border-zinc-800">
+      <Card className="mb-6 p-4 sm:p-5 border border-slate-200">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="relative">
-            <span className="absolute inset-y-0 left-3 flex items-center text-zinc-500">
+            <span className="absolute inset-y-0 left-3 flex items-center text-black">
               <Search className="h-4 w-4" />
             </span>
             <input
               type="text"
-              className="input pl-9 w-full"
+              className="input pl-9 w-full text-black placeholder:text-slate-500"
               placeholder="Search by client name or invoice number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -243,11 +256,11 @@ export default function PTPaymentsPage() {
           </div>
 
           <div className="flex gap-2">
-            <span className="flex items-center text-sm text-zinc-400 gap-1 shrink-0">
+            <span className="flex items-center text-sm text-black gap-1 shrink-0">
               <Filter className="h-4 w-4" /> Payment Method:
             </span>
             <select
-              className="input flex-1"
+              className="input flex-1 text-black"
               value={methodFilter}
               onChange={(e) => setMethodFilter(e.target.value)}
             >
@@ -268,10 +281,10 @@ export default function PTPaymentsPage() {
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-400 border-t-transparent" />
         </div>
       ) : filteredPayments.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center p-12 text-center bg-zinc-950 border border-zinc-800">
-          <Wallet className="mx-auto h-12 w-12 text-zinc-650" />
-          <h3 className="mt-4 text-lg font-bold text-zinc-200">No Payment History Found</h3>
-          <p className="mt-2 text-zinc-400">Collect the first payment package to populate reports.</p>
+        <Card className="flex flex-col items-center justify-center p-12 text-center border border-slate-200">
+          <Wallet className="mx-auto h-12 w-12 text-black" />
+          <h3 className="mt-4 text-lg font-bold text-black">No Payment History Found</h3>
+          <p className="mt-2 text-black">Collect the first payment package to populate reports.</p>
         </Card>
       ) : (
         <div className="card overflow-hidden">
@@ -298,30 +311,30 @@ export default function PTPaymentsPage() {
 
                   return (
                     <tr key={p.id}>
-                      <td><p className="font-bold text-zinc-100">{p.client?.full_name}</p></td>
+                      <td><p className="font-bold text-black">{p.client?.full_name}</p></td>
                       <td>
                         {p.invoice ? (
-                          <span className="font-mono text-xs text-zinc-300 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                          <span className="font-mono text-xs text-white bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
                             {p.invoice.invoice_number}
                           </span>
                         ) : (
-                          <span className="text-xs text-zinc-500 italic">Direct Sale</span>
+                          <span className="text-xs text-black italic">Direct Sale</span>
                         )}
                       </td>
-                      <td><p className="font-bold text-zinc-300">{formatCurrency(p.amount_paid)}</p></td>
-                      <td><p className="font-black text-amber-300 font-mono">{formatCurrency(gymSharePortion)}</p></td>
-                      <td><p className="font-semibold text-purple-400 font-mono text-xs">{formatCurrency(trainerFeePortion)}</p></td>
+                      <td><p className="font-bold text-black">{formatCurrency(p.amount_paid)}</p></td>
+                      <td><p className="font-black text-amber-600 font-mono">{formatCurrency(gymSharePortion)}</p></td>
+                      <td><p className="font-semibold text-purple-600 font-mono text-xs">{formatCurrency(trainerFeePortion)}</p></td>
                       <td>
                         <div>
-                          <span className="text-xs text-zinc-200 font-bold bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">{p.payment_method}</span>
+                          <span className="text-xs text-white font-bold bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">{p.payment_method}</span>
                           {p.payment_method === 'Split Payment' && p.split_details && (
-                            <p className="text-[10px] text-zinc-500 mt-1 font-mono">
+                            <p className="text-[10px] text-black mt-1 font-mono">
                               {Object.entries(p.split_details).map(([m, amt]) => `${m}: ₹${amt}`).join(', ')}
                             </p>
                           )}
                         </div>
                       </td>
-                      <td><p className="text-xs text-zinc-400">{formatDate(p.payment_date)}</p></td>
+                      <td><p className="text-xs font-medium text-black">{formatDate(p.payment_date)}</p></td>
                     </tr>
                   );
                 })}
@@ -364,49 +377,49 @@ export default function PTPaymentsPage() {
                     <div className="space-y-4">
                       <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Transaction Receipt</p>
-                          <h4 className="text-sm font-black text-slate-800 mt-0.5">PT Payout Collection</h4>
+                          <p className="text-xs font-bold text-black uppercase tracking-wider">Transaction Receipt</p>
+                          <h4 className="text-sm font-black text-black mt-0.5">PT Payout Collection</h4>
                         </div>
                         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full uppercase tracking-wider">Draft</span>
                       </div>
 
                       <div className="space-y-2.5 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Client Name:</span>
-                          <span className="font-semibold text-slate-800">
+                          <span className="text-black">Client Name:</span>
+                          <span className="font-semibold text-black">
                             {clientId ? (clients.find(c => c.id === clientId)?.full_name || 'Client') : 'Not Selected'}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Reference:</span>
-                          <span className="font-semibold text-slate-700 font-mono">
+                          <span className="text-black">Reference:</span>
+                          <span className="font-semibold text-black font-mono">
                             {invoiceId ? (invoices.find(i => i.id === invoiceId)?.invoice_number || 'Direct Sale') : 'Direct Sale'}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Payment Date:</span>
-                          <span className="font-semibold text-slate-700">{formatDate(paymentDate)}</span>
+                          <span className="text-black">Payment Date:</span>
+                          <span className="font-semibold text-black">{formatDate(paymentDate)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Payment Method:</span>
-                          <span className="font-semibold text-slate-800">{paymentMethod}</span>
+                          <span className="text-black">Payment Method:</span>
+                          <span className="font-semibold text-black">{paymentMethod}</span>
                         </div>
                         {paymentMethod === 'Split Payment' && (
-                          <div className="bg-slate-50 p-2.5 rounded border border-slate-200/60 space-y-1 font-mono text-[10px] text-zinc-650 mt-1">
+                          <div className="bg-slate-50 p-2.5 rounded border border-slate-200/60 space-y-1 font-mono text-[10px] text-black mt-1">
                             {cashAmount && Number(cashAmount) > 0 && <div className="flex justify-between"><span>Cash:</span><span>₹{cashAmount}</span></div>}
                             {upiAmount && Number(upiAmount) > 0 && <div className="flex justify-between"><span>UPI:</span><span>₹{upiAmount}</span></div>}
                             {cardAmount && Number(cardAmount) > 0 && <div className="flex justify-between"><span>Card:</span><span>₹{cardAmount}</span></div>}
                           </div>
                         )}
                         <div className="border-t border-slate-100 pt-2.5">
-                          <span className="text-slate-400 block mb-1">Notes:</span>
-                          <p className="text-slate-650 italic text-[11px] line-clamp-2">{notes || 'No notes added.'}</p>
+                          <span className="text-black block mb-1">Notes:</span>
+                          <p className="text-black italic text-[11px] line-clamp-2">{notes || 'No notes added.'}</p>
                         </div>
                       </div>
                     </div>
 
                     <div className="border-t border-slate-100 pt-4 flex justify-between items-baseline">
-                      <span className="text-xs text-zinc-500">Total Paid:</span>
+                      <span className="text-xs text-black">Total Paid:</span>
                       <span className="text-2xl font-black text-amber-500">{amountPaid ? formatCurrency(Number(amountPaid)) : '₹0.00'}</span>
                     </div>
                   </div>
@@ -471,7 +484,11 @@ export default function PTPaymentsPage() {
                     <select
                       className="select-field w-full"
                       value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value as any)}
+                      onChange={(e) => {
+                        if (isPaymentMethod(e.target.value)) {
+                          setPaymentMethod(e.target.value);
+                        }
+                      }}
                       required
                     >
                       <option value="UPI">UPI</option>
@@ -486,7 +503,7 @@ export default function PTPaymentsPage() {
                   {/* Split Payment inputs */}
                   {paymentMethod === 'Split Payment' && (
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Split Details</h4>
+                      <h4 className="text-xs font-bold text-black uppercase tracking-wider mb-2">Split Details</h4>
                       
                       <div className="grid grid-cols-3 gap-2">
                         <FormField label="Cash (₹)">

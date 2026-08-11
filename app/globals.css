@@ -20,8 +20,8 @@
   --bg-sidebar-hover: #171a21;
 
   --color-text: #111318;
-  --color-text-secondary: #5e6573;
-  --color-text-muted: #8c94a3;
+  --color-text-secondary: #111318;
+  --color-text-muted: #111318;
   --color-border: #e2e5ea;
   --color-border-strong: #cfd4dc;
   --color-danger: #dc2626;
@@ -236,7 +236,7 @@ textarea:focus-visible,
 .field-label {
   display: block;
   margin-bottom: var(--space-sm);
-  color: #454b57;
+  color: #111318;
   font-size: 13px;
   font-weight: 620;
   line-height: 1.4;
@@ -683,7 +683,7 @@ textarea:focus-visible,
   padding: 0 var(--space-md);
   border-bottom: 1px solid var(--color-border);
   background: #fbfcfd;
-  color: #777f8d;
+  color: #111318;
   font-size: 11px;
   font-weight: 680;
   letter-spacing: 0.06em;
@@ -694,7 +694,7 @@ textarea:focus-visible,
 .data-table td {
   min-height: 64px;
   padding: 14px var(--space-md);
-  color: var(--color-text-secondary);
+  color: var(--color-text);
   vertical-align: middle;
 }
 
