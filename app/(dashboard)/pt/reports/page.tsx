@@ -73,15 +73,24 @@ export default function PTReportsPage() {
   };
 
   const handleExportRevenue = () => {
-    const headers = ['Payment Date', 'Client Name', 'Invoice Ref', 'Amount Paid (INR)', 'Payment Method', 'Notes'];
-    const rows = payments.map(p => [
-      p.payment_date,
-      p.client?.full_name,
-      p.invoice?.invoice_number || 'Direct Sale',
-      p.amount_paid,
-      p.payment_method,
-      p.notes || ''
-    ]);
+    const headers = ['Payment Date', 'Client Name', 'Invoice Ref', 'Total Amount (INR)', 'Trainer Fee (INR)', 'Gym Net Share (INR)', 'Payment Method', 'Notes'];
+    const rows = payments.map(p => {
+      const pkgTrainerFee = p.client?.package?.trainer_fee ?? 2000;
+      const pkgPrice = p.client?.package?.final_price || p.client?.package?.price || 3000;
+      const ratio = pkgPrice > 0 ? Math.min(1, pkgTrainerFee / pkgPrice) : (2/3);
+      const tFee = Math.round(Number(p.amount_paid) * ratio);
+      const gShare = Math.max(0, Number(p.amount_paid) - tFee);
+      return [
+        p.payment_date,
+        p.client?.full_name,
+        p.invoice?.invoice_number || 'Direct Sale',
+        p.amount_paid,
+        tFee,
+        gShare,
+        p.payment_method,
+        p.notes || ''
+      ];
+    });
     exportToCSV('PT_Revenue_Report', headers, rows);
   };
 
@@ -102,7 +111,7 @@ export default function PTReportsPage() {
   };
 
   const handleExportPackages = () => {
-    const headers = ['Package Name', 'Sessions Included', 'Duration (Days)', 'Base Price (INR)', 'Discount (INR)', 'Final Price (INR)', 'Active Enrolled Clients'];
+    const headers = ['Package Name', 'Sessions Included', 'Duration (Days)', 'Base Price (INR)', 'Discount (INR)', 'Final Price (INR)', 'Trainer Fee (INR)', 'Gym Net Share (INR)', 'Active Enrolled Clients'];
     // Aggregate unique packages and client enrollments
     const packageStats = new Map();
     // Count active client enrollments per package name
@@ -116,13 +125,19 @@ export default function PTReportsPage() {
 
     const rows = Array.from(packageStats.entries()).map(([pkgName, activeClients]) => {
       const sample = clients.find(c => c.package?.package_name === pkgName)?.package;
+      const fPrice = Number(sample?.final_price || sample?.price || 0);
+      const tFee = Number(sample?.trainer_fee ?? 2000);
+      const gShare = Math.max(0, fPrice - tFee);
+
       return [
         pkgName,
         sample?.number_of_sessions || '-',
         sample?.duration || '-',
         sample?.price || '-',
         sample?.discount || '-',
-        sample?.final_price || '-',
+        fPrice,
+        tFee,
+        gShare,
         activeClients
       ];
     });
@@ -178,7 +193,15 @@ export default function PTReportsPage() {
     }
   };
 
-  const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const totalGrossRevenue = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  const totalTrainerFeesReport = payments.reduce((sum, p) => {
+    const pkgTrainerFee = p.client?.package?.trainer_fee ?? 2000;
+    const pkgPrice = p.client?.package?.final_price || p.client?.package?.price || 3000;
+    const ratio = pkgPrice > 0 ? Math.min(1, pkgTrainerFee / pkgPrice) : (2/3);
+    return sum + Math.round(Number(p.amount_paid) * ratio);
+  }, 0);
+  const totalGymNetRevenueReport = Math.max(0, totalGrossRevenue - totalTrainerFeesReport);
+
   const activeClientsCount = clients.filter(c => c.status === 'Active').length;
   const completedSessionsCount = sessions.filter(s => s.status === 'Completed').length;
 
@@ -224,23 +247,37 @@ export default function PTReportsPage() {
       ) : activeTab === 'revenue' ? (
         // Tab 1: Revenue Reports
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-6">
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+            <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 to-amber-100/30 p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-md shadow-amber-200/60">
                 <Coins className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Recorded Sales</p>
-                <p className="mt-1 text-2xl font-black text-amber-600">{formatCurrency(totalRevenue)}</p>
+                <p className="text-xs font-extrabold uppercase tracking-wider text-amber-900">Gym Net PT Revenue</p>
+                <p className="mt-1 text-2xl font-black text-amber-600">{formatCurrency(totalGymNetRevenueReport)}</p>
+                <p className="text-[10px] font-semibold text-slate-500 mt-0.5">Total Sales − Trainer Fees</p>
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-200/60">
+
+            <div className="rounded-2xl border border-purple-200/90 bg-gradient-to-br from-purple-50/80 to-purple-100/30 p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-200/60">
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Transactions</p>
-                <p className="mt-1 text-2xl font-black text-blue-600">{payments.length} Payments</p>
+                <p className="text-xs font-extrabold uppercase tracking-wider text-purple-900">Trainer Payout Fees</p>
+                <p className="mt-1 text-xl font-black text-purple-700">{formatCurrency(totalTrainerFeesReport)}</p>
+                <p className="text-[10px] font-semibold text-slate-500 mt-0.5">Deducted for Trainers</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 text-white shadow-md shadow-slate-200">
+                <Coins className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Gross Sales Collected</p>
+                <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(totalGrossRevenue)}</p>
+                <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{payments.length} Transactions</p>
               </div>
             </div>
           </div>
@@ -260,20 +297,30 @@ export default function PTReportsPage() {
                     <th className="py-3 px-4">Date</th>
                     <th className="py-3 px-4">Client</th>
                     <th className="py-3 px-4">Reference</th>
-                    <th className="py-3 px-4">Payment Method</th>
-                    <th className="py-3 px-4 text-right">Amount Paid</th>
+                    <th className="py-3 px-4">Total Amount</th>
+                    <th className="py-3 px-4">Trainer Fee</th>
+                    <th className="py-3 px-4 text-right">Gym Net Share</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {payments.map(p => (
-                    <tr key={p.id} className="hover:bg-amber-50/20 transition-colors">
-                      <td className="py-3 px-4 text-xs font-medium text-slate-600">{formatDate(p.payment_date)}</td>
-                      <td className="py-3 px-4"><p className="font-bold text-slate-900">{p.client?.full_name}</p></td>
-                      <td className="py-3 px-4"><span className="text-xs text-slate-500 font-mono">{p.invoice?.invoice_number || 'Direct'}</span></td>
-                      <td className="py-3 px-4"><span className="text-xs text-slate-700 font-semibold bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">{p.payment_method}</span></td>
-                      <td className="py-3 px-4 text-right"><p className="font-black text-amber-600 font-mono">{formatCurrency(p.amount_paid)}</p></td>
-                    </tr>
-                  ))}
+                  {payments.map(p => {
+                    const pkgTrainerFee = p.client?.package?.trainer_fee ?? 2000;
+                    const pkgPrice = p.client?.package?.final_price || p.client?.package?.price || 3000;
+                    const ratio = pkgPrice > 0 ? Math.min(1, pkgTrainerFee / pkgPrice) : (2/3);
+                    const tFee = Math.round(Number(p.amount_paid) * ratio);
+                    const gShare = Math.max(0, Number(p.amount_paid) - tFee);
+
+                    return (
+                      <tr key={p.id} className="hover:bg-amber-50/20 transition-colors">
+                        <td className="py-3 px-4 text-xs font-medium text-slate-600">{formatDate(p.payment_date)}</td>
+                        <td className="py-3 px-4"><p className="font-bold text-slate-900">{p.client?.full_name}</p></td>
+                        <td className="py-3 px-4"><span className="text-xs text-slate-500 font-mono">{p.invoice?.invoice_number || 'Direct'}</span></td>
+                        <td className="py-3 px-4"><p className="font-semibold text-slate-700 font-mono text-xs">{formatCurrency(p.amount_paid)}</p></td>
+                        <td className="py-3 px-4"><p className="font-semibold text-purple-700 font-mono text-xs">-{formatCurrency(tFee)}</p></td>
+                        <td className="py-3 px-4 text-right"><p className="font-black text-amber-600 font-mono">{formatCurrency(gShare)}</p></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -369,10 +416,10 @@ export default function PTReportsPage() {
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70 text-xs font-bold uppercase tracking-wider text-slate-500">
                     <th className="py-3 px-4">Package Program</th>
-                    <th className="py-3 px-4">Sessions Count</th>
-                    <th className="py-3 px-4">Duration</th>
+                    <th className="py-3 px-4">Sessions</th>
                     <th className="py-3 px-4">Price</th>
-                    <th className="py-3 px-4">Discount</th>
+                    <th className="py-3 px-4">Trainer Fee</th>
+                    <th className="py-3 px-4">Gym Net Share</th>
                     <th className="py-3 px-4 text-right">Active Enrollments</th>
                   </tr>
                 </thead>
@@ -381,13 +428,17 @@ export default function PTReportsPage() {
                     const sample = clients.find(c => c.package?.package_name === pkgName)?.package;
                     const count = clients.filter(c => c.package?.package_name === pkgName && c.status === 'Active').length;
                     if (!sample) return null;
+                    const fPrice = Math.max(0, sample.price - sample.discount);
+                    const tFee = sample.trainer_fee ?? 2000;
+                    const gShare = Math.max(0, fPrice - tFee);
+
                     return (
                       <tr key={pkgName} className="hover:bg-amber-50/20 transition-colors">
                         <td className="py-3 px-4"><p className="font-bold text-slate-900">{pkgName}</p></td>
-                        <td className="py-3 px-4"><p className="text-sm text-slate-700 font-semibold">{sample.number_of_sessions} Sessions</p></td>
-                        <td className="py-3 px-4"><p className="text-xs text-slate-500 font-medium">{sample.duration} Days</p></td>
-                        <td className="py-3 px-4"><p className="text-sm text-slate-800 font-mono font-bold">{formatCurrency(sample.price)}</p></td>
-                        <td className="py-3 px-4"><p className="text-sm text-rose-600 font-mono font-bold">-{formatCurrency(sample.discount)}</p></td>
+                        <td className="py-3 px-4"><p className="text-sm text-slate-700 font-semibold">{sample.number_of_sessions} Sessions ({sample.duration} days)</p></td>
+                        <td className="py-3 px-4"><p className="text-sm text-slate-800 font-mono font-bold">{formatCurrency(fPrice)}</p></td>
+                        <td className="py-3 px-4"><p className="text-sm text-purple-700 font-mono font-bold">{formatCurrency(tFee)}</p></td>
+                        <td className="py-3 px-4"><p className="text-sm text-emerald-700 font-mono font-bold">{formatCurrency(gShare)}</p></td>
                         <td className="py-3 px-4 text-right"><p className="font-black text-amber-600 font-mono">{count} Active Clients</p></td>
                       </tr>
                     );

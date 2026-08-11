@@ -712,6 +712,23 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
               </div>
             </div>
 
+            {/* Package Fee Revenue Breakdown */}
+            {client.package && (
+              <div className="mt-3 rounded-xl bg-amber-50/50 border border-amber-200/60 p-3 flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-bold text-slate-800">Package Total Fee: ₹{client.package.final_price || client.package.price || 3000}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-extrabold text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-md border border-emerald-200">
+                    🏢 Gym Share: ₹{Math.max(0, (client.package.final_price || client.package.price || 3000) - (client.package.trainer_fee ?? 2000))}
+                  </span>
+                  <span className="font-bold text-purple-800 bg-purple-100/80 px-2.5 py-1 rounded-md border border-purple-200">
+                    🏋️ Trainer Fee: ₹{client.package.trainer_fee ?? 2000}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Goals & Medical Notes */}
             <div className="mt-5 space-y-2.5">
               {client.goal && (

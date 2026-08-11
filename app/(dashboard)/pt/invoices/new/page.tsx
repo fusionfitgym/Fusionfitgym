@@ -355,6 +355,18 @@ export default function NewPTInvoicePage() {
                       <span className="text-zinc-400 font-bold">Total Amount:</span>
                       <span className="text-2xl font-black text-amber-300">{formatCurrency(finalAmountCalculated)}</span>
                     </div>
+
+                    {/* Revenue Split */}
+                    <div className="mt-4 rounded-xl bg-zinc-900/90 p-3 border border-zinc-800 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-emerald-400 font-bold">
+                        <span>🏢 Gym Net Share:</span>
+                        <span className="font-mono text-sm">{formatCurrency(Math.max(0, finalAmountCalculated - 2000))}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-purple-400 font-medium">
+                        <span>🏋️ Trainer Portion:</span>
+                        <span className="font-mono">₹2,000</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

@@ -158,44 +158,52 @@ export default function PTInvoicesPage() {
                 <tr>
                   <th>Invoice Number</th>
                   <th>Client</th>
-                  <th>Final Amount</th>
+                  <th>Total Amount</th>
+                  <th>Gym Net Share</th>
+                  <th>Trainer Fee</th>
                   <th>Balance Due</th>
-                  <th>Payment Method</th>
-                  <th>Due Date</th>
                   <th>Status</th>
                   <th className="text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-amber-300" />
-                        <span className="font-mono text-xs font-semibold text-zinc-300">{inv.invoice_number}</span>
-                      </div>
-                    </td>
-                    <td><p className="font-bold text-zinc-100">{inv.client?.full_name}</p></td>
-                    <td><p className="font-bold text-zinc-200">{formatCurrency(inv.final_amount)}</p></td>
-                    <td>
-                      <p className={`font-semibold ${inv.balance_due > 0 ? 'text-amber-300' : 'text-zinc-500'}`}>
-                        {formatCurrency(inv.balance_due)}
-                      </p>
-                    </td>
-                    <td><span className="text-xs text-zinc-400">{inv.payment_method || 'Unpaid'}</span></td>
-                    <td><p className="text-xs text-zinc-400">{formatDate(inv.due_date)}</p></td>
-                    <td>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${inv.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : inv.status === 'Overdue' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}`}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <Link href={`/pt/invoices/${inv.id}`} className="btn btn-ghost btn-sm">
-                        View Details <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {filteredInvoices.map((inv) => {
+                  const pkgTrainerFee = inv.client?.package?.trainer_fee ?? 2000;
+                  const pkgPrice = inv.price || inv.final_amount || 3000;
+                  const ratio = pkgPrice > 0 ? Math.min(1, pkgTrainerFee / pkgPrice) : (2/3);
+                  const tFee = Math.round(Number(inv.final_amount) * ratio);
+                  const gShare = Math.max(0, Number(inv.final_amount) - tFee);
+
+                  return (
+                    <tr key={inv.id}>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-amber-300" />
+                          <span className="font-mono text-xs font-semibold text-zinc-300">{inv.invoice_number}</span>
+                        </div>
+                      </td>
+                      <td><p className="font-bold text-zinc-100">{inv.client?.full_name}</p></td>
+                      <td><p className="font-bold text-zinc-200">{formatCurrency(inv.final_amount)}</p></td>
+                      <td><p className="font-black text-amber-300 font-mono">{formatCurrency(gShare)}</p></td>
+                      <td><p className="font-semibold text-purple-400 font-mono text-xs">{formatCurrency(tFee)}</p></td>
+                      <td>
+                        <p className={`font-semibold ${inv.balance_due > 0 ? 'text-amber-300' : 'text-zinc-500'}`}>
+                          {formatCurrency(inv.balance_due)}
+                        </p>
+                      </td>
+                      <td>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${inv.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : inv.status === 'Overdue' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <Link href={`/pt/invoices/${inv.id}`} className="btn btn-ghost btn-sm">
+                          View Details <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

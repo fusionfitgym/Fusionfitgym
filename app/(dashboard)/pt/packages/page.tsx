@@ -29,8 +29,9 @@ export default function PTPackagesPage() {
   const [trainerId, setTrainerId] = useState<string>('');
   const [sessions, setSessions] = useState(12);
   const [duration, setDuration] = useState(30);
-  const [price, setPrice] = useState(5000);
+  const [price, setPrice] = useState(3000);
   const [discount, setDiscount] = useState(0);
+  const [trainerFee, setTrainerFee] = useState(2000);
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
 
   const isAdmin = profile?.role === 'Super Admin' || profile?.role === 'Admin';
@@ -65,8 +66,9 @@ export default function PTPackagesPage() {
     setTrainerId('');
     setSessions(12);
     setDuration(30);
-    setPrice(5000);
+    setPrice(3000);
     setDiscount(0);
+    setTrainerFee(2000);
     setStatus('Active');
     setIsModalOpen(true);
   };
@@ -80,6 +82,7 @@ export default function PTPackagesPage() {
     setDuration(pkg.duration);
     setPrice(pkg.price);
     setDiscount(pkg.discount);
+    setTrainerFee(pkg.trainer_fee ?? 2000);
     setStatus(pkg.status);
     setIsModalOpen(true);
   };
@@ -101,6 +104,7 @@ export default function PTPackagesPage() {
       price: Number(price),
       discount: Number(discount),
       final_price: finalPrice,
+      trainer_fee: Number(trainerFee),
       status
     };
 
@@ -181,6 +185,8 @@ export default function PTPackagesPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {packages.map((pkg) => {
             const finalPrice = Math.max(0, pkg.price - pkg.discount);
+            const tFee = pkg.trainer_fee ?? 2000;
+            const gymShare = Math.max(0, finalPrice - tFee);
             const assignedTrainer = pkg.trainer_id 
               ? (trainers.find(t => t.id === pkg.trainer_id)?.full_name || 'Assigned Trainer')
               : 'Any Trainer';
@@ -197,7 +203,7 @@ export default function PTPackagesPage() {
                   
                   <p className="mt-2 text-sm text-slate-500 line-clamp-2">{pkg.description || 'No description provided.'}</p>
                   
-                  <div className="mt-6 space-y-2 border-t border-slate-100 pt-4 text-sm">
+                  <div className="mt-5 space-y-2 border-t border-slate-100 pt-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Trainer Assigned:</span>
                       <span className="font-semibold text-slate-700">{assignedTrainer}</span>
@@ -211,11 +217,23 @@ export default function PTPackagesPage() {
                       <span className="font-semibold text-slate-700">{pkg.duration} Days</span>
                     </div>
                   </div>
+
+                  {/* Revenue Split Breakdown Box */}
+                  <div className="mt-4 rounded-xl bg-slate-50/90 p-3 border border-slate-200/70 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center text-emerald-800 font-extrabold">
+                      <span>🏢 Gym Net Share:</span>
+                      <span className="font-mono text-sm">{formatCurrency(gymShare)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-purple-800 font-bold">
+                      <span>🏋️ Trainer Fee:</span>
+                      <span className="font-mono">{formatCurrency(tFee)}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-8 border-t border-slate-100 pt-4">
+                <div className="mt-6 border-t border-slate-100 pt-4">
                   <div className="flex items-baseline justify-between mb-4">
-                    <span className="text-slate-400 text-sm">Final Price:</span>
+                    <span className="text-slate-400 text-sm">Total Package Price:</span>
                     <div className="text-right">
                       {pkg.discount > 0 && (
                         <p className="text-xs text-slate-400 line-through">{formatCurrency(pkg.price)}</p>
@@ -387,12 +405,12 @@ export default function PTPackagesPage() {
                     </FormField>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <FormField label="Base Price (₹)" required>
                       <input
                         type="number"
                         min="0"
-                        className="input-field w-full"
+                        className="input-field w-full font-bold"
                         value={price}
                         onChange={(e) => setPrice(Number(e.target.value))}
                         required
@@ -408,13 +426,41 @@ export default function PTPackagesPage() {
                         onChange={(e) => setDiscount(Number(e.target.value))}
                       />
                     </FormField>
+
+                    <FormField label="Trainer Fee (₹)" required>
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-field w-full font-bold text-purple-700"
+                        placeholder="e.g. 2000"
+                        value={trainerFee}
+                        onChange={(e) => setTrainerFee(Number(e.target.value))}
+                        required
+                      />
+                    </FormField>
                   </div>
 
-                  <div className="bg-amber-50/50 border border-amber-200/60 rounded-xl p-3.5 mt-4 flex items-center justify-between">
-                    <span className="text-sm font-medium text-amber-900">Total Price Calculated:</span>
-                    <span className="text-xl font-black text-amber-600">
-                      {formatCurrency(Math.max(0, price - discount))}
-                    </span>
+                  <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span>Total Package Final Price:</span>
+                      <span className="text-base font-black text-amber-600">
+                        {formatCurrency(Math.max(0, price - discount))}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-amber-200/60 text-xs">
+                      <div className="rounded-lg bg-emerald-50 p-2.5 border border-emerald-200/60">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block">🏢 Gym Net Revenue</span>
+                        <span className="text-sm font-black text-emerald-700 font-mono mt-0.5 block">
+                          {formatCurrency(Math.max(0, Math.max(0, price - discount) - trainerFee))}
+                        </span>
+                      </div>
+                      <div className="rounded-lg bg-purple-50 p-2.5 border border-purple-200/60">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-800 block">🏋️ Trainer Share Fee</span>
+                        <span className="text-sm font-black text-purple-700 font-mono mt-0.5 block">
+                          {formatCurrency(trainerFee)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

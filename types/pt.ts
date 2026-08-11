@@ -44,6 +44,7 @@ export interface PTPackage {
   price: number;
   discount: number;
   final_price: number;
+  trainer_fee?: number; // Trainer portion fee (e.g. 2000 out of 3000 package price)
   status: 'Active' | 'Inactive';
   created_at?: string;
   updated_at?: string;
@@ -60,6 +61,7 @@ export const ptPackageSchema = z.object({
   price: z.coerce.number().min(0, 'Price must be 0 or greater'),
   discount: z.coerce.number().min(0, 'Discount must be 0 or greater'),
   final_price: z.coerce.number().min(0, 'Final price must be 0 or greater'),
+  trainer_fee: z.coerce.number().min(0, 'Trainer fee must be 0 or greater').optional(),
   status: z.enum(['Active', 'Inactive']),
 });
 

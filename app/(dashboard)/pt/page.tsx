@@ -21,6 +21,7 @@ export default function PTDashboard() {
     completedSessions: 0,
     remainingSessions: 0,
     monthlyRevenue: 0,
+    netGymRevenue: 0,
     pendingPayments: 0,
     trainerCommission: 0,
     expiringPackages: 0
@@ -169,13 +170,27 @@ export default function PTDashboard() {
       {/* Finance & Warnings Row */}
       {!isTrainer && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4 mb-6">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+          <div className="rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-500/10 to-amber-600/5 p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-md shadow-amber-200/60">
               <TrendingUp className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Monthly PT Revenue</p>
-              <p className="mt-1 text-xl font-black text-slate-900">{formatCurrency(stats.monthlyRevenue)}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-900">Gym Net PT Revenue</p>
+              <p className="mt-1 text-xl font-black text-amber-600">
+                {formatCurrency(stats.netGymRevenue ?? Math.max(0, stats.monthlyRevenue - stats.trainerCommission))}
+              </p>
+              <p className="text-[10px] font-semibold text-slate-500 mt-0.5">Total {formatCurrency(stats.monthlyRevenue)} - Fees</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-200/60">
+              <Coins className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Trainer Fees / Share</p>
+              <p className="mt-1 text-xl font-black text-purple-600">{formatCurrency(stats.trainerCommission)}</p>
+              <p className="text-[10px] font-semibold text-slate-400 mt-0.5">Deducted for Trainers</p>
             </div>
           </div>
 
@@ -186,16 +201,6 @@ export default function PTDashboard() {
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Pending Payments</p>
               <p className="mt-1 text-xl font-black text-rose-600">{formatCurrency(stats.pendingPayments)}</p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-200/60">
-              <Coins className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Trainer Commissions</p>
-              <p className="mt-1 text-xl font-black text-emerald-600">{formatCurrency(stats.trainerCommission)}</p>
             </div>
           </div>
 

@@ -353,6 +353,18 @@ export default function PTInvoiceDetailPage({ params }: { params: Promise<{ id: 
                 <span className="text-amber-300">Balance Due:</span>
                 <span className="font-mono text-amber-300">{formatCurrency(invoice.balance_due)}</span>
               </div>
+
+              {/* Revenue Split */}
+              <div className="w-full mt-3 p-3 bg-zinc-900/80 rounded-xl border border-zinc-800/80 space-y-1.5 text-xs">
+                <div className="flex justify-between items-center text-emerald-400 font-bold">
+                  <span>🏢 Gym Net Share:</span>
+                  <span className="font-mono">{formatCurrency(Math.max(0, invoice.final_amount - (invoice.client?.package?.trainer_fee ?? 2000)))}</span>
+                </div>
+                <div className="flex justify-between items-center text-purple-400 font-semibold">
+                  <span>🏋️ Trainer Fee Portion:</span>
+                  <span className="font-mono">{formatCurrency(invoice.client?.package?.trainer_fee ?? 2000)}</span>
+                </div>
+              </div>
             </div>
           </div>
 

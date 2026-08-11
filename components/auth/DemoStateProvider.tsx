@@ -384,6 +384,20 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
 
   const [ptPackages, setPtPackages] = useState<PTPackage[]>([
     {
+      id: 'pkg-0',
+      package_name: 'Monthly Personal Training',
+      description: 'Standard 1-Month PT Package (Gym Share: ₹1,000 | Trainer Share: ₹2,000)',
+      trainer_id: null,
+      number_of_sessions: 8,
+      duration: 30,
+      price: 3000,
+      discount: 0,
+      final_price: 3000,
+      trainer_fee: 2000,
+      status: 'Active',
+      created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
       id: 'pkg-1',
       package_name: '12 Sessions Package',
       description: 'Standard 12 personal training sessions pack',
@@ -393,6 +407,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       price: 6000,
       discount: 0,
       final_price: 6000,
+      trainer_fee: 4000,
       status: 'Active',
       created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -406,6 +421,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       price: 11000,
       discount: 1000,
       final_price: 10000,
+      trainer_fee: 6500,
       status: 'Active',
       created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -419,6 +435,7 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
       price: 18000,
       discount: 2000,
       final_price: 16000,
+      trainer_fee: 10000,
       status: 'Active',
       created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(),
     }
@@ -1832,12 +1849,15 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     const nextWeekStr = toLocalDateString(nextWeek);
     const expiringPackagesCount = ptClients.filter(c => c.status === 'Active' && c.expiry_date >= todayStr && c.expiry_date <= nextWeekStr).length;
 
+    const netGymRevenue = Math.max(0, monthlyRevenue - trainerCommissionPending);
+
     return {
       activeClients: activeClientsCount,
       todaySessions: todaySessionsCount,
       completedSessions: completedSessionsCount,
       remainingSessions: remainingSessionsCount,
       monthlyRevenue,
+      netGymRevenue,
       pendingPayments: pendingPaymentsAmount,
       trainerCommission: trainerCommissionPending,
       expiringPackages: expiringPackagesCount

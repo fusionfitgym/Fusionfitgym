@@ -824,12 +824,15 @@ export async function getPTDashboardStats() {
 
   const expiringPackagesCount = expiringClients?.length || 0;
 
+  const netGymRevenue = Math.max(0, monthlyRevenue - trainerCommissionPending);
+
   return {
     activeClients: activeClientsCount,
     todaySessions: todaySessionsCount,
     completedSessions: completedSessionsCount,
     remainingSessions: remainingSessionsCount,
     monthlyRevenue,
+    netGymRevenue,
     pendingPayments: pendingPaymentsAmount,
     trainerCommission: trainerCommissionPending,
     expiringPackages: expiringPackagesCount

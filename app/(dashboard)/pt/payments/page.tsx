@@ -164,6 +164,14 @@ export default function PTPaymentsPage() {
   });
 
   const totalCollected = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+  // Calculate total trainer fees portion (e.g. 2/3 of payment or package trainer_fee ratio, default: ₹2,000 per ₹3,000 package)
+  const totalTrainerFees = payments.reduce((sum, p) => {
+    const pkgTrainerFee = p.client?.package?.trainer_fee ?? 2000;
+    const pkgPrice = p.client?.package?.final_price || p.client?.package?.price || 3000;
+    const ratio = pkgPrice > 0 ? Math.min(1, pkgTrainerFee / pkgPrice) : (2/3);
+    return sum + Math.round(Number(p.amount_paid) * ratio);
+  }, 0);
+  const totalGymNetRevenue = Math.max(0, totalCollected - totalTrainerFees);
 
   // Invoices for selected client in modal
   const filteredInvoicesForClient = invoices.filter(i => i.client_id === clientId);
@@ -182,15 +190,38 @@ export default function PTPaymentsPage() {
         }
       />
 
-      {/* Summary Widget */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
+      {/* Summary Widgets */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-amber-500/30">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20">
             <DollarSign className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Total Collected Revenue</p>
-            <p className="mt-1 text-2xl font-black text-amber-300">{formatCurrency(totalCollected)}</p>
+            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Gym Net Revenue</p>
+            <p className="mt-1 text-2xl font-black text-amber-300">{formatCurrency(totalGymNetRevenue)}</p>
+            <p className="text-[10px] text-zinc-500 font-medium">After Trainer Fee Deduction</p>
+          </div>
+        </Card>
+
+        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Wallet className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Trainer Share Deducted</p>
+            <p className="mt-1 text-xl font-black text-purple-400">{formatCurrency(totalTrainerFees)}</p>
+            <p className="text-[10px] text-zinc-500 font-medium">Payouts to Trainers</p>
+          </div>
+        </Card>
+
+        <Card className="flex items-center gap-4 p-5 bg-zinc-950 border border-zinc-800">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <CreditCard className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Total Gross Sales</p>
+            <p className="mt-1 text-xl font-black text-zinc-100">{formatCurrency(totalCollected)}</p>
+            <p className="text-[10px] text-zinc-500 font-medium">{payments.length} Transactions</p>
           </div>
         </Card>
       </div>
@@ -250,40 +281,50 @@ export default function PTPaymentsPage() {
                 <tr>
                   <th>Client</th>
                   <th>Reference Invoice</th>
-                  <th>Amount Paid</th>
+                  <th>Total Amount</th>
+                  <th>Gym Net Share</th>
+                  <th>Trainer Fee</th>
                   <th>Payment Method</th>
                   <th>Date Recorded</th>
-                  <th>Notes</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPayments.map((p) => (
-                  <tr key={p.id}>
-                    <td><p className="font-bold text-zinc-100">{p.client?.full_name}</p></td>
-                    <td>
-                      {p.invoice ? (
-                        <span className="font-mono text-xs text-zinc-300 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
-                          {p.invoice.invoice_number}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-zinc-500 italic">Direct Sale</span>
-                      )}
-                    </td>
-                    <td><p className="font-black text-amber-300">{formatCurrency(p.amount_paid)}</p></td>
-                    <td>
-                      <div>
-                        <span className="text-xs text-zinc-200 font-bold bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">{p.payment_method}</span>
-                        {p.payment_method === 'Split Payment' && p.split_details && (
-                          <p className="text-[10px] text-zinc-500 mt-1 font-mono">
-                            {Object.entries(p.split_details).map(([m, amt]) => `${m}: ₹${amt}`).join(', ')}
-                          </p>
+                {filteredPayments.map((p) => {
+                  const pkgTrainerFee = p.client?.package?.trainer_fee ?? 2000;
+                  const pkgPrice = p.client?.package?.final_price || p.client?.package?.price || 3000;
+                  const ratio = pkgPrice > 0 ? Math.min(1, pkgTrainerFee / pkgPrice) : (2/3);
+                  const trainerFeePortion = Math.round(Number(p.amount_paid) * ratio);
+                  const gymSharePortion = Math.max(0, Number(p.amount_paid) - trainerFeePortion);
+
+                  return (
+                    <tr key={p.id}>
+                      <td><p className="font-bold text-zinc-100">{p.client?.full_name}</p></td>
+                      <td>
+                        {p.invoice ? (
+                          <span className="font-mono text-xs text-zinc-300 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                            {p.invoice.invoice_number}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-500 italic">Direct Sale</span>
                         )}
-                      </div>
-                    </td>
-                    <td><p className="text-xs text-zinc-400">{formatDate(p.payment_date)}</p></td>
-                    <td><p className="text-xs text-zinc-500 max-w-xs truncate">{p.notes || '-'}</p></td>
-                  </tr>
-                ))}
+                      </td>
+                      <td><p className="font-bold text-zinc-300">{formatCurrency(p.amount_paid)}</p></td>
+                      <td><p className="font-black text-amber-300 font-mono">{formatCurrency(gymSharePortion)}</p></td>
+                      <td><p className="font-semibold text-purple-400 font-mono text-xs">{formatCurrency(trainerFeePortion)}</p></td>
+                      <td>
+                        <div>
+                          <span className="text-xs text-zinc-200 font-bold bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">{p.payment_method}</span>
+                          {p.payment_method === 'Split Payment' && p.split_details && (
+                            <p className="text-[10px] text-zinc-500 mt-1 font-mono">
+                              {Object.entries(p.split_details).map(([m, amt]) => `${m}: ₹${amt}`).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td><p className="text-xs text-zinc-400">{formatDate(p.payment_date)}</p></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
