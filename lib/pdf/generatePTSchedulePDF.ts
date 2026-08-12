@@ -200,8 +200,18 @@ export async function generatePTSchedulePDF({
   doc.setFont('Roboto', 'bold');
   doc.text(subtitle || (client ? `SCHEDULED WORKOUTS FOR ${client.full_name.toUpperCase()}` : 'SCHEDULED PERSONAL TRAINING SESSIONS'), M, y);
 
+  // Deduplicate sessions before generating PDF rows
+  const uniqueSessionsMap = new Map<string, PTSession>();
+  sessions.forEach(s => {
+    const key = `${s.client_id || 'client'}_${s.session_date}_${s.session_time}_${s.workout_plan || ''}`;
+    if (!uniqueSessionsMap.has(key)) {
+      uniqueSessionsMap.set(key, s);
+    }
+  });
+  const dedupedSessions = Array.from(uniqueSessionsMap.values());
+
   // Sort sessions by date and time
-  const sortedSessions = [...sessions].sort((a, b) => {
+  const sortedSessions = dedupedSessions.sort((a, b) => {
     const d1 = `${a.session_date} ${a.session_time}`;
     const d2 = `${b.session_date} ${b.session_time}`;
     return d1.localeCompare(d2);

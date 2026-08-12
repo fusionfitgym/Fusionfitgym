@@ -353,7 +353,18 @@ export async function getPTSessions(): Promise<PTSession[]> {
     .order('session_date', { ascending: true })
     .order('session_time', { ascending: true });
   if (error) throw error;
-  return data as PTSession[];
+  
+  // Deduplicate sessions by client_id, session_date, session_time slot
+  const seen = new Set<string>();
+  const uniqueSessions: PTSession[] = [];
+  for (const s of (data as PTSession[])) {
+    const key = `${s.client_id}_${s.session_date}_${s.session_time}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueSessions.push(s);
+    }
+  }
+  return uniqueSessions;
 }
 
 export async function getPTSessionById(id: string): Promise<PTSession | null> {
@@ -372,6 +383,30 @@ export async function createPTSession(values: PTSessionFormValues): Promise<{ da
     const { user } = await validateRole(['Super Admin', 'Admin', 'Receptionist', 'Trainer']);
     const validated = ptSessionSchema.parse(values);
     const supabase = await createClient();
+
+    // Check if session for this client at the exact date & time already exists
+    const { data: existingSession } = await supabase
+      .from('pt_sessions')
+      .select('id')
+      .eq('client_id', validated.client_id)
+      .eq('session_date', validated.session_date)
+      .eq('session_time', validated.session_time)
+      .maybeSingle();
+
+    if (existingSession) {
+      // Update existing session instead of inserting duplicate row
+      const { data, error } = await supabase
+        .from('pt_sessions')
+        .update(validated)
+        .eq('id', existingSession.id)
+        .select()
+        .single();
+
+      if (error) return { error: error.message };
+
+      revalidatePath('/pt/schedule');
+      return { data: data as PTSession };
+    }
 
     const { data, error } = await supabase
       .from('pt_sessions')
@@ -393,6 +428,41 @@ export async function createPTSession(values: PTSessionFormValues): Promise<{ da
     return { data: data as PTSession };
   } catch (err: any) {
     return { error: err.message || 'An unexpected error occurred.' };
+  }
+}
+
+export async function deduplicatePTSessions(clientId?: string): Promise<{ success?: boolean; count?: number; error?: string }> {
+  try {
+    const supabase = await createClient();
+    let query = supabase.from('pt_sessions').select('*').order('created_at', { ascending: true });
+    if (clientId) {
+      query = query.eq('client_id', clientId);
+    }
+    const { data, error } = await query;
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) return { success: true, count: 0 };
+
+    const seen = new Set<string>();
+    const idsToDelete: string[] = [];
+    for (const s of data) {
+      const key = `${s.client_id}_${s.session_date}_${s.session_time}`;
+      if (seen.has(key)) {
+        idsToDelete.push(s.id);
+      } else {
+        seen.add(key);
+      }
+    }
+
+    if (idsToDelete.length > 0) {
+      const { error: delError } = await supabase.from('pt_sessions').delete().in('id', idsToDelete);
+      if (delError) return { error: delError.message };
+    }
+
+    revalidatePath('/pt/schedule');
+    if (clientId) revalidatePath(`/pt/members/${clientId}`);
+    return { success: true, count: idsToDelete.length };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to deduplicate sessions' };
   }
 }
 
@@ -874,6 +944,33 @@ export async function createPTDailyWorkout(values: PTDailyWorkoutFormValues): Pr
 
     const validated = ptDailyWorkoutSchema.parse(sanitizedValues);
     const supabase = await createClient();
+
+    // Check if workout log for this client, date, and title already exists
+    const { data: existingWorkout } = await supabase
+      .from('pt_daily_workouts')
+      .select('id')
+      .eq('client_id', validated.client_id)
+      .eq('workout_date', validated.workout_date)
+      .eq('title', validated.title)
+      .maybeSingle();
+
+    if (existingWorkout) {
+      const { data, error } = await supabase
+        .from('pt_daily_workouts')
+        .update(validated)
+        .eq('id', existingWorkout.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating pt_daily_workouts:', error);
+        return { error: error.message };
+      }
+
+      await logAudit(`Updated Daily Workout for PT Client: ${values.title}`, 'PT', user.id);
+      revalidatePath(`/pt/members/${values.client_id}`);
+      return { data: data as PTDailyWorkout };
+    }
 
     const { data, error } = await supabase
       .from('pt_daily_workouts')

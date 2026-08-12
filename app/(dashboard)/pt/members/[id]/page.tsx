@@ -7,7 +7,7 @@ import { ArrowLeft, Edit, Plus, Calendar, Dumbbell, ClipboardCheck, TrendingUp, 
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
-import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions, deletePTSession, getPTDailyWorkouts, createPTDailyWorkout, deletePTDailyWorkout, getPTTrainers } from '@/lib/actions/pt';
+import { getPTClientById, getPTProgress, createPTProgress, deletePTProgress, getPTSessions, deletePTSession, getPTDailyWorkouts, createPTDailyWorkout, deletePTDailyWorkout, getPTTrainers, deduplicatePTSessions } from '@/lib/actions/pt';
 import { getSettings } from '@/lib/actions/settings';
 import { generatePTProgressPDF } from '@/lib/pdf/generatePTProgressPDF';
 import { PTClient, PTProgress, PTSession, PTDailyWorkout, PTTrainer } from '@/types/pt';
@@ -549,6 +549,25 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
     }
   };
 
+  const handleCleanMemberDuplicates = async () => {
+    try {
+      if (isDemo) {
+        toast.success('Deduplicated sessions (Demo)');
+      } else {
+        const res = await deduplicatePTSessions(id);
+        if (res.error) throw new Error(res.error);
+        if (res.count && res.count > 0) {
+          toast.success(`Removed ${res.count} duplicate session record(s)!`);
+        } else {
+          toast.info('No duplicate sessions found for this member.');
+        }
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error('Deduplication error: ' + err.message);
+    }
+  };
+
   // Selection handlers for Daily Workouts
   const toggleSelectWorkout = (workoutId: string) => {
     setSelectedWorkoutIds(prev =>
@@ -720,10 +739,10 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-extrabold text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-md border border-emerald-200">
-                    🏢 Gym Share: ₹{Math.max(0, (client.package.final_price || client.package.price || 3000) - (client.package.trainer_fee ?? 2000))}
+                    Gym Share: ₹{Math.max(0, (client.package.final_price || client.package.price || 3000) - (client.package.trainer_fee ?? 2000))}
                   </span>
                   <span className="font-bold text-purple-800 bg-purple-100/80 px-2.5 py-1 rounded-md border border-purple-200">
-                    🏋️ Trainer Fee: ₹{client.package.trainer_fee ?? 2000}
+                    Trainer Fee: ₹{client.package.trainer_fee ?? 2000}
                   </span>
                 </div>
               </div>
@@ -1161,15 +1180,25 @@ export default function PTClientProfilePage({ params }: { params: Promise<{ id: 
                   Select All ({sessions.length})
                 </label>
 
-                {selectedSessionIds.length > 0 && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={handleBulkDeleteSessions}
-                    className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                    onClick={handleCleanMemberDuplicates}
+                    className="btn btn-xs btn-secondary text-slate-700 border-slate-300 font-bold flex items-center gap-1"
+                    title="Remove any duplicate session entries for this member"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete Selected ({selectedSessionIds.length})
+                    Clean Duplicates
                   </button>
-                )}
+
+                  {selectedSessionIds.length > 0 && (
+                    <button
+                      onClick={handleBulkDeleteSessions}
+                      className="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete Selected ({selectedSessionIds.length})
+                    </button>
+                  )}
+                </div>
               </div>
 
               {sessions.map((sess) => {

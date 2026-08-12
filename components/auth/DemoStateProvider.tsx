@@ -1569,11 +1569,20 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getPTSessions = () => {
-    return ptSessions.map(s => ({
-      ...s,
-      client: ptClients.find(c => c.id === s.client_id)!,
-      trainer: ptTrainers.find(t => t.id === s.trainer_id)!
-    }));
+    const seen = new Set<string>();
+    const unique: PTSession[] = [];
+    for (const s of ptSessions) {
+      const key = `${s.client_id}_${s.session_date}_${s.session_time}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push({
+          ...s,
+          client: ptClients.find(c => c.id === s.client_id)!,
+          trainer: ptTrainers.find(t => t.id === s.trainer_id)!
+        });
+      }
+    }
+    return unique;
   };
   const getPTSessionById = (id: string) => {
     const sess = ptSessions.find(s => s.id === id);
@@ -1585,6 +1594,12 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
     };
   };
   const createPTSession = (values: any) => {
+    const existing = ptSessions.find(s => s.client_id === values.client_id && s.session_date === values.session_date && s.session_time === values.session_time);
+    if (existing) {
+      const updatedSess: PTSession = { ...existing, ...values, updated_at: new Date().toISOString() };
+      setPtSessions(prev => prev.map(s => s.id === existing.id ? updatedSess : s));
+      return { data: updatedSess };
+    }
     const newSess: PTSession = {
       ...values,
       id: `pt-sess-uuid-${(ptSessions.length + 1).toString().padStart(4, '0')}`,
@@ -1700,6 +1715,12 @@ export function DemoStateProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createPTDailyWorkout = (values: any) => {
+    const existing = ptDailyWorkouts.find(w => w.client_id === values.client_id && w.workout_date === values.workout_date && w.title === values.title);
+    if (existing) {
+      const updatedWorkout: PTDailyWorkout = { ...existing, ...values, updated_at: new Date().toISOString() };
+      setPtDailyWorkouts(prev => prev.map(w => w.id === existing.id ? updatedWorkout : w));
+      return { data: updatedWorkout };
+    }
     const newWorkout: PTDailyWorkout = {
       ...values,
       id: `pt-workout-uuid-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,

@@ -5,7 +5,7 @@ import { Plus, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User,
 import { PageHeader, Card, FormField } from '@/components/ui/Primitives';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useDemoState } from '@/components/auth/DemoStateProvider';
-import { getPTSessions, createPTSession, updatePTSession, deletePTSession, getPTClients, getPTTrainers } from '@/lib/actions/pt';
+import { getPTSessions, createPTSession, updatePTSession, deletePTSession, getPTClients, getPTTrainers, deduplicatePTSessions } from '@/lib/actions/pt';
 import { PTSession, PTClient, PTTrainer } from '@/types/pt';
 import { toLocalDateString } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -19,6 +19,8 @@ export default function PTSchedulePage() {
   const [clients, setClients] = useState<PTClient[]>([]);
   const [trainers, setTrainers] = useState<PTTrainer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
 
   // Calendar Date State
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -159,6 +161,7 @@ export default function PTSchedulePage() {
 
   const handleSaveSession = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingSession) return;
     if (!clientId || !trainerId || !sessionDate || !sessionTime) {
       toast.error('Client, Trainer, Date, and Time are required');
       return;
@@ -170,6 +173,8 @@ export default function PTSchedulePage() {
       toast.error('This client has 0 remaining sessions! Purchase a new package first.');
       return;
     }
+
+    setIsSavingSession(true);
 
     const payload = {
       client_id: clientId,
@@ -207,6 +212,30 @@ export default function PTSchedulePage() {
       loadData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to save session');
+    } finally {
+      setIsSavingSession(false);
+    }
+  };
+
+  const handleCleanDuplicates = async () => {
+    setIsDeduplicating(true);
+    try {
+      if (isDemo) {
+        toast.success('Deduplicated schedule sessions (Demo)');
+      } else {
+        const res = await deduplicatePTSessions();
+        if (res.error) throw new Error(res.error);
+        if (res.count && res.count > 0) {
+          toast.success(`Removed ${res.count} duplicate session record(s)!`);
+        } else {
+          toast.info('No duplicate sessions found.');
+        }
+      }
+      loadData();
+    } catch (err: any) {
+      toast.error('Deduplication error: ' + err.message);
+    } finally {
+      setIsDeduplicating(false);
     }
   };
 
@@ -312,7 +341,15 @@ export default function PTSchedulePage() {
         title="Personal Training Schedule"
         subtitle="Manage scheduled trainer sessions, track workout plans, and export client workout PDFs."
         action={
-          <div className="flex gap-2.5">
+          <div className="flex gap-2.5 flex-wrap">
+            <button
+              onClick={handleCleanDuplicates}
+              disabled={isDeduplicating}
+              className="btn btn-secondary flex items-center gap-1.5 border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-sm"
+              title="Remove any duplicate session records"
+            >
+              {isDeduplicating ? 'Cleaning...' : 'Clean Duplicates'}
+            </button>
             <button
               onClick={() => {
                 setExportClientId('');
@@ -760,10 +797,11 @@ export default function PTSchedulePage() {
               </button>
               <button
                 type="submit"
+                disabled={isSavingSession}
                 className="btn btn-primary"
                 style={{ height: '42px', minWidth: '110px' }}
               >
-                Confirm Schedule
+                {isSavingSession ? 'Saving...' : 'Confirm Schedule'}
               </button>
             </div>
           </form>
