@@ -109,17 +109,21 @@ export default function CheckinMonitorPage() {
   // Calculate days remaining helper
   const getDaysInfo = (member?: Member | null) => {
     if (!member) return null;
-    const endDateStr = member.package_end_date || (member as any).expiry_date;
-    if (!endDateStr) return null;
+    const endDateStr = member.package_end_date || (member as any).expiry_date || (member as any).package_expiry || (member as any).end_date || (member as any).membership_end_date;
+    if (!endDateStr) {
+      return { days: 0, rawDays: 0, isExpired: false, expiryDate: null, noExpiry: true };
+    }
     const expiry = new Date(endDateStr);
-    if (isNaN(expiry.getTime())) return null;
+    if (isNaN(expiry.getTime())) {
+      return { days: 0, rawDays: 0, isExpired: false, expiryDate: null, noExpiry: true };
+    }
     const now = new Date();
     const nowZero = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const expZero = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
     const diff = expZero.getTime() - nowZero.getTime();
     const days = Math.round(diff / (1000 * 60 * 60 * 24));
     const isExpired = days < 0;
-    return { days: Math.abs(days), rawDays: days, isExpired, expiryDate: expiry };
+    return { days: Math.abs(days), rawDays: days, isExpired, expiryDate: expiry, noExpiry: false };
   };
 
   const focusDaysInfo = getDaysInfo(lastCheckin?.member);
@@ -246,7 +250,9 @@ export default function CheckinMonitorPage() {
                           <p className="metric-label">Days to Expire</p>
                           <p className={`mt-1 text-sm font-extrabold ${
                             focusDaysInfo
-                              ? focusDaysInfo.isExpired
+                              ? focusDaysInfo.noExpiry
+                                ? 'text-slate-500 font-semibold'
+                                : focusDaysInfo.isExpired
                                 ? 'text-rose-600'
                                 : focusDaysInfo.rawDays <= 5
                                 ? 'text-amber-600'
@@ -254,7 +260,9 @@ export default function CheckinMonitorPage() {
                               : 'text-slate-900'
                           }`}>
                             {focusDaysInfo
-                              ? focusDaysInfo.isExpired
+                              ? focusDaysInfo.noExpiry
+                                ? 'No Expiry Set'
+                                : focusDaysInfo.isExpired
                                 ? `${focusDaysInfo.days}d ago (Expired)`
                                 : focusDaysInfo.rawDays === 0
                                 ? 'Expires Today'
@@ -275,7 +283,7 @@ export default function CheckinMonitorPage() {
                       </div>
 
                       {/* Expiry Details */}
-                      {focusDaysInfo && (
+                      {focusDaysInfo && !focusDaysInfo.noExpiry && focusDaysInfo.expiryDate && (
                         <div className="mt-4 rounded-xl bg-white/70 border border-slate-200/60 p-2.5 text-center w-full">
                           {focusDaysInfo.isExpired ? (
                             <p className="text-xs font-semibold text-rose-700">
