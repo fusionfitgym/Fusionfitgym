@@ -63,7 +63,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
   // Fetch all members with biometric user IDs for matching
   const { data: members, error: membersError } = await supabase
     .from('members')
-    .select('id, full_name, phone, email, membership_plan, package_name, package_start_date, package_end_date, expiry_date, join_date, status, profile_photo, biometric_user_id, machine_type');
+    .select('id, full_name, phone, email, membership_plan, package_name, package_start_date, package_end_date, join_date, status, profile_photo, biometric_user_id, machine_type');
 
   if (membersError) {
     console.error('Error fetching members for matching:', membersError);
@@ -164,7 +164,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
         package_name: member.package_name,
         package_start_date: member.package_start_date,
         package_end_date: member.package_end_date,
-        expiry_date: (member as any).expiry_date,
+        expiry_date: member.package_end_date,
         join_date: member.join_date,
         status: member.status,
         profile_photo: member.profile_photo,
