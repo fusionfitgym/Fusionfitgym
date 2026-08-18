@@ -246,7 +246,7 @@ export default function CheckinMonitorPage() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 rounded-full bg-rose-100 px-5 py-2 text-sm font-bold text-rose-800">
-                            <ShieldAlert className="h-5 w-5" /> DANGER: MEMBER {(memberStatus || 'EXPIRED').toUpperCase()}
+                            <ShieldAlert className="h-5 w-5" /> MEMBER {(memberStatus || 'EXPIRED').toUpperCase()}
                           </div>
                         )
                       ) : (
