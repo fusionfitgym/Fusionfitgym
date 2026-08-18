@@ -111,7 +111,7 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
 
   // Sort raw logs chronologically (ascending) to accurately alternate check-in/check-out
   const sortedRaw = [...nonOplogRawLogs].sort((a, b) =>
-    new Date(a.created_at || a.punch_time).getTime() - new Date(b.created_at || b.punch_time).getTime()
+    new Date(getBestTimestamp(a)).getTime() - new Date(getBestTimestamp(b)).getTime()
   );
 
   const punchCounts: Record<string, number> = {};
@@ -211,8 +211,8 @@ export async function getTodayAttendanceLogs(machine?: 'Gents' | 'Ladies' | 'All
   let query = supabase
     .from('attendance_logs')
     .select('*')
-    .gte('created_at', startOfDay.toISOString())
-    .order('created_at', { ascending: false });
+    .gte('punch_time', startOfDay.toISOString())
+    .order('punch_time', { ascending: false });
 
   if (machine && machine !== 'All') {
     // Fetch devices matching the machine type to build robust query filter
@@ -277,15 +277,15 @@ export async function getAttendanceHistory(filters?: {
   if (filters?.startDate) {
     queryStartDate = new Date(filters.startDate);
   }
-  query = query.gte('created_at', queryStartDate.toISOString());
+  query = query.gte('punch_time', queryStartDate.toISOString());
 
   if (filters?.endDate) {
     const end = new Date(filters.endDate);
     end.setHours(23, 59, 59, 999);
-    query = query.lte('created_at', end.toISOString());
+    query = query.lte('punch_time', end.toISOString());
   }
 
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await query.order('punch_time', { ascending: false });
 
   if (error) {
     console.error('Error in getAttendanceHistory:', error);
@@ -309,23 +309,23 @@ export async function getAttendanceLogsPaginated(options: {
   // 1. Timeframe filter
   if (options.timeframe === 'daily') {
     const startOfDay = getStartOfTodayIST();
-    query = query.gte('created_at', startOfDay.toISOString());
+    query = query.gte('punch_time', startOfDay.toISOString());
   } else if (options.timeframe === 'weekly') {
     const weeklyStart = new Date();
     weeklyStart.setDate(weeklyStart.getDate() - 7);
     weeklyStart.setHours(0, 0, 0, 0);
-    query = query.gte('created_at', weeklyStart.toISOString());
+    query = query.gte('punch_time', weeklyStart.toISOString());
   } else if (options.timeframe === 'monthly') {
     const monthlyStart = new Date();
     monthlyStart.setDate(monthlyStart.getDate() - 30);
     monthlyStart.setHours(0, 0, 0, 0);
-    query = query.gte('created_at', monthlyStart.toISOString());
+    query = query.gte('punch_time', monthlyStart.toISOString());
   } else {
     // Default to last 30 days to align with retention limits
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
-    query = query.gte('created_at', thirtyDaysAgo.toISOString());
+    query = query.gte('punch_time', thirtyDaysAgo.toISOString());
   }
 
   // 2. Machine filter
@@ -375,7 +375,7 @@ export async function getAttendanceLogsPaginated(options: {
   const to = from + options.limit - 1;
 
   const { data, count, error } = await query
-    .order('created_at', { ascending: false })
+    .order('punch_time', { ascending: false })
     .range(from, to);
 
   if (error) {
@@ -408,12 +408,12 @@ export async function getAttendanceAnalytics() {
     supabase
       .from('attendance_logs')
       .select('*')
-      .gte('created_at', startOfDay.toISOString())
-      .order('created_at', { ascending: true }),
+      .gte('punch_time', startOfDay.toISOString())
+      .order('punch_time', { ascending: true }),
     supabase
       .from('attendance_logs')
       .select('*')
-      .gte('created_at', fifteenDaysAgo.toISOString())
+      .gte('punch_time', fifteenDaysAgo.toISOString())
   ]);
 
   if (todayError) {
@@ -540,9 +540,9 @@ export async function getTodayMonitorLogs() {
   const { data: logs, error: logsError } = await supabase
     .from('attendance_logs')
     .select('*')
-    .gte('created_at', startOfDay.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(10);
+    .gte('punch_time', startOfDay.toISOString())
+    .order('punch_time', { ascending: false })
+    .limit(20);
 
   if (logsError) {
     console.error('Error in getTodayMonitorLogs:', logsError);

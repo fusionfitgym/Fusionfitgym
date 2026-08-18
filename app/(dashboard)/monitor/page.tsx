@@ -57,13 +57,23 @@ export default function CheckinMonitorPage() {
         async (payload: any) => {
           const newLog = payload.new as any;
           try {
-            const rawId = newLog.member_id || '';
+            const rawId = newLog.biometric_user_id || newLog.member_id || '';
             if (rawId.toLowerCase().startsWith('oplog')) {
               console.log('Skipping OPLOG event in realtime monitor:', rawId);
               return;
             }
-            const memberInfo = await getMemberByBiometricId(newLog.member_id);
-            const cleanId = newLog.member_id ? newLog.member_id.replace(/[^0-9]/g, '') : '';
+
+            let memberInfo: Member | null = null;
+            if (newLog.member_id && newLog.member_id.includes('-')) {
+              memberInfo = await getMemberById(newLog.member_id);
+            }
+            if (!memberInfo && (newLog.biometric_user_id || newLog.member_id)) {
+              memberInfo = await getMemberByBiometricId(newLog.biometric_user_id || newLog.member_id);
+            }
+
+            const cleanId = newLog.biometric_user_id 
+              ? newLog.biometric_user_id.replace(/[^0-9]/g, '') 
+              : (memberInfo?.biometric_user_id ? memberInfo.biometric_user_id.replace(/[^0-9]/g, '') : (newLog.member_id ? newLog.member_id.replace(/[^0-9]/g, '') : ''));
             
             // Play checkin status tone (high for active, low for expired/unmatched)
             if (typeof window !== 'undefined') {
@@ -80,13 +90,13 @@ export default function CheckinMonitorPage() {
             }
 
             setLogs((prev) => {
-              const punch_type = prev.filter(l => l.biometric_user_id === cleanId).length % 2 === 0 ? 'checkin' : 'checkout';
+              const punch_type = newLog.punch_type || (cleanId ? (prev.filter(l => l.biometric_user_id === cleanId).length % 2 === 0 ? 'checkin' : 'checkout') : 'checkin');
               const enrichedLog = {
                 id: newLog.id,
                 member_id: memberInfo ? memberInfo.id : newLog.member_id,
-                member_name: memberInfo ? memberInfo.full_name : `Unknown Member (${newLog.member_id})`,
+                member_name: memberInfo ? memberInfo.full_name : (newLog.member_name || (cleanId ? `Unknown Member (${cleanId})` : 'Unknown Member')),
                 biometric_user_id: cleanId,
-                punch_time: newLog.created_at || newLog.punch_time,
+                punch_time: newLog.punch_time || newLog.created_at,
                 punch_type,
                 member: memberInfo
               };
