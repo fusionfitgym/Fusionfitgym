@@ -532,12 +532,12 @@ export async function deleteAttendanceLog(id: string): Promise<void> {
   revalidatePath('/attendance');
 }
 
-// Fetch the 10 most recent logs of today, batch-enriching member data
+// Fetch the most recent logs for the monitor (today's logs if present, or recent logs)
 export async function getTodayMonitorLogs() {
   const supabase = await createClient();
   const startOfDay = getStartOfTodayIST();
 
-  const { data: logs, error: logsError } = await supabase
+  const { data: todayLogs, error: logsError } = await supabase
     .from('attendance_logs')
     .select('*')
     .gte('punch_time', startOfDay.toISOString())
@@ -549,7 +549,23 @@ export async function getTodayMonitorLogs() {
     throw logsError;
   }
 
-  return enrichLogs(logs || []);
+  if (todayLogs && todayLogs.length > 0) {
+    return enrichLogs(todayLogs);
+  }
+
+  // Fallback: If no logs recorded yet today, show the most recent logs
+  const { data: recentLogs, error: recentError } = await supabase
+    .from('attendance_logs')
+    .select('*')
+    .order('punch_time', { ascending: false })
+    .limit(20);
+
+  if (recentError) {
+    console.error('Error fetching recent fallback monitor logs:', recentError);
+    return [];
+  }
+
+  return enrichLogs(recentLogs || []);
 }
 
 export async function getSyncLogs(): Promise<BiometricSyncLog[]> {
