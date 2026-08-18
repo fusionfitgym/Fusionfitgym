@@ -320,12 +320,6 @@ export async function getAttendanceLogsPaginated(options: {
     monthlyStart.setDate(monthlyStart.getDate() - 30);
     monthlyStart.setHours(0, 0, 0, 0);
     query = query.gte('punch_time', monthlyStart.toISOString());
-  } else {
-    // Default to last 30 days to align with retention limits
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
-    query = query.gte('punch_time', thirtyDaysAgo.toISOString());
   }
 
   // 2. Machine filter

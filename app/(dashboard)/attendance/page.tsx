@@ -56,7 +56,7 @@ function AttendancePageContent() {
   const [searchQuery, setSearchQuery] = useState(deviceIdParam || '');
   const [debouncedSearch, setDebouncedSearch] = useState(deviceIdParam || '');
   const [machineFilter, setMachineFilter] = useState<'All' | 'Gents' | 'Ladies'>('All');
-  const [timeframeFilter, setTimeframeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('daily');
+  const [timeframeFilter, setTimeframeFilter] = useState<'daily' | 'weekly' | 'monthly' | 'all'>('all');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const limit = 25;
@@ -492,7 +492,7 @@ function AttendancePageContent() {
                   {timeframeFilter === 'daily' && "Today's activity log"}
                   {timeframeFilter === 'weekly' && "Weekly activity log (Last 7 Days)"}
                   {timeframeFilter === 'monthly' && "Monthly activity log (Last 30 Days)"}
-                  {timeframeFilter === 'all' && "Historical activity log (Last 90 Days)"}
+                  {timeframeFilter === 'all' && "All Activity Logs"}
                 </h2>
                 <p className="section-description">Real-time punch records from the biometric machines</p>
               </div>
@@ -505,10 +505,10 @@ function AttendancePageContent() {
                   }} 
                   className="select-field md:w-36"
                 >
+                  <option value="all">All Records</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
-                  <option value="all">90 Days</option>
                 </select>
                 <select 
                   value={machineFilter} 
