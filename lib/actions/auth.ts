@@ -44,7 +44,7 @@ const getCachedUserProfileInternal = cache(async (userId: string, cachedSessionV
   };
 });
 
-export async function getCurrentUserProfile() {
+export const getCurrentUserProfile = cache(async function getCurrentUserProfile() {
   const cookieStore = await cookies();
   const isDemo = cookieStore.get('demo-mode')?.value === 'true';
   if (isDemo) {
@@ -77,32 +77,31 @@ export async function getCurrentUserProfile() {
   if (userError || !user) return null;
 
   const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
-  const profile = await getCachedUserProfileInternal(user.id, cachedSessionVal);
-
-  if (!profile) return null;
-
-  // Set the cryptographic cache cookie for subsequent loads (valid for 5 mins)
-  if ((profile as any).needsSessionCookie) {
-    const sessionVal = await signSession({
-      id: profile.id,
-      role: profile.role as any,
-      status: profile.status as any,
-      fullName: profile.full_name || '',
-      userId: user.id
-    });
-    
-    try {
-      cookieStore.set('fusionfit-session', sessionVal, {
-        maxAge: 5 * 60,
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      });
-    } catch {
-      // Safely ignore when called during rendering
+  if (cachedSessionVal) {
+    const cachedProfile = await verifySession(cachedSessionVal, user.id);
+    if (cachedProfile) {
+      return {
+        user,
+        profile: {
+          id: cachedProfile.id,
+          auth_user_id: user.id,
+          full_name: cachedProfile.fullName,
+          email: user.email || '',
+          role: cachedProfile.role,
+          status: cachedProfile.status,
+          created_at: '',
+        }
+      };
     }
   }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users_profiles')
+    .select('id, role, status, full_name')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) return null;
 
   const fullProfile = {
     id: profile.id,
@@ -115,7 +114,7 @@ export async function getCurrentUserProfile() {
   };
 
   return { user, profile: fullProfile };
-}
+});
 
 export interface SignInState {
   error?: string;
@@ -188,6 +187,29 @@ export async function signInAction(prevState: SignInState, formData: FormData): 
     await supabase.auth.signOut();
     await logAudit(`Login Attempt on Suspended Account: ${email}`, 'Auth');
     return { error: 'Your account has been suspended. Please contact the administrator.' };
+  }
+
+  // Set the cryptographic cache cookie for subsequent loads (valid for 5 mins)
+  const sessionVal = await signSession({
+    id: profile.id,
+    role: profile.role as any,
+    status: profile.status as any,
+    fullName: profile.full_name || '',
+    userId: data.user.id
+  });
+
+  if (sessionVal) {
+    try {
+      cookieStore.set('fusionfit-session', sessionVal, {
+        maxAge: 5 * 60,
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+    } catch (e) {
+      console.warn("Could not set session cookie during login action:", e);
+    }
   }
 
   // 5. Audit Logging & Session confirmation

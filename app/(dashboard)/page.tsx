@@ -172,21 +172,21 @@ export default async function DashboardPage() {
     activeMonthlyMembers = results[2]?.count ?? 0;
     weightTrainingOnlyMembers = results[3]?.count ?? 0;
     cardioStrengthMembers = results[4]?.count ?? 0;
-    recentMembers = (results[5]?.data || []) as Member[];
-    expiringToday = (results[6]?.data || []) as Member[];
-    expiringIn3Days = (results[7]?.data || []) as Member[];
-    expiredMembers = (results[8]?.data || []) as Member[];
-    disabledBiometrics = (results[9]?.data || []) as Member[];
+    recentMembers = Array.isArray(results[5]?.data) ? (results[5].data as Member[]) : [];
+    expiringToday = Array.isArray(results[6]?.data) ? (results[6].data as Member[]) : [];
+    expiringIn3Days = Array.isArray(results[7]?.data) ? (results[7].data as Member[]) : [];
+    expiredMembers = Array.isArray(results[8]?.data) ? (results[8].data as Member[]) : [];
+    disabledBiometrics = Array.isArray(results[9]?.data) ? (results[9].data as Member[]) : [];
     
-    const expiringRaw = (results[10]?.data || []) as Member[];
+    const expiringRaw = Array.isArray(results[10]?.data) ? (results[10].data as Member[]) : [];
     expiringMembersList = expiringRaw.map((m) => {
-      const expiry = new Date(m.package_end_date || '');
-      const diff = expiry.getTime() - now.getTime();
+      const expiry = new Date(m?.package_end_date || '');
+      const diff = isNaN(expiry.getTime()) ? 0 : expiry.getTime() - now.getTime();
       const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
       return { ...m, daysRemaining: isNaN(days) ? 0 : days, expiryDate: expiry };
     });
 
-    const activePackages = results[11]?.data || [];
+    const activePackages = Array.isArray(results[11]?.data) ? results[11].data : [];
     activePackages.forEach((member: any) => {
       if (member?.package_name) {
         planCounts[member.package_name] = (planCounts[member.package_name] ?? 0) + 1;
@@ -198,9 +198,9 @@ export default async function DashboardPage() {
     renewalStats = results[14] || renewalStats;
 
     if (showRevenueAnalytics) {
-      invoices = results[revIndex]?.data || [];
-      const allTimeInvoices = results[revIndex + 1]?.data || [];
-      totalRevenue = allTimeInvoices.reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || inv.amount || 0), 0);
+      invoices = Array.isArray(results[revIndex]?.data) ? results[revIndex].data : [];
+      const allTimeInvoices = Array.isArray(results[revIndex + 1]?.data) ? results[revIndex + 1].data : [];
+      totalRevenue = allTimeInvoices.reduce((sum: number, inv: any) => sum + Number(inv?.paid_amount || inv?.amount || 0), 0);
     }
 
     if (showAttendanceAnalytics) {
@@ -278,7 +278,7 @@ export default async function DashboardPage() {
       >
         <StatCard
           title="Total members"
-          value={total}
+          value={totalMembers}
           icon={<Users className="h-5 w-5" />}
           subtitle="All registered members"
           accent

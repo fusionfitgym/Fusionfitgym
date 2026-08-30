@@ -23,10 +23,10 @@ interface ExpiryAndBiometricsSectionProps {
 }
 
 export function ExpiryAndBiometricsSection({
-  expiringToday,
-  expiringIn3Days,
-  expiredMembers,
-  disabledBiometrics
+  expiringToday = [],
+  expiringIn3Days = [],
+  expiredMembers = [],
+  disabledBiometrics = []
 }: ExpiryAndBiometricsSectionProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'today' | '3days' | 'expired' | 'biometrics'>('today');
@@ -50,42 +50,47 @@ export function ExpiryAndBiometricsSection({
     };
   }, [router]);
 
+  const safeExpiringToday = Array.isArray(expiringToday) ? expiringToday : [];
+  const safeExpiringIn3Days = Array.isArray(expiringIn3Days) ? expiringIn3Days : [];
+  const safeExpiredMembers = Array.isArray(expiredMembers) ? expiredMembers : [];
+  const safeDisabledBiometrics = Array.isArray(disabledBiometrics) ? disabledBiometrics : [];
+
   const tabs = [
     {
       id: 'today',
       label: 'Expiring Today',
-      count: expiringToday.length,
+      count: safeExpiringToday.length,
       icon: Clock,
       color: 'border-amber-500 text-amber-600 bg-amber-50/30',
       activeColor: 'bg-amber-500 text-white shadow-amber-200',
-      data: expiringToday
+      data: safeExpiringToday
     },
     {
       id: '3days',
       label: 'Expiring in 3 Days',
-      count: expiringIn3Days.length,
+      count: safeExpiringIn3Days.length,
       icon: Calendar,
       color: 'border-yellow-500 text-yellow-600 bg-yellow-50/30',
       activeColor: 'bg-yellow-500 text-white shadow-yellow-200',
-      data: expiringIn3Days
+      data: safeExpiringIn3Days
     },
     {
       id: 'expired',
       label: 'Expired Members',
-      count: expiredMembers.length,
+      count: safeExpiredMembers.length,
       icon: ShieldAlert,
       color: 'border-rose-500 text-rose-600 bg-rose-50/30',
       activeColor: 'bg-rose-500 text-white shadow-rose-200',
-      data: expiredMembers
+      data: safeExpiredMembers
     },
     {
       id: 'biometrics',
       label: 'Disabled Biometrics',
-      count: disabledBiometrics.length,
+      count: safeDisabledBiometrics.length,
       icon: Fingerprint,
       color: 'border-slate-500 text-slate-600 bg-slate-50/30',
       activeColor: 'bg-slate-800 text-white shadow-slate-200',
-      data: disabledBiometrics
+      data: safeDisabledBiometrics
     }
   ];
 
