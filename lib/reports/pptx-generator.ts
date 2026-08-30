@@ -1042,51 +1042,11 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
       console.error('Failed to generate QR code for PPTX:', e);
     }
 
-    // Contact Details Card (Left Side)
+    // QR Code Card (Centered)
     slide16.addShape('rect', {
-      x: 1.2,
+      x: 3.92,
       y: 2.6,
       w: 5.5,
-      h: 3.4,
-      fill: { color: '1E293B' },
-      line: { color: '334155', width: 1 }
-    });
-
-    slide16.addText('CONTACT & SYSTEM DETAILS', {
-      x: 1.5,
-      y: 2.85,
-      w: 4.9,
-      h: 0.3,
-      fontSize: 11,
-      fontFace: 'Arial',
-      bold: true,
-      color: COLORS.CYAN_ACCENT
-    });
-
-    const contactItems = [
-      `Phone: ${data.gymInfo.phone}`,
-      `Email: ${data.gymInfo.email}`,
-      `Address: ${data.gymInfo.address}`,
-      `Portal: fusionfit.vercel.app`
-    ];
-
-    contactItems.forEach((text, i) => {
-      slide16.addText(text, {
-        x: 1.5,
-        y: 3.3 + i * 0.45,
-        w: 5.0,
-        h: 0.35,
-        fontSize: 10,
-        fontFace: 'Arial',
-        color: COLORS.WHITE
-      });
-    });
-
-    // QR Code Card (Right Side)
-    slide16.addShape('rect', {
-      x: 7.1,
-      y: 2.6,
-      w: 5.0,
       h: 3.4,
       fill: { color: '1E293B' },
       line: { color: '334155', width: 1 }
@@ -1095,16 +1055,16 @@ export async function generatePowerPointReport(data: FullPPTXReportData): Promis
     if (qrDataUrl) {
       slide16.addImage({
         data: qrDataUrl,
-        x: 8.5,
+        x: 5.56,
         y: 2.85,
         w: 2.2,
         h: 2.2
       });
 
       slide16.addText('Scan to Visit fusionfit.vercel.app', {
-        x: 7.3,
+        x: 3.92,
         y: 5.2,
-        w: 4.6,
+        w: 5.5,
         h: 0.3,
         fontSize: 10,
         fontFace: 'Arial',

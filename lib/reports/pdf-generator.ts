@@ -855,43 +855,18 @@ export async function generatePdfReport(data: FullPPTXReportData): Promise<Blob>
       console.error('Failed to generate QR code for PDF:', e);
     }
 
-    // Contact Details Box (Left)
+    // QR Code Box (Centered)
     doc.setFillColor(...PDF_COLORS.NAVY_CARD);
     doc.setDrawColor(51, 65, 85);
     doc.setLineWidth(0.4);
-    doc.roundedRect(25, 65, 120, 95, 3, 3, 'FD');
-
-    doc.setTextColor(...PDF_COLORS.CYAN_ACCENT);
-    doc.setFontSize(10);
-    doc.setFont('Roboto', 'bold');
-    doc.text('CONTACT & SYSTEM DETAILS', 35, 78);
-
-    const contactItems = [
-      `Phone: ${data.gymInfo.phone}`,
-      `Email: ${data.gymInfo.email}`,
-      `Address: ${data.gymInfo.address}`,
-      `Portal: fusionfit.vercel.app`
-    ];
-
-    doc.setTextColor(...PDF_COLORS.WHITE);
-    doc.setFontSize(9);
-    doc.setFont('Roboto', 'normal');
-    contactItems.forEach((text, i) => {
-      doc.text(text, 35, 94 + i * 14);
-    });
-
-    // QR Code Box (Right)
-    doc.setFillColor(...PDF_COLORS.NAVY_CARD);
-    doc.setDrawColor(51, 65, 85);
-    doc.setLineWidth(0.4);
-    doc.roundedRect(155, 65, 117, 95, 3, 3, 'FD');
+    doc.roundedRect(88.5, 65, 120, 95, 3, 3, 'FD');
 
     if (qrDataUrl) {
-      doc.addImage(qrDataUrl, 'PNG', 188, 72, 50, 50);
+      doc.addImage(qrDataUrl, 'PNG', 123.5, 72, 50, 50);
       doc.setTextColor(...PDF_COLORS.CYAN_ACCENT);
       doc.setFontSize(9.5);
       doc.setFont('Roboto', 'bold');
-      doc.text('Scan to Visit fusionfit.vercel.app', 213, 138, { align: 'center' });
+      doc.text('Scan to Visit fusionfit.vercel.app', 148.5, 138, { align: 'center' });
     }
 
     // Footer inside Accent Bar
