@@ -13,7 +13,7 @@ export async function getInvoices(): Promise<Invoice[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, member:members(full_name, phone, email, address, package_name, package_duration, package_price, package_start_date, package_end_date)')
+    .select('id, invoice_number, amount, paid_amount, balance_due, due_date, status, payment_date, payment_method, notes, created_at, member_id, member:members(id, full_name, phone, email)')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data as Invoice[];

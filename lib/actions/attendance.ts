@@ -56,21 +56,13 @@ function getBestTimestamp(log: any): string {
   return log.punch_time;
 }
 
-// Helper: Enrich raw logs with member data and alternate punch types dynamically
-export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
-  const supabase = await createClient();
+let cachedDeviceMachineMap: { map: Map<string, string>; expiry: number } | null = null;
 
-  // Fetch all members with biometric user IDs for matching
-  const { data: members, error: membersError } = await supabase
-    .from('members')
-    .select('id, full_name, phone, email, membership_plan, package_name, package_start_date, package_end_date, join_date, status, profile_photo, biometric_user_id, machine_type');
-
-  if (membersError) {
-    console.error('Error fetching members for matching:', membersError);
-    return [];
+async function getCachedDeviceMap(supabase: any): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (cachedDeviceMachineMap && cachedDeviceMachineMap.expiry > now) {
+    return cachedDeviceMachineMap.map;
   }
-
-  // Fetch biometric devices to build a mapping from serial number to machine type (Ladies/Gents)
   const { data: devices } = await supabase
     .from('biometric_devices')
     .select('serial_number, name');
@@ -83,6 +75,52 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
       deviceMachineMap.set(d.serial_number, machine);
     });
   }
+  cachedDeviceMachineMap = { map: deviceMachineMap, expiry: now + 5 * 60 * 1000 };
+  return deviceMachineMap;
+}
+
+// Helper: Enrich raw logs with member data and alternate punch types dynamically
+export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
+  if (!rawLogs || rawLogs.length === 0) return [];
+
+  const supabase = await createClient();
+
+  // Filter out OPLOG records (Requirement 5)
+  const nonOplogRawLogs = rawLogs.filter(log => {
+    const rawId = log.biometric_user_id || log.member_id || '';
+    return !rawId.toLowerCase().startsWith('oplog');
+  });
+
+  if (nonOplogRawLogs.length === 0) return [];
+
+  // Extract distinct member IDs and cleaned biometric IDs for this batch only
+  const memberIds = Array.from(new Set(nonOplogRawLogs.map(l => l.member_id).filter(Boolean)));
+  const bioPins = Array.from(new Set(nonOplogRawLogs.map(l => cleanBiometricId(l.biometric_user_id || l.member_id)).filter(Boolean)));
+
+  let members: any[] = [];
+  if (memberIds.length > 0 || bioPins.length > 0) {
+    let query = supabase
+      .from('members')
+      .select('id, full_name, phone, email, membership_plan, package_name, package_start_date, package_end_date, join_date, status, profile_photo, biometric_user_id, machine_type');
+
+    if (memberIds.length > 0 && bioPins.length > 0) {
+      query = query.or(`id.in.(${memberIds.join(',')}),biometric_user_id.in.(${bioPins.join(',')})`);
+    } else if (memberIds.length > 0) {
+      query = query.in('id', memberIds);
+    } else if (bioPins.length > 0) {
+      query = query.in('biometric_user_id', bioPins);
+    }
+
+    const { data: matchedMembers, error: membersError } = await query;
+    if (membersError) {
+      console.error('Error fetching batch members in enrichLogs:', membersError);
+    } else {
+      members = matchedMembers || [];
+    }
+  }
+
+  // Fetch cached biometric devices mapping
+  const deviceMachineMap = await getCachedDeviceMap(supabase);
 
   // Create lookup maps:
   // Map 1: membersByIdMap (key: member.id [UUID])
@@ -101,12 +139,6 @@ export async function enrichLogs(rawLogs: any[]): Promise<AttendanceLog[]> {
         membersByPinMap.set(key, member);
       }
     }
-  });
-
-  // Filter out OPLOG records (Requirement 5)
-  const nonOplogRawLogs = rawLogs.filter(log => {
-    const rawId = log.biometric_user_id || log.member_id || '';
-    return !rawId.toLowerCase().startsWith('oplog');
   });
 
   // Sort raw logs chronologically (ascending) to accurately alternate check-in/check-out
@@ -395,18 +427,19 @@ export async function getAttendanceAnalytics() {
   fifteenDaysAgo.setHours(0, 0, 0, 0);
 
   // Fetch today's logs and past 15 days logs
+  // Fetch today's logs and past 15 days trend timestamps
   const [
     { data: todayRawLogs, error: todayError },
     { data: trendRawLogs, error: trendError }
   ] = await Promise.all([
     supabase
       .from('attendance_logs')
-      .select('*')
+      .select('id, member_id, biometric_user_id, punch_time, created_at, machine_type, device_id, sync_status')
       .gte('punch_time', startOfDay.toISOString())
       .order('punch_time', { ascending: true }),
     supabase
       .from('attendance_logs')
-      .select('*')
+      .select('punch_time, biometric_user_id, member_id')
       .gte('punch_time', fifteenDaysAgo.toISOString())
   ]);
 
@@ -415,13 +448,9 @@ export async function getAttendanceAnalytics() {
     return { checkins: 0, checkouts: 0, occupancy: 0, dailyTrend: [], hourlyDistribution: [] };
   }
 
-  // Enrich logs to match members and calculate punch types
+  // Enrich only today's logs for punch-type & live occupancy calculations
   const enrichedTodayLogs = await enrichLogs(todayRawLogs || []);
-  const enrichedTrendLogs = await enrichLogs(trendRawLogs || []);
-
-  // Filter to ONLY matched records for stats calculation (Requirement 8)
   const todayLogs = enrichedTodayLogs.filter(log => log.member);
-  const trendLogs = enrichedTrendLogs.filter(log => log.member);
 
   let checkins = 0;
   let checkouts = 0;
@@ -443,6 +472,12 @@ export async function getAttendanceAnalytics() {
   });
   const occupancy = activeMembers.size;
 
+  // Daily trend calculations (last 15 days) from raw timestamps (ignoring OPLOG)
+  const validTrendLogs = (trendRawLogs || []).filter((l: any) => {
+    const rawId = l.biometric_user_id || l.member_id || '';
+    return !rawId.toLowerCase().startsWith('oplog');
+  });
+
   // Daily trend calculations (last 15 days)
   const dailyCounts: Record<string, number> = {};
   for (let i = 14; i >= 0; i--) {
@@ -452,7 +487,7 @@ export async function getAttendanceAnalytics() {
     dailyCounts[dateStr] = 0;
   }
 
-  trendLogs.forEach((log: any) => {
+  validTrendLogs.forEach((log: any) => {
     const dateStr = new Date(log.punch_time).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
     if (dailyCounts[dateStr] !== undefined) {
       dailyCounts[dateStr]++;

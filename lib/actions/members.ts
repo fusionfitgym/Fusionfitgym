@@ -760,7 +760,16 @@ export async function queueBiometricAction(memberId: string, biometricId: string
   }
 }
 
-export async function autoUpdateExpiredMembers() {
+let lastAutoUpdateExpiredTimestamp = 0;
+const AUTO_UPDATE_EXPIRED_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes cooldown
+
+export async function autoUpdateExpiredMembers(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastAutoUpdateExpiredTimestamp) < AUTO_UPDATE_EXPIRED_COOLDOWN_MS) {
+    return;
+  }
+  lastAutoUpdateExpiredTimestamp = now;
+
   const supabase = await createClient();
 
   // Get current local date string (in YYYY-MM-DD format using India/local timezone)
@@ -787,28 +796,31 @@ export async function autoUpdateExpiredMembers() {
     return;
   }
 
-  console.log(`Auto-expiring ${expiredMembers.length} members...`);
+  console.log(`Auto-expiring ${expiredMembers.length} members (bulk)...`);
 
-  for (const member of expiredMembers) {
-    // 1. Update status to 'Expired' and biometric_status to 'DISABLED' in database
-    const { error: updateError } = await supabase
-      .from('members')
-      .update({
-        status: 'Expired',
-        biometric_status: 'DISABLED',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', member.id);
+  const expiredIds = expiredMembers.map(m => m.id);
 
-    if (updateError) {
-      console.error(`Error updating member ${member.full_name} status to Expired:`, updateError);
-      continue;
-    }
+  // 1. Bulk update status to 'Expired' and biometric_status to 'DISABLED' in database
+  const { error: updateError } = await supabase
+    .from('members')
+    .update({
+      status: 'Expired',
+      biometric_status: 'DISABLED',
+      updated_at: new Date().toISOString()
+    })
+    .in('id', expiredIds);
 
-    // 2. Queue biometric disable action (if biometric_user_id is mapped)
-    if (member.biometric_user_id) {
-      await queueBiometricAction(member.id, member.biometric_user_id, 'disable');
-    }
+  if (updateError) {
+    console.error('Error in bulk updating expired members:', updateError);
+    return;
+  }
+
+  // 2. Queue biometric disable actions in parallel (non-blocking)
+  const bioMembers = expiredMembers.filter(m => m.biometric_user_id);
+  if (bioMembers.length > 0) {
+    Promise.allSettled(
+      bioMembers.map(m => queueBiometricAction(m.id, m.biometric_user_id, 'disable'))
+    ).catch(err => console.error('Error queueing biometric disable actions:', err));
   }
 }
 

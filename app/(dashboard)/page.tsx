@@ -36,6 +36,8 @@ import AttendancePeakSection from '@/components/dashboard/AttendancePeakSection'
 import DashboardClientPage from '@/components/dashboard/DashboardClientPage';
 import MonthlyRevenueSection from '@/components/dashboard/MonthlyRevenueSection';
 
+import { getCurrentUserProfile } from '@/lib/actions/auth';
+
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
@@ -47,202 +49,170 @@ export default async function DashboardPage() {
 
   // Prevent Next.js from caching the dashboard RSC output
   noStore();
-  let user = null;
   
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase.auth.getUser();
-    user = data?.user || null;
-  } catch (error: any) {
-    if (error?.digest === 'DYNAMIC_SERVER_USAGE') {
-      throw error;
-    }
-    console.error("Authentication failed during Dashboard load:", error);
-    user = null;
-  }
-
-  if (!user) {
+  const authResult = await getCurrentUserProfile();
+  if (!authResult || !authResult.user || !authResult.profile) {
     redirect('/login');
   }
 
-  // 2. Fetch profile from cookie cache or database
-  let profile = null;
-  try {
-    const cookieStore = await cookies();
-    const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
-    const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
-
-    if (cachedProfile) {
-      profile = {
-        role: cachedProfile.role,
-        full_name: cachedProfile.fullName
-      };
-    } else {
-      const supabase = await createClient();
-      const { data } = await supabase
-        .from('users_profiles')
-        .select('role, full_name')
-        .eq('auth_user_id', user.id)
-        .single();
-      profile = data;
-    }
-  } catch (error: any) {
-    if (error?.digest === 'DYNAMIC_SERVER_USAGE') {
-      throw error;
-    }
-    console.error("Failed to load user profile:", error);
-  }
-
-  const role = profile?.role || 'Trainer';
+  const { profile } = authResult;
+  const role = profile.role || 'Trainer';
   const showRevenueAnalytics = ['Super Admin', 'Admin'].includes(role);
   const showAttendanceAnalytics = ['Super Admin', 'Admin', 'Receptionist'].includes(role);
   const showSMSAnalytics = ['Super Admin', 'Admin'].includes(role);
 
-  let members: Member[] = [];
-  let invoices: any[] = [];
-  let attendance: any = null;
-  let smsStats: any = null;
-  let staffStats: { total: number; trainers: number; janitors: number; active: number } = { total: 0, trainers: 0, janitors: 0, active: 0 };
-  let staffAttendanceToday: { present: number; trainers: number; janitors: number; total: number } = { present: 0, trainers: 0, janitors: 0, total: 0 };
-  let renewalStats = { renewalsToday: 0, renewalsThisMonth: 0, upcomingRenewals: 0, expiredMemberships: 0 };
-
-  // 3. Optimized parallel fetching of data with safety boundaries
-  try {
-    const supabase = await createClient();
-    const promises: any[] = [
-      (async () => {
-        try {
-          return await supabase
-            .from('members')
-            .select('id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo, duration, training_type, biometric_status, biometric_user_id')
-            .order('created_at', { ascending: false });
-        } catch (err: any) {
-          console.error("Error fetching members:", err);
-          return { data: null, error: err };
-        }
-      })()
-    ];
-
-    if (showRevenueAnalytics) {
-      promises.push(
-        (async () => {
-          try {
-            return await supabase
-              .from('invoices')
-              .select(`
-                id,
-                invoice_number,
-                amount,
-                paid_amount,
-                status,
-                created_at,
-                payment_date,
-                payment_method,
-                member_id,
-                member:members(full_name, phone)
-              `)
-              .eq('status', 'Paid')
-              .order('created_at', { ascending: false });
-          } catch (err: any) {
-            console.error("Error fetching invoices:", err);
-            return { data: null, error: err };
-          }
-        })()
-      );
-    } else {
-      promises.push(Promise.resolve({ data: [] }));
-    }
-
-    if (showAttendanceAnalytics) {
-      promises.push(getAttendanceAnalytics().catch((err: any) => {
-        console.error("Error fetching attendance analytics:", err);
-        return null;
-      }));
-    } else {
-      promises.push(Promise.resolve(null));
-    }
-
-    if (showSMSAnalytics) {
-      promises.push(getSMSStats().catch((err: any) => {
-        console.error("Error fetching SMS stats:", err);
-        return null;
-      }));
-    } else {
-      promises.push(Promise.resolve(null));
-    }
-
-    // Staff stats (always fetch for Super Admin + Admin)
-    promises.push(getStaffStats().catch((err: any) => {
-      console.error("Error fetching staff stats:", err);
-      return { total: 0, trainers: 0, janitors: 0, active: 0 };
-    }));
-
-    // Staff attendance stats
-    promises.push(getStaffAttendanceTodayStats().catch((err: any) => {
-      console.error("Error fetching staff attendance stats:", err);
-      return { present: 0, trainers: 0, janitors: 0, total: 0 };
-    }));
-
-    // Renewal stats
-    promises.push(getDashboardRenewalStats().catch((err: any) => {
-      console.error("Error fetching renewal stats:", err);
-      return { renewalsToday: 0, renewalsThisMonth: 0, upcomingRenewals: 0, expiredMemberships: 0 };
-    }));
-
-    const [
-      membersResult,
-      invoicesResult,
-      attendanceResult,
-      smsStatsResult,
-      staffStatsResult,
-      staffAttendanceTodayResult,
-      renewalStatsResult
-    ] = await Promise.all(promises);
-
-    members = membersResult?.data || [];
-    invoices = invoicesResult?.data || [];
-    attendance = attendanceResult;
-    smsStats = smsStatsResult;
-    staffStats = staffStatsResult || staffStats;
-    staffAttendanceToday = staffAttendanceTodayResult || staffAttendanceToday;
-    renewalStats = renewalStatsResult || renewalStats;
-  } catch (error) {
-    console.error("Failed executing parallel data fetching:", error);
-  }
-
-  // 4. Client-side state operations computed on Server (safely guarded)
-  const total = members.length;
-  const active = members.filter((member) => member && member.status === 'Active').length;
   const now = new Date();
-
-  // Get today's local date string (in YYYY-MM-DD format using India/local timezone)
-  const dObj = new Date();
-  const yr = dObj.getFullYear();
-  const mth = String(dObj.getMonth() + 1).padStart(2, '0');
-  const dy = String(dObj.getDate()).padStart(2, '0');
+  const yr = now.getFullYear();
+  const mth = String(now.getMonth() + 1).padStart(2, '0');
+  const dy = String(now.getDate()).padStart(2, '0');
   const todayStr = `${yr}-${mth}-${dy}`;
 
-  // Helper to add days to date string
   const addDaysLoc = (dateStr: string, days: number): string => {
     const res = new Date(dateStr);
     res.setDate(res.getDate() + days);
     return res.toISOString().split('T')[0];
   };
   const threeDaysLaterStr = addDaysLoc(todayStr, 3);
+  const sevenDaysLaterStr = addDaysLoc(todayStr, 7);
 
-  // Filter lists for Expiry & Biometrics Section
-  const expiringToday = members.filter(m => m && m.status === 'Active' && m.package_end_date === todayStr);
-  const expiringIn3Days = members.filter(m => m && m.status === 'Active' && m.package_end_date > todayStr && m.package_end_date <= threeDaysLaterStr);
-  const expiredMembers = members.filter(m => m && m.status === 'Expired');
-  const disabledBiometrics = members.filter(m => m && m.biometric_status === 'DISABLED');
-  
-  const expiringSoon = members.filter((member) => {
-    if (!member || member.status !== 'Active' || !member.package_end_date) return false;
-    const expiry = new Date(member.package_end_date);
-    if (isNaN(expiry.getTime())) return false;
-    const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-    return diff >= 0 && diff <= 7;
-  }).length;
+  // 6 months ago for revenue charts and cycle calculations
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  const sixMonthsAgoStart = new Date(sixMonthsAgo.getFullYear(), sixMonthsAgo.getMonth(), 1).toISOString();
+
+  let totalMembers = 0;
+  let dailyPassMembers = 0;
+  let activeMonthlyMembers = 0;
+  let weightTrainingOnlyMembers = 0;
+  let cardioStrengthMembers = 0;
+  let recentMembers: Member[] = [];
+  let expiringToday: Member[] = [];
+  let expiringIn3Days: Member[] = [];
+  let expiredMembers: Member[] = [];
+  let disabledBiometrics: Member[] = [];
+  let expiringMembersList: any[] = [];
+  let planCounts: Record<string, number> = {};
+  let invoices: any[] = [];
+  let totalRevenue = 0;
+  let attendance: any = null;
+  let smsStats: any = null;
+  let staffStats = { total: 0, trainers: 0, janitors: 0, active: 0 };
+  let staffAttendanceToday = { present: 0, trainers: 0, janitors: 0, total: 0 };
+  let renewalStats = { renewalsToday: 0, renewalsThisMonth: 0, upcomingRenewals: 0, expiredMemberships: 0 };
+
+  // Optimized parallel fetching of lightweight, indexed data
+  try {
+    const supabase = await createClient();
+
+    const memberSelectCols = 'id, full_name, phone, package_name, package_start_date, package_end_date, status, profile_photo, duration, training_type, biometric_status, biometric_user_id';
+
+    const basePromises: Promise<any>[] = [
+      // 0: Total members count
+      supabase.from('members').select('id', { count: 'exact', head: true }),
+      // 1: Daily pass count
+      supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active').eq('duration', 'Daily Pass'),
+      // 2: Active monthly count
+      supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active').neq('duration', 'Daily Pass'),
+      // 3: Weight training count
+      supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active').eq('training_type', 'Weight Training Only'),
+      // 4: Cardio / strength count
+      supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active').in('training_type', ['Weight Training + Cardio', 'Weight Training + Strength Training']),
+      // 5: Recent 5 members
+      supabase.from('members').select(memberSelectCols).order('created_at', { ascending: false }).limit(5),
+      // 6: Expiring today list
+      supabase.from('members').select(memberSelectCols).eq('status', 'Active').eq('package_end_date', todayStr),
+      // 7: Expiring in 3 days list
+      supabase.from('members').select(memberSelectCols).eq('status', 'Active').gt('package_end_date', todayStr).lte('package_end_date', threeDaysLaterStr),
+      // 8: Expired members list (capped)
+      supabase.from('members').select(memberSelectCols).eq('status', 'Expired').limit(50),
+      // 9: Disabled biometrics list (capped)
+      supabase.from('members').select(memberSelectCols).eq('biometric_status', 'DISABLED').limit(50),
+      // 10: 7-day expiring list
+      supabase.from('members').select(memberSelectCols).eq('status', 'Active').neq('duration', 'Daily Pass').gte('package_end_date', todayStr).lte('package_end_date', sevenDaysLaterStr).order('package_end_date', { ascending: true }).limit(5),
+      // 11: Active packages for pie chart
+      supabase.from('members').select('package_name').eq('status', 'Active'),
+      // 12: Staff stats
+      getStaffStats().catch(() => ({ total: 0, trainers: 0, janitors: 0, active: 0 })),
+      // 13: Staff attendance today stats
+      getStaffAttendanceTodayStats().catch(() => ({ present: 0, trainers: 0, janitors: 0, total: 0 })),
+      // 14: Renewal stats
+      getDashboardRenewalStats().catch(() => ({ renewalsToday: 0, renewalsThisMonth: 0, upcomingRenewals: 0, expiredMemberships: 0 })),
+    ];
+
+    // Conditional promises
+    const revIndex = basePromises.length;
+    if (showRevenueAnalytics) {
+      basePromises.push(
+        // Recent 6 months paid invoices
+        supabase
+          .from('invoices')
+          .select('id, invoice_number, amount, paid_amount, status, created_at, payment_date, payment_method, member_id, member:members(full_name, phone)')
+          .eq('status', 'Paid')
+          .gte('created_at', sixMonthsAgoStart)
+          .order('created_at', { ascending: false }),
+        // All-time paid invoice amounts for total revenue stat
+        supabase.from('invoices').select('paid_amount, amount').eq('status', 'Paid')
+      );
+    }
+
+    const attIndex = basePromises.length;
+    if (showAttendanceAnalytics) {
+      basePromises.push(getAttendanceAnalytics().catch(() => null));
+    }
+
+    const smsIndex = basePromises.length;
+    if (showSMSAnalytics) {
+      basePromises.push(getSMSStats().catch(() => null));
+    }
+
+    const results = await Promise.all(basePromises);
+
+    totalMembers = results[0]?.count ?? 0;
+    dailyPassMembers = results[1]?.count ?? 0;
+    activeMonthlyMembers = results[2]?.count ?? 0;
+    weightTrainingOnlyMembers = results[3]?.count ?? 0;
+    cardioStrengthMembers = results[4]?.count ?? 0;
+    recentMembers = (results[5]?.data || []) as Member[];
+    expiringToday = (results[6]?.data || []) as Member[];
+    expiringIn3Days = (results[7]?.data || []) as Member[];
+    expiredMembers = (results[8]?.data || []) as Member[];
+    disabledBiometrics = (results[9]?.data || []) as Member[];
+    
+    const expiringRaw = (results[10]?.data || []) as Member[];
+    expiringMembersList = expiringRaw.map((m) => {
+      const expiry = new Date(m.package_end_date || '');
+      const diff = expiry.getTime() - now.getTime();
+      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      return { ...m, daysRemaining: isNaN(days) ? 0 : days, expiryDate: expiry };
+    });
+
+    const activePackages = results[11]?.data || [];
+    activePackages.forEach((member: any) => {
+      if (member?.package_name) {
+        planCounts[member.package_name] = (planCounts[member.package_name] ?? 0) + 1;
+      }
+    });
+
+    staffStats = results[12] || staffStats;
+    staffAttendanceToday = results[13] || staffAttendanceToday;
+    renewalStats = results[14] || renewalStats;
+
+    if (showRevenueAnalytics) {
+      invoices = results[revIndex]?.data || [];
+      const allTimeInvoices = results[revIndex + 1]?.data || [];
+      totalRevenue = allTimeInvoices.reduce((sum: number, inv: any) => sum + Number(inv.paid_amount || inv.amount || 0), 0);
+    }
+
+    if (showAttendanceAnalytics) {
+      attendance = results[attIndex] || null;
+    }
+
+    if (showSMSAnalytics) {
+      smsStats = results[smsIndex] || null;
+    }
+  } catch (error) {
+    console.error("Failed executing dashboard data fetching:", error);
+  }
 
   const cycleRange = getMonthlyCycleRange(now);
   const cyclePaidInvoices = invoices.filter((inv) => isInvoiceInCycle(inv, cycleRange));
@@ -251,30 +221,6 @@ export default async function DashboardPage() {
     0
   );
 
-  const totalRevenue = invoices
-    .filter((invoice) => invoice && String(invoice.status || '').toLowerCase() === 'paid')
-    .reduce((sum, invoice) => sum + Number(invoice.paid_amount || invoice.amount || 0), 0);
-
-  const dailyPassMembers = members.filter((m) => m && m.duration === 'Daily Pass' && m.status === 'Active').length;
-  const activeMonthlyMembers = members.filter((m) => m && m.duration !== 'Daily Pass' && m.status === 'Active').length;
-  const weightTrainingOnlyMembers = members.filter((m) => m && m.training_type === 'Weight Training Only' && m.status === 'Active').length;
-  const cardioStrengthMembers = members.filter((m) => m && (m.training_type === 'Weight Training + Cardio' || m.training_type === 'Weight Training + Strength Training') && m.status === 'Active').length;
-
-  // 5. Add temporary debug logging
-  const totalMembers = total;
-  const todayAttendance = attendance;
-  console.log('Daily Pass:', dailyPassMembers, 'Monthly Active:', activeMonthlyMembers);
-  console.log(totalMembers);
-  console.log(todayAttendance);
-  console.log(totalRevenue);
-
-  // Chart data formatting
-  const planCounts: Record<string, number> = {};
-  members.forEach((member) => {
-    if (member && member.package_name) {
-      planCounts[member.package_name] = (planCounts[member.package_name] ?? 0) + 1;
-    }
-  });
   const pieData = Object.entries(planCounts).map(([name, value]) => ({ name, value }));
 
   const revenueData = Array.from({ length: 6 }).map((_, index) => {
@@ -288,7 +234,7 @@ export default async function DashboardPage() {
         const createdAt = new Date(invoice.created_at);
         return invoice.status === 'Paid' && createdAt >= start && createdAt <= end;
       })
-      .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
+      .reduce((sum, invoice) => sum + Number(invoice.paid_amount || invoice.amount || 0), 0);
 
     return {
       month: date.toLocaleString('en-IN', { month: 'short' }),
@@ -296,22 +242,7 @@ export default async function DashboardPage() {
     };
   });
 
-  const expiringMembersList = members
-    .filter((m) => {
-      if (!m || m.status !== 'Active' || !m.package_end_date) return false;
-      const expiry = new Date(m.package_end_date);
-      if (isNaN(expiry.getTime())) return false;
-      const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      return diff >= 0 && diff <= 7;
-    })
-    .map((m) => {
-      const expiry = new Date(m.package_end_date);
-      const diff = expiry.getTime() - now.getTime();
-      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-      return { ...m, daysRemaining: isNaN(days) ? 0 : days, expiryDate: expiry };
-    })
-    .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
-    .slice(0, 5);
+  const expiringSoon = renewalStats.upcomingRenewals || expiringMembersList.length;
 
   const quickActions = [
     { href: '/members/add', label: 'Add member', description: 'Create a member profile', icon: UserPlus, roles: ['Super Admin', 'Admin', 'Receptionist', 'Trainer'] },
@@ -600,7 +531,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mt-6">
-        <RecentMembers members={members as any} />
+        <RecentMembers members={recentMembers} />
       </div>
     </div>
   );

@@ -51,10 +51,45 @@ export async function signSession(payload: CachedProfile & { userId: string }): 
   }
 }
 
+function hexToBytes(hex: string): Uint8Array | null {
+  if (!hex || hex.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(hex)) {
+    return null;
+  }
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
+}
+
 export async function verifySession(cookieValue: string, userId: string): Promise<CachedProfile | null> {
   try {
-    // Temporarily bypass session cache logic to avoid signature validation crashes and fallback to DB
-    return null;
+    if (!cookieValue || typeof cookieValue !== 'string' || !cookieValue.includes(':')) {
+      return null;
+    }
+    const [dataHex, signatureHex] = cookieValue.split(':');
+    if (!dataHex || !signatureHex) return null;
+
+    const dataBytes = hexToBytes(dataHex);
+    const signatureBytes = hexToBytes(signatureHex);
+    if (!dataBytes || !signatureBytes) return null;
+
+    const key = await getCryptoKey();
+    const isValid = await crypto.subtle.verify('HMAC', key, signatureBytes, dataBytes);
+    if (!isValid) return null;
+
+    const dataStr = new TextDecoder().decode(dataBytes);
+    const parsed = JSON.parse(dataStr);
+
+    if (!parsed || parsed.userId !== userId) return null;
+    if (typeof parsed.expiry !== 'number' || parsed.expiry < Date.now()) return null;
+
+    return {
+      id: parsed.id,
+      role: parsed.role,
+      status: parsed.status,
+      fullName: parsed.fullName,
+    };
   } catch (e) {
     console.error('Error verifying session cache:', e);
     return null;

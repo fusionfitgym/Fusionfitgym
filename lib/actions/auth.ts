@@ -1,9 +1,48 @@
 "use server";
 
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { logAudit } from './audit';
 import { verifySession, signSession } from '@/lib/session-cache';
+
+const getCachedUserProfileInternal = cache(async (userId: string, cachedSessionVal?: string) => {
+  if (cachedSessionVal) {
+    const cachedProfile = await verifySession(cachedSessionVal, userId);
+    if (cachedProfile) {
+      return {
+        id: cachedProfile.id,
+        auth_user_id: userId,
+        full_name: cachedProfile.fullName,
+        email: '',
+        role: cachedProfile.role,
+        status: cachedProfile.status,
+        created_at: '',
+        fromCache: true,
+      };
+    }
+  }
+
+  const supabase = await createClient();
+  const { data: profile, error: profileError } = await supabase
+    .from('users_profiles')
+    .select('id, role, status, full_name')
+    .eq('auth_user_id', userId)
+    .single();
+
+  if (profileError || !profile) return null;
+
+  return {
+    id: profile.id,
+    auth_user_id: userId,
+    full_name: profile.full_name,
+    email: '',
+    role: profile.role,
+    status: profile.status,
+    created_at: '',
+    needsSessionCookie: true,
+  };
+});
 
 export async function getCurrentUserProfile() {
   const cookieStore = await cookies();
@@ -37,56 +76,39 @@ export async function getCurrentUserProfile() {
 
   if (userError || !user) return null;
 
-  // Retrieve cached user_profile details if present and valid
   const cachedSessionVal = cookieStore.get('fusionfit-session')?.value;
-  const cachedProfile = cachedSessionVal ? await verifySession(cachedSessionVal, user.id) : null;
+  const profile = await getCachedUserProfileInternal(user.id, cachedSessionVal);
 
-  if (cachedProfile) {
-    const profile = {
-      id: cachedProfile.id,
-      auth_user_id: user.id,
-      full_name: cachedProfile.fullName,
-      email: user.email || '',
-      role: cachedProfile.role,
-      status: cachedProfile.status,
-      created_at: '',
-    };
-    return { user, profile };
-  }
-
-  // Retrieve their user_profile role from the database
-  const { data: profile, error: profileError } = await supabase
-    .from('users_profiles')
-    .select('id, role, status, full_name')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) return null;
+  if (!profile) return null;
 
   // Set the cryptographic cache cookie for subsequent loads (valid for 5 mins)
-  const sessionVal = await signSession({
-    id: profile.id,
-    role: profile.role as any,
-    status: profile.status as any,
-    fullName: profile.full_name || '',
-    userId: user.id
-  });
-  
-  try {
-    cookieStore.set('fusionfit-session', sessionVal, {
-      maxAge: 5 * 60,
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+  if ((profile as any).needsSessionCookie) {
+    const sessionVal = await signSession({
+      id: profile.id,
+      role: profile.role as any,
+      status: profile.status as any,
+      fullName: profile.full_name || '',
+      userId: user.id
     });
-  } catch (cookieError) {
-    // Safely ignore when called during rendering (where writing cookies is not allowed)
-    console.warn("Could not set session cache cookie during layout/page render:", cookieError);
+    
+    try {
+      cookieStore.set('fusionfit-session', sessionVal, {
+        maxAge: 5 * 60,
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+    } catch {
+      // Safely ignore when called during rendering
+    }
   }
 
   const fullProfile = {
-    ...profile,
+    id: profile.id,
+    role: profile.role,
+    status: profile.status,
+    full_name: profile.full_name,
     auth_user_id: user.id,
     email: user.email || '',
     created_at: '',

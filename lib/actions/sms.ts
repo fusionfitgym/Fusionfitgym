@@ -345,26 +345,34 @@ export async function getSMSAnalyticsAction(): Promise<SMSAnalyticsStats> {
     category: obj.category,
   }));
 
-  // Daily Trends for past 7 days
-  const dailyTrends: { date: string; sent: number; failed: number }[] = [];
+  // Daily Trends for past 7 days: Single batch query instead of 14 queries
+  const sevenDaysAgo = new Date(now.valueOf() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: trendRows } = await supabase
+    .from('sms_logs')
+    .select('status, created_at')
+    .gte('created_at', sevenDaysAgo);
+
+  const dailyTrendsMap: Record<string, { sent: number; failed: number }> = {};
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.valueOf() - i * 24 * 60 * 60 * 1000);
     const dateStr = d.toISOString().split('T')[0];
-
-    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
-    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).toISOString();
-
-    const [{ count: dSent }, { count: dFailed }] = await Promise.all([
-      supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Sent').gte('created_at', dayStart).lte('created_at', dayEnd),
-      supabase.from('sms_logs').select('*', { count: 'exact', head: true }).eq('status', 'Failed').gte('created_at', dayStart).lte('created_at', dayEnd),
-    ]);
-
-    dailyTrends.push({
-      date: dateStr,
-      sent: dSent ?? 0,
-      failed: dFailed ?? 0,
-    });
+    dailyTrendsMap[dateStr] = { sent: 0, failed: 0 };
   }
+
+  (trendRows || []).forEach((row: any) => {
+    if (!row.created_at) return;
+    const dateStr = row.created_at.split('T')[0];
+    if (dailyTrendsMap[dateStr]) {
+      if (row.status === 'Sent') dailyTrendsMap[dateStr].sent++;
+      else if (row.status === 'Failed') dailyTrendsMap[dateStr].failed++;
+    }
+  });
+
+  const dailyTrends = Object.entries(dailyTrendsMap).map(([date, counts]) => ({
+    date,
+    sent: counts.sent,
+    failed: counts.failed,
+  }));
 
   return {
     todaySent: sentNum,
@@ -437,21 +445,59 @@ export async function executeAutoRetryQueueAction(): Promise<{
 }
 
 /**
- * Existing getSMSStats helper for dashboard bar
+ * Fast lightweight getSMSStats helper for dashboard bar (parallel HEAD count queries)
  */
 export async function getSMSStats() {
-  const analytics = await getSMSAnalyticsAction();
-  return {
-    todaySent: analytics.todaySent,
-    monthlySent: analytics.monthlySent,
-    failed: analytics.failed,
-    pending: analytics.pending,
-    renewalRemindersSent: analytics.renewalRemindersSent,
-    notificationQueue: analytics.notificationQueue,
-    totalSent: analytics.totalSent,
-    successRate: analytics.successRate,
-    retryQueueCount: analytics.retryQueueCount,
-  };
+  try {
+    const supabase = await createClient();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const [
+      { count: todaySent },
+      { count: monthlySent },
+      { count: pending },
+      { count: failed },
+      { count: totalSent },
+    ] = await Promise.all([
+      supabase.from('sms_logs').select('id', { count: 'exact', head: true }).eq('status', 'Sent').gte('created_at', todayStart),
+      supabase.from('sms_logs').select('id', { count: 'exact', head: true }).eq('status', 'Sent').gte('created_at', monthStart),
+      supabase.from('sms_logs').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
+      supabase.from('sms_logs').select('id', { count: 'exact', head: true }).eq('status', 'Failed'),
+      supabase.from('sms_logs').select('id', { count: 'exact', head: true }).eq('status', 'Sent'),
+    ]);
+
+    const pendingCount = pending ?? 0;
+    const failedCount = failed ?? 0;
+    const sentTotal = totalSent ?? 0;
+    const successRate = (sentTotal + failedCount) > 0 ? Math.round((sentTotal / (sentTotal + failedCount)) * 100) : 100;
+
+    return {
+      todaySent: todaySent ?? 0,
+      monthlySent: monthlySent ?? 0,
+      failed: failedCount,
+      pending: pendingCount,
+      renewalRemindersSent: 0,
+      notificationQueue: pendingCount + failedCount,
+      totalSent: sentTotal,
+      successRate,
+      retryQueueCount: 0,
+    };
+  } catch (err) {
+    console.error('Failed to get fast SMS stats:', err);
+    return {
+      todaySent: 0,
+      monthlySent: 0,
+      failed: 0,
+      pending: 0,
+      renewalRemindersSent: 0,
+      notificationQueue: 0,
+      totalSent: 0,
+      successRate: 100,
+      retryQueueCount: 0,
+    };
+  }
 }
 
 /** Pending SMS count for navigation badge */

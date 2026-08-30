@@ -364,8 +364,8 @@ export default function AboutPage() {
             <ContactCard 
               icon={<Phone className="h-4 w-4" />}
               label="WhatsApp"
-              value="+91 949013275"
-              href="whatsapp://send?phone=+91949013275"
+              value="+91 9497013275"
+              href="https://wa.me/919497013275"
             />
             <ContactCard 
               icon={<Clock className="h-4 w-4" />}
@@ -637,7 +637,16 @@ function ContactCard({
   );
 
   if (href) {
-    return <a href={href} className="block">{content}</a>;
+    const isExternal = href.startsWith('http');
+    return (
+      <a 
+        href={href} 
+        {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        className="block"
+      >
+        {content}
+      </a>
+    );
   }
   return content;
 }

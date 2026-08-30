@@ -11,14 +11,26 @@ export async function getAttendanceReport(timeframe: 'daily' | 'weekly' | 'month
   fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
   fifteenDaysAgo.setHours(0, 0, 0, 0);
 
+  let startTime = fifteenDaysAgo;
+  if (timeframe === 'daily') {
+    const dailyStart = new Date();
+    dailyStart.setHours(0, 0, 0, 0);
+    startTime = dailyStart;
+  } else if (timeframe === 'weekly') {
+    const weeklyStart = new Date();
+    weeklyStart.setDate(weeklyStart.getDate() - 7);
+    weeklyStart.setHours(0, 0, 0, 0);
+    startTime = weeklyStart;
+  }
+
   const { data: allRawLogs, error: fetchAllError } = await supabase
     .from('attendance_logs')
-    .select('*')
-    .gte('punch_time', fifteenDaysAgo.toISOString())
+    .select('id, member_id, biometric_user_id, punch_time, created_at, machine_type, device_id, sync_status')
+    .gte('punch_time', startTime.toISOString())
     .order('punch_time', { ascending: false });
 
   if (fetchAllError) {
-    console.error('Error fetching all attendance logs for report:', fetchAllError);
+    console.error('Error fetching attendance logs for report:', fetchAllError);
     throw fetchAllError;
   }
 
